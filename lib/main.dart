@@ -1,128 +1,267 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'database_helper.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    const MaterialApp(home: JournalHome(), debugShowCheckedModeBanner: false),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class JournalHome extends StatelessWidget {
+  const JournalHome({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.yellow),
+    // This key is crucial. It tells the ScrollView where "0" is.
+    final Key centerKey = const ValueKey('bottom-sliver');
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Timeline Journal"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
       ),
-      home: const MyHomePage(title: 'lifelog'),
+      backgroundColor: Colors.grey[100],
+      body: CustomScrollView(
+        center: centerKey, // The scroll view anchors to the 'Future' list
+        slivers: [
+          // 1. THE PAST (Scrolls UP from center)
+          // Index 0 here is Yesterday, Index 1 is Day Before, etc.
+          SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              // Logic: Today - (index + 1) days
+              final date = DateTime.now().subtract(Duration(days: index + 1));
+              return JournalEntryCard(date: date);
+            }),
+          ),
+
+          // 2. THE FUTURE + TODAY (Scrolls DOWN from center)
+          // Index 0 here is Today, Index 1 is Tomorrow, etc.
+          SliverList(
+            key: centerKey, // This matches the 'center' property above
+            delegate: SliverChildBuilderDelegate((context, index) {
+              // Logic: Today + index days
+              final date = DateTime.now().add(Duration(days: index));
+              return JournalEntryCard(date: date);
+            }),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class JournalEntryCard extends StatefulWidget {
+  final DateTime date;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const JournalEntryCard({super.key, required this.date});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<JournalEntryCard> createState() => _JournalEntryCardState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _JournalEntryCardState extends State<JournalEntryCard> {
+  final TextEditingController _controller = TextEditingController();
+  Timer? _debounce;
+  bool _isLoading = true;
+  bool _isSaving = false;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  String get _dbKey => DateFormat('yyyy-MM-dd').format(widget.date);
+
+  // Helper to determine if this card is Today, Future, or Past for styling
+  bool get _isToday {
+    final now = DateTime.now();
+    return now.year == widget.date.year &&
+        now.month == widget.date.month &&
+        now.day == widget.date.day;
+  }
+
+  bool get _isFuture {
+    final now = DateTime.now();
+    // Normalize to start of day for comparison
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final dateStart = DateTime(
+      widget.date.year,
+      widget.date.month,
+      widget.date.day,
+    );
+    return dateStart.isAfter(todayStart);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    final content = await DatabaseHelper.instance.getEntry(_dbKey);
+    if (mounted && content != null) {
+      _controller.text = content;
+    }
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onTextChanged(String text) {
+    setState(() => _isSaving = true);
+
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 1000), () {
+      _saveData(text);
     });
+  }
+
+  Future<void> _saveData(String content) async {
+    await DatabaseHelper.instance.saveEntry(_dbKey, content);
+    if (mounted) {
+      setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .start,
-          crossAxisAlignment: .start,
-          spacing: 10,
-          children: [
-            Text(
-              DateTime.now().toString(),
-              style: Theme.of(context).textTheme.headlineSmall,
+    // Style logic
+    final isToday = _isToday;
+    final isFuture = _isFuture;
+
+    Color headerColor;
+    if (isToday) {
+      headerColor = Colors.blue.shade700;
+    } else if (isFuture) {
+      headerColor = Colors.purple.shade300;
+    } else {
+      headerColor = Colors.grey.shade600;
+    }
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600), // Nice on tablets
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: isToday
+              ? Border.all(color: Colors.blue.withOpacity(0.3), width: 2)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
             ),
-            TextField(maxLines: null, decoration: null),
-            // const Text('You have pushed the button this many times:'),
-            // Text(
-            //   '$_counter',
-            //   style: Theme.of(context).textTheme.headlineMedium,
-            // ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.create),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: headerColor.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat('EEEE').format(widget.date),
+                        style: TextStyle(
+                          color: headerColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('MMMM d, y').format(widget.date),
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_isSaving)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (isToday)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        "TODAY",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Input Area
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _isLoading
+                  ? const Center(
+                      child: SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : TextField(
+                      controller: _controller,
+                      maxLines: null,
+                      minLines: 2,
+                      enabled:
+                          true, // You could disable editing for past/future if desired
+                      style: const TextStyle(fontSize: 16, height: 1.5),
+                      decoration: InputDecoration(
+                        hintText: isFuture
+                            ? "Plans for this day..."
+                            : "Write about your day...",
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        border: InputBorder.none,
+                      ),
+                      onChanged: _onTextChanged,
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
