@@ -66,8 +66,6 @@ class JournalEntryCard extends StatefulWidget {
 class _JournalEntryCardState extends State<JournalEntryCard> {
   final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
-  bool _isLoading = true;
-  bool _isSaving = false;
 
   String get _dbKey => DateFormat('yyyy-MM-dd').format(widget.date);
 
@@ -109,28 +107,18 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
     if (mounted && content != null) {
       _controller.text = content;
     }
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   void _onTextChanged(String text) {
-    setState(() => _isSaving = true);
-
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-    _debounce = Timer(const Duration(milliseconds: 1000), () {
+    _debounce = Timer(const Duration(milliseconds: 500), () {
       _saveData(text);
     });
   }
 
   Future<void> _saveData(String content) async {
     await DatabaseHelper.instance.saveEntry(_dbKey, content);
-    if (mounted) {
-      setState(() => _isSaving = false);
-    }
   }
 
   @override
@@ -160,7 +148,7 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: .05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
@@ -173,7 +161,7 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: headerColor.withOpacity(0.1),
+                color: headerColor.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -182,8 +170,10 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    spacing: 8,
                     children: [
                       Text(
                         DateFormat('EEEE').format(widget.date),
@@ -198,18 +188,12 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ],
                   ),
-                  if (_isSaving)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else if (isToday)
+                  if (isToday)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -234,31 +218,18 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
 
             // Input Area
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: _isLoading
-                  ? const Center(
-                      child: SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : TextField(
-                      controller: _controller,
-                      maxLines: null,
-                      minLines: 2,
-                      enabled:
-                          true, // You could disable editing for past/future if desired
-                      style: const TextStyle(fontSize: 16, height: 1.5),
-                      decoration: InputDecoration(
-                        hintText: isFuture
-                            ? "Plans for this day..."
-                            : "Write about your day...",
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
-                        border: InputBorder.none,
-                      ),
-                      onChanged: _onTextChanged,
-                    ),
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                controller: _controller,
+                maxLines: null,
+                minLines: 1,
+                style: const TextStyle(fontSize: 14, height: 1.5),
+                decoration: InputDecoration(
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  border: InputBorder.none,
+                ),
+                onChanged: _onTextChanged,
+              ),
             ),
           ],
         ),
