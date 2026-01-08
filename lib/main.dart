@@ -19,12 +19,12 @@ class JournalHome extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Timeline Journal"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: const Text("lifelog"),
+        // backgroundColor: Colors.white,
+        // foregroundColor: Colors.black,
         elevation: 1,
       ),
-      backgroundColor: Colors.grey[100],
+      // backgroundColor: Colors.grey[100],
       body: CustomScrollView(
         center: centerKey, // The scroll view anchors to the 'Future' list
         slivers: [
@@ -139,12 +139,12 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600), // Nice on tablets
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           border: isToday
-              ? Border.all(color: Colors.blue.withOpacity(0.3), width: 2)
+              ? Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 0)
               : null,
           boxShadow: [
             BoxShadow(
@@ -159,12 +159,12 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: headerColor.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
                 ),
               ),
               child: Row(
@@ -176,19 +176,19 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
                     spacing: 8,
                     children: [
                       Text(
-                        DateFormat('EEEE').format(widget.date),
-                        style: TextStyle(
-                          color: headerColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        DateFormat('MMMM d, y').format(widget.date),
+                        DateFormat('MMM d, yyy').format(widget.date),
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('EEE').format(widget.date),
+                        style: TextStyle(
+                          color: headerColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -201,7 +201,7 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
                       ),
                       decoration: BoxDecoration(
                         color: Colors.blue,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
                         "TODAY",
@@ -223,7 +223,7 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
                 controller: _controller,
                 maxLines: null,
                 minLines: 1,
-                style: const TextStyle(fontSize: 14, height: 1.5),
+                style: const TextStyle(fontSize: 12, height: 1.5),
                 decoration: InputDecoration(
                   hintStyle: TextStyle(color: Colors.grey.shade400),
                   border: InputBorder.none,
