@@ -11,7 +11,6 @@ Features:
 - Ed25519 signatures for peer discovery
 - X25519 key exchange for HTTP encryption
 - Challenge-response authentication
-- Nonce-based replay protection
 
 Run: uv run protocol_demo.py
 
@@ -53,7 +52,6 @@ except ImportError:
 DISCOVERY_PORT = 37520
 BROADCAST_INTERVAL = 5
 PEER_TIMEOUT = 15
-NONCE_EXPIRY = 30  # Nonces valid for 30 seconds
 
 # ============================================================================
 # CRYPTOGRAPHIC IDENTITY
@@ -69,7 +67,6 @@ class CryptoIdentity:
         self.encrypt_private_key = None  # X25519 for encryption
         self.encrypt_public_key = None
         self.user_id = None
-        self.seen_nonces = {}  # Track nonces to prevent replay
         
     def load_or_create(self):
         """Load or create keypairs"""
