@@ -147,27 +147,6 @@ class CryptoIdentity:
         signature = self.sign_private_key.sign(message_json.encode())
         return base64.b64encode(signature).decode()
     
-    def verify_nonce(self, nonce, timestamp):
-        """Verify nonce hasn't been seen and isn't expired"""
-        now = time.time()
-        
-        # Clean old nonces
-        expired = [n for n, t in self.seen_nonces.items() if now - t > NONCE_EXPIRY]
-        for n in expired:
-            del self.seen_nonces[n]
-        
-        # Check if nonce is expired
-        if now - timestamp > NONCE_EXPIRY:
-            return False
-        
-        # Check if we've seen this nonce
-        if nonce in self.seen_nonces:
-            return False
-        
-        # Record nonce
-        self.seen_nonces[nonce] = now
-        return True
-    
     def derive_shared_key(self, peer_encrypt_public_key_b64):
         """Derive shared encryption key with peer"""
         peer_pub_bytes = base64.b64decode(peer_encrypt_public_key_b64)
@@ -316,13 +295,11 @@ class PeerDiscovery:
     def _broadcast_loop(self):
         while self.running:
             try:
-                nonce = base64.b64encode(os.urandom(16)).decode()
                 payload = {
                     'deviceId': self.device_id,
                     'deviceName': self.device_name,
                     'httpPort': self.http_port,
                     'timestamp': int(time.time()),
-                    'nonce': nonce,
                     'signPublicKey': self.identity.get_sign_public_key_b64(),
                     'encryptPublicKey': self.identity.get_encrypt_public_key_b64(),
                 }
@@ -356,11 +333,6 @@ class PeerDiscovery:
                     payload['signPublicKey'], payload, signature
                 ):
                     print(f"⚠️  Invalid signature from {addr[0]}")
-                    continue
-                
-                # Verify nonce
-                if not self.identity.verify_nonce(payload['nonce'], payload['timestamp']):
-                    print(f"⚠️  Invalid/replayed nonce from {addr[0]}")
                     continue
                 
                 peer_user_id = CryptoIdentity.get_user_id_from_public_key(
@@ -564,15 +536,16 @@ def sync_with_peer(local_gset, local_identity, peer):
     
     print(f"\n🔄 Syncing with {peer_name} ({peer_url})...")
     
-    try:
-        # Step 1: Get challenge
+    # Helper: Perform full Challenge-Response for ONE request
+    def authenticated_request(endpoint, data=None):
+        # 1. Get new challenge
         req = Request(f"{peer_url}/sync/challenge")
         with urlopen(req, timeout=5) as response:
-            data = json.loads(response.read())
-            challenge = data['challenge']
-            server_encrypt_key = data['serverEncryptKey']
-        
-        # Step 2: Sign challenge
+            resp_data = json.loads(response.read())
+            challenge = resp_data['challenge']
+            server_key = resp_data['serverEncryptKey']
+
+        # 2. Sign challenge
         signature = local_identity.sign_message({'challenge': challenge})
         auth_data = {
             'challenge': challenge,
@@ -581,21 +554,29 @@ def sync_with_peer(local_gset, local_identity, peer):
         }
         auth_header = base64.b64encode(json.dumps(auth_data).encode()).decode()
         
-        # Derive shared encryption key
-        shared_key = local_identity.derive_shared_key(server_encrypt_key)
+        # 3. Derive key
+        shared_key = local_identity.derive_shared_key(server_key)
         
         headers = {
             'X-Auth-Response': auth_header,
             'X-Encrypt-Key': local_identity.get_encrypt_public_key_b64(),
         }
         
-        # Step 3: Get encrypted inventory
-        req = Request(f"{peer_url}/sync/inventory", headers=headers)
+        if data:
+            headers['Content-Type'] = 'application/json'
+            req = Request(f"{peer_url}{endpoint}", data=data, headers=headers)
+        else:
+            req = Request(f"{peer_url}{endpoint}", headers=headers)
+            
         with urlopen(req, timeout=5) as response:
-            encrypted_data = json.loads(response.read())
-            plaintext = local_identity.decrypt_message(encrypted_data, shared_key)
-            data = json.loads(plaintext)
-            peer_hashes = set(data['hashes'])
+            return json.loads(response.read()), shared_key
+
+    try:
+        # Step 1: Get encrypted inventory
+        encrypted_data, shared_key = authenticated_request("/sync/inventory")
+        plaintext = local_identity.decrypt_message(encrypted_data, shared_key)
+        data = json.loads(plaintext)
+        peer_hashes = set(data['hashes'])
         
         local_hashes = local_gset.get_hashes()
         we_need = peer_hashes - local_hashes
@@ -604,34 +585,50 @@ def sync_with_peer(local_gset, local_identity, peer):
         print(f"  We need: {len(we_need)} events")
         print(f"  They need: {len(they_need)} events")
         
-        # Step 4: Pull events
+        # Step 2: Pull events (New Challenge!)
         if we_need:
             hashes_str = ','.join(we_need)
-            req = Request(f"{peer_url}/sync/pull?hashes={hashes_str}", headers=headers)
-            with urlopen(req, timeout=5) as response:
-                encrypted_data = json.loads(response.read())
-                plaintext = local_identity.decrypt_message(encrypted_data, shared_key)
-                data = json.loads(plaintext)
-                added = local_gset.merge(data['events'])
-                print(f"  ✓ Pulled and added {added} events")
+            encrypted_data, shared_key = authenticated_request(f"/sync/pull?hashes={hashes_str}")
+            plaintext = local_identity.decrypt_message(encrypted_data, shared_key)
+            data = json.loads(plaintext)
+            added = local_gset.merge(data['events'])
+            print(f"  ✓ Pulled and added {added} events")
         
-        # Step 5: Push events
+        # Step 3: Push events (New Challenge!)
         if they_need:
             events = local_gset.get_events(they_need)
             plaintext = json.dumps({'events': events})
-            encrypted_data = local_identity.encrypt_message(plaintext, shared_key)
+            # Note: We need the key first to encrypt, so we actually have to modify auth_request 
+            # or do the handshake manually here.
+            # Ideally, `authenticated_request` would take a callback for the body to handle this cleanly.
+            # For simplicity, let's just do the handshake manually for PUSH:
             
-            req = Request(
-                f"{peer_url}/sync/push",
-                data=json.dumps(encrypted_data).encode(),
-                headers={**headers, 'Content-Type': 'application/json'}
-            )
-            with urlopen(req, timeout=5) as response:
-                encrypted_response = json.loads(response.read())
-                plaintext = local_identity.decrypt_message(encrypted_response, shared_key)
-                data = json.loads(plaintext)
-                print(f"  ✓ Pushed {data['added']} events to peer")
-        
+            # 3a. Handshake
+            req = Request(f"{peer_url}/sync/challenge")
+            with urlopen(req, timeout=5) as r:
+                c_data = json.loads(r.read())
+            
+            # 3b. Sign
+            sig = local_identity.sign_message({'challenge': c_data['challenge']})
+            auth_h = base64.b64encode(json.dumps({
+                'challenge': c_data['challenge'], 'signature': sig, 
+                'signPublicKey': local_identity.get_sign_public_key_b64()
+            }).encode()).decode()
+            
+            # 3c. Encrypt & Send
+            s_key = local_identity.derive_shared_key(c_data['serverEncryptKey'])
+            enc_body = local_identity.encrypt_message(plaintext, s_key)
+            
+            req = Request(f"{peer_url}/sync/push", data=json.dumps(enc_body).encode(), headers={
+                'X-Auth-Response': auth_h,
+                'X-Encrypt-Key': local_identity.get_encrypt_public_key_b64(),
+                'Content-Type': 'application/json'
+            })
+            with urlopen(req, timeout=5) as r:
+                resp = json.loads(r.read())
+                
+            print(f"  ✓ Pushed events to peer")
+
         print("  ✅ Sync complete!\n")
         return True
         
