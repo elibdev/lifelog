@@ -13,8 +13,10 @@ import 'gset.dart';
 class SyncServer {
   final CryptoIdentity identity;
   final GSet gset;
-  final int port;
+  final int configuredPort;
+  int actualPort = 0;
   HttpServer? _server;
+  bool _running = false;
 
   // Active challenges for authentication
   final Map<String, DateTime> _activeChallenges = {};
@@ -22,41 +24,66 @@ class SyncServer {
   SyncServer({
     required this.identity,
     required this.gset,
-    required this.port,
+    required this.configuredPort,
   });
 
-  Future<void> start() async {
+  Router _createRouter() {
     final router = Router();
+    router.get('/challenge', _handleChallenge);
+    router.get('/inventory', _handleInventory);
+    router.get('/pull', _handlePull);
+    router.post('/push', _handlePush);
+    return router;
+  }
 
-    // Challenge endpoint
-    router.get('/sync/challenge', _handleChallenge);
-
-    // Authenticated endpoints
-    router.get('/sync/inventory', _handleInventory);
-    router.get('/sync/pull', _handlePull);
-    router.post('/sync/push', _handlePush);
-
-    // Middleware for authentication
-    final handler = const Pipeline()
-        .addMiddleware(_logRequests())
-        .addHandler(router);
+  Future<void> start() async {
+    if (_running) return;
 
     try {
-      _server = await shelf_io.serve(handler, '0.0.0.0', port);
-      print('🌐 Sync server started on port ${_server!.port}');
-      
-      // Clean up old challenges periodically
-      Timer.periodic(Duration(seconds: 30), (_) => _cleanupStaleChallenges());
+      print('🌐 Starting sync server...');
+
+      // Try default port first, then find available port if needed
+      int portToTry = configuredPort;
+      int attempts = 0;
+      const maxAttempts = 10;
+
+      while (attempts < maxAttempts) {
+        try {
+          final router = _createRouter();
+
+          _server = await shelf_io.serve(
+            router.call,
+            InternetAddress.anyIPv4.address,
+            portToTry,
+          );
+          _running = true;
+          actualPort = portToTry;
+          print('✅ Sync server started on port $portToTry');
+          print('🌐 Server URL: http://localhost:$portToTry');
+          return;
+        } catch (e) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            rethrow;
+          }
+          // Try next port
+          portToTry = configuredPort + attempts;
+          print('⚠️ Port $portToTry in use, trying port ${configuredPort + attempts}...');
+        }
+      }
     } catch (e) {
       print('❌ Failed to start sync server: $e');
       rethrow;
     }
   }
 
+    int get serverPort => _server != null ? actualPort : configuredPort;
+
   Future<void> stop() async {
-    if (_server != null) {
+    if (_running && _server != null) {
       await _server!.close();
       _server = null;
+      _running = false;
       print('🌐 Sync server stopped');
     }
   }
@@ -139,7 +166,7 @@ class SyncServer {
         return Response(401, body: authResult.error);
       }
 
-      // Parse requested hashes
+      // Parse requested hashes from query parameter
       final queryParams = request.url.queryParameters;
       final hashesParam = queryParams['hashes'] ?? '';
       final requestedHashes = hashesParam.isEmpty
@@ -148,11 +175,11 @@ class SyncServer {
 
       final sharedKey = authResult.sharedKey!;
       final events = gset.getEvents(requestedHashes);
-      
+
       final response = {
         'events': events.map((e) => e.toJson()).toList(),
       };
-      
+
       final encryptedResponse = await identity.encryptMessage(
         json.encode(response),
         sharedKey,

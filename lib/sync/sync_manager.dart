@@ -58,6 +58,7 @@ class SyncManager {
   bool get isInitializing => _isInitializing;
   bool get hasInitializationError => _initializationError == SyncStatus.error;
   String? get initializationError => _initializationErrorMessage;
+  int get serverPort => server.serverPort;
 
   Map<String, dynamic> getSyncInfo() {
     return {
@@ -65,6 +66,7 @@ class SyncManager {
       'userId': identity.userId,
       'deviceName': deviceName,
       'httpPort': httpPort,
+      'serverPort': serverPort,
       'isInitialized': _isInitialized,
       'isInitializing': _isInitializing,
       'hasInitializationError': hasInitializationError,
@@ -137,7 +139,7 @@ class SyncManager {
 
       // Initialize sync server
       _log('🌐 Starting sync server...');
-      server = SyncServer(identity: identity, gset: gset, port: httpPort);
+      server = SyncServer(identity: identity, gset: gset, configuredPort: httpPort);
 
       // Start services
       await server.start();
@@ -160,7 +162,7 @@ class SyncManager {
       _updateStatus(SyncStatus.idle);
       _log('✅ SyncManager initialized successfully');
       _log('📱 Device: $deviceName ($deviceId)');
-      _log('🌐 Server: http://localhost:$httpPort');
+      _log('🌐 Server: http://localhost:$serverPort');
     } catch (e) {
       _isInitializing = false;
       _isInitialized = false;

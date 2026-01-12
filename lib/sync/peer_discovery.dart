@@ -18,8 +18,10 @@ class PeerDiscovery {
   
   RawDatagramSocket? _socket;
   Timer? _broadcastTimer;
+  Timer? _restartTimer;
   bool _running = false;
   bool _hasListenedToStream = false;
+  bool _isStartingUp = false;
   
   final Map<String, Peer> _peers = {};
   final StreamController<Peer> _peerDiscoveredController = StreamController<Peer>.broadcast();
@@ -38,6 +40,11 @@ class PeerDiscovery {
   Future<void> start() async {
     if (_running) return;
 
+    // Stop and clean up any existing socket
+    await stop();
+
+    _isStartingUp = true;
+
     try {
       // Create UDP socket
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, discoveryPort);
@@ -55,9 +62,10 @@ class PeerDiscovery {
       // Start listen loop
       _listenLoop();
       
-      print('🔍 Peer discovery started on port $discoveryPort');
-      print('📱 Device ID: $deviceId');
-      
+    print('🔍 Peer discovery started on port $discoveryPort');
+    print('📱 Device ID: $deviceId');
+    _isStartingUp = false;
+
     } catch (e) {
       print('❌ Failed to start peer discovery: $e');
       rethrow;
@@ -68,19 +76,20 @@ class PeerDiscovery {
     if (!_running) return;
 
     _running = false;
-    
+    _isStartingUp = false;
+
     _broadcastTimer?.cancel();
+    _restartTimer?.cancel();
     _socket?.close();
-    
+
     _peerDiscoveredController.close();
     _peerLostController.close();
-    
+
     print('🔍 Peer discovery stopped');
   }
 
   void _listenLoop() {
-    if (!_running || _socket == null) return;
-    if (_hasListenedToStream) return;
+    if (!_running || _socket == null || _hasListenedToStream) return;
 
     _hasListenedToStream = true;
 
@@ -101,6 +110,7 @@ class PeerDiscovery {
           case RawSocketEvent.readClosed:
           case RawSocketEvent.closed:
             _hasListenedToStream = false;
+            _scheduleRestart();
             break;
           default:
             break;
@@ -111,21 +121,26 @@ class PeerDiscovery {
           print('⚠️ Socket error: $error');
         }
         _hasListenedToStream = false;
+        _scheduleRestart();
       },
       onDone: () {
         if (_running) {
           print('🔍 Socket closed, restarting...');
           _hasListenedToStream = false;
-          Future.delayed(Duration(seconds: 1), () {
-            if (_running) start();
-          });
+          _scheduleRestart();
         }
       },
     );
+  }
 
-    // Schedule next listen iteration
-    Future.delayed(Duration(milliseconds: 100), () {
-      if (_running) _listenLoop();
+  void _scheduleRestart() {
+    if (!_running || _isStartingUp) return;
+
+    _isStartingUp = true;
+    _restartTimer?.cancel();
+    _restartTimer = Timer(Duration(seconds: 1), () {
+      _isStartingUp = false;
+      if (_running) start();
     });
   }
 
@@ -154,14 +169,16 @@ class PeerDiscovery {
       InternetAddress broadcastAddress;
       if (_isSimulator) {
         broadcastAddress = InternetAddress.loopbackIPv4;
-        print('📱 Simulator detected, using loopback address');
+        print('📱 Simulator detected, using loopback address: ${broadcastAddress.address}');
       } else {
         // Fallback to default broadcast
         broadcastAddress = InternetAddress('255.255.255.255');
-        print('🌐 Using default broadcast address');
+        print('🌐 Using default broadcast address: ${broadcastAddress.address}');
       }
 
-      _socket!.send(messageBytes, broadcastAddress, discoveryPort);
+      print('📡 Broadcasting to: ${broadcastAddress.address}:$discoveryPort');
+      final bytesSent = _socket!.send(messageBytes, broadcastAddress, discoveryPort);
+      print('📡 Sent $bytesSent bytes to broadcast');
       
       // Clean up stale peers
       _cleanupStalePeers();
