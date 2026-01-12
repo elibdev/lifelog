@@ -37,6 +37,16 @@ dependencies:
   sqflite: ^2.4.2
   path: ^1.9.1
   intl: ^0.20.2
+  
+  # Sync protocol dependencies
+  cryptography: ^2.5.0
+  http: ^1.2.0
+  uuid: ^4.4.0
+  flutter_background_service: ^5.0.0
+  shared_preferences: ^2.3.0
+  crypto: ^3.0.3
+  shelf: ^1.4.0
+  shelf_router: ^1.1.0
 
 dev_dependencies:
   flutter_test:

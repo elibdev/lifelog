@@ -2,15 +2,201 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
+import 'sync/sync_manager.dart';
+import 'sync/event.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  
+
+  // Initialize sync manager
+  try {
+    await SyncManager.instance.initialize();
+  } catch (e) {
+    print('Failed to initialize sync: $e');
+    // Continue without sync if initialization fails
+  }
+
   runApp(
     const MaterialApp(home: JournalHome(), debugShowCheckedModeBanner: false),
   );
 }
 
-class JournalHome extends StatelessWidget {
+class SyncStatusIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SyncStatus>(
+      stream: SyncManager.instance.statusStream,
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? SyncStatus.idle;
+
+        Color color;
+        double size;
+
+        switch (status) {
+          case SyncStatus.idle:
+            color = Colors.grey.shade400;
+            size = 6;
+            break;
+          case SyncStatus.discovering:
+            color = Colors.blue.shade300;
+            size = 8;
+            break;
+          case SyncStatus.syncing:
+            color = Colors.orange;
+            size = 8;
+            break;
+          case SyncStatus.success:
+            color = Colors.green;
+            size = 6;
+            break;
+          case SyncStatus.error:
+            color = Colors.red;
+            size = 8;
+            break;
+        }
+
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        );
+      },
+    );
+  }
+}
+
+void _showSyncInfo(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Sync Information'),
+      content: FutureBuilder<Map<String, dynamic>>(
+        future: SyncManager.instance.getSyncStats(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+
+          final stats = snapshot.data!;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Device: ${stats['deviceName']}'),
+              Text('User ID: ${stats['userId']}'),
+              const SizedBox(height: 8),
+              Text('Events: ${stats['eventCount']}'),
+              Text('Peers: ${stats['peerCount']}'),
+              Text('Pending: ${stats['pendingEventCount']}'),
+              const SizedBox(height: 8),
+              Text('Status: ${stats['currentStatus']}'),
+              Text(
+                'Background Sync: ${stats['backgroundSyncEnabled'] ? "On" : "Off"}',
+              ),
+              if (stats['peers'].isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Peers:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ...stats['peers'].map<Widget>(
+                  (peer) =>
+                      Text('• ${peer['deviceName']} (${peer['address']})'),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+        TextButton(
+          onPressed: () {
+            SyncManager.instance.performSync();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Sync Now'),
+        ),
+      ],
+    ),
+  );
+}
+
+class JournalHome extends StatefulWidget {
   const JournalHome({super.key});
+
+  @override
+  State<StatefulWidget> createState() {
+    return _JournalHomeState();
+  }
+}
+
+class _JournalHomeState extends State<JournalHome> {
+  void _showSyncInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sync Information'),
+        content: FutureBuilder<Map<String, dynamic>>(
+          future: SyncManager.instance.getSyncStats(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const CircularProgressIndicator();
+            }
+
+            final stats = snapshot.data!;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Device: ${stats['deviceName']}'),
+                Text('User ID: ${stats['userId']}'),
+                const SizedBox(height: 8),
+                Text('Events: ${stats['eventCount']}'),
+                Text('Peers: ${stats['peerCount']}'),
+                Text('Pending: ${stats['pendingEventCount']}'),
+                const SizedBox(height: 8),
+                Text('Status: ${stats['currentStatus']}'),
+                Text(
+                  'Background Sync: ${stats['backgroundSyncEnabled'] ? "On" : "Off"}',
+                ),
+                if (stats['peers'].isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Peers:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  ...stats['peers'].map<Widget>(
+                    (peer) =>
+                        Text('• ${peer['deviceName']} (${peer['address']})'),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () {
+              SyncManager.instance.performSync();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Sync Now'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,10 +205,28 @@ class JournalHome extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("lifelog"),
+        title: Row(
+          children: [
+            const Text("lifelog"),
+            const SizedBox(width: 8),
+            SyncStatusIndicator(),
+          ],
+        ),
         // backgroundColor: Colors.white,
         // foregroundColor: Colors.black,
         elevation: 1,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.sync),
+            onPressed: () async {
+              await SyncManager.instance.performSync();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.info_outline),
+            onPressed: () => _showSyncInfo(context),
+          ),
+        ],
       ),
       // backgroundColor: Colors.grey[100],
       body: CustomScrollView(
@@ -118,7 +322,8 @@ class _JournalEntryCardState extends State<JournalEntryCard> {
   }
 
   Future<void> _saveData(String content) async {
-    await DatabaseHelper.instance.saveEntry(_dbKey, content);
+    // Use sync-aware save method
+    await DatabaseHelper.instance.saveEntryWithEvent(_dbKey, content);
   }
 
   @override
