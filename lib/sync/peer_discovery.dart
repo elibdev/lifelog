@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:uuid/uuid.dart';
 import 'crypto_identity.dart';
 import 'sync_client.dart';
+import 'trusted_peers.dart';
 
 class PeerDiscovery {
   static const int discoveryPort = 37520;
@@ -22,10 +23,17 @@ class PeerDiscovery {
   bool _running = false;
   bool _hasListenedToStream = false;
   bool _isStartingUp = false;
+  bool _pairingMode = false;
+  String? _pairingCode;
+  DateTime? _pairingCodeExpiry;
+  String? _previousPairingCode;
+  DateTime? _previousPairingCodeExpiry;
+  Timer? _pairingModeTimer;
   
   final Map<String, Peer> _peers = {};
   final StreamController<Peer> _peerDiscoveredController = StreamController<Peer>.broadcast();
   final StreamController<String> _peerLostController = StreamController<String>.broadcast();
+  final StreamController<PairingInvitation> _pairingInvitationController = StreamController<PairingInvitation>.broadcast();
 
   PeerDiscovery({
     required this.deviceId,
@@ -36,6 +44,14 @@ class PeerDiscovery {
 
   Stream<Peer> get peerDiscovered => _peerDiscoveredController.stream;
   Stream<String> get peerLost => _peerLostController.stream;
+  Stream<PairingInvitation> get pairingInvitations => _pairingInvitationController.stream;
+
+  String? get pairingCode => _pairingCode;
+  DateTime? get pairingCodeExpiry => _pairingCodeExpiry;
+  bool get isPairingMode => _pairingMode;
+
+  String? get previousPairingCode => _previousPairingCode;
+  DateTime? get previousPairingCodeExpiry => _previousPairingCodeExpiry;
 
   Future<void> start() async {
     if (_running) return;
@@ -52,28 +68,107 @@ class PeerDiscovery {
         discoveryPort,
         reusePort: true,
       );
-      
+
       // Enable broadcast
       _socket!.broadcastEnabled = true;
-      
+
       // Note: RawDatagramSocket doesn't have timeout setter in this version
-      
+
       _running = true;
-      
+
       // Start broadcast timer
       _broadcastTimer = Timer.periodic(broadcastInterval, (_) => _broadcast());
-      
+
       // Start listen loop
       _listenLoop();
-      
-    print('🔍 Peer discovery started on port $discoveryPort');
-    print('📱 Device ID: $deviceId');
-    _isStartingUp = false;
+
+      print('🔍 Peer discovery started on port $discoveryPort');
+      print('📱 Device ID: $deviceId');
+      _isStartingUp = false;
 
     } catch (e) {
       print('❌ Failed to start peer discovery: $e');
       rethrow;
     }
+  }
+
+  Future<void> startPairingMode() async {
+    if (_pairingMode) return;
+
+    print('🔗 Starting pairing mode...');
+    _pairingMode = true;
+    _previousPairingCode = null;
+    _previousPairingCodeExpiry = null;
+
+    // If not already running, start discovery
+    if (!_running) {
+      await start();
+    }
+
+    print('🔗 Pairing mode started (code will be set by UI)');
+  }
+
+  void updatePairingCode(String code) {
+    // Move current code to previous with 5-second grace period
+    if (_pairingCode != null) {
+      _previousPairingCode = _pairingCode;
+      _previousPairingCodeExpiry = DateTime.now().add(Duration(seconds: 5));
+    }
+
+    _pairingCode = code;
+    _pairingCodeExpiry = DateTime.now().add(Duration(seconds: 30));
+
+    // Set pairing mode timer (35 seconds total: 30 for new + 5 grace for old)
+    _pairingModeTimer?.cancel();
+    _pairingModeTimer = Timer(Duration(seconds: 35), () {
+      stopPairingMode();
+    });
+
+    // Send pairing invitation immediately
+    _broadcastPairingInvitation();
+
+    print('🔗 Pairing code updated: $_pairingCode (valid for 30s)');
+    if (_previousPairingCode != null) {
+      print('🔗 Previous code: $_previousPairingCode (valid for 5s grace period)');
+    }
+  }
+
+  bool isPairingCodeValid(String code, {int? timestamp}) {
+    final now = timestamp ?? DateTime.now().millisecondsSinceEpoch;
+
+    // Check if code matches current code
+    if (_pairingCode == code) {
+      if (_pairingCodeExpiry != null) {
+        final expiryTime = _pairingCodeExpiry!.millisecondsSinceEpoch;
+        if (now <= expiryTime) {
+          return true;
+        }
+      }
+    }
+
+    // Check if code matches previous code (grace period)
+    if (_previousPairingCode == code && _previousPairingCodeExpiry != null) {
+      final expiryTime = _previousPairingCodeExpiry!.millisecondsSinceEpoch;
+      if (now <= expiryTime) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> stopPairingMode() async {
+    if (!_pairingMode) return;
+
+    print('🔗 Stopping pairing mode...');
+
+    _pairingMode = false;
+    _pairingCode = null;
+    _pairingCodeExpiry = null;
+    _pairingModeTimer?.cancel();
+    _pairingModeTimer = null;
+
+    print('🔗 Pairing mode stopped');
   }
 
   Future<void> stop() async {
@@ -88,6 +183,7 @@ class PeerDiscovery {
 
     _peerDiscoveredController.close();
     _peerLostController.close();
+    _pairingInvitationController.close();
 
     print('🔍 Peer discovery stopped');
   }
@@ -151,8 +247,21 @@ class PeerDiscovery {
   Future<void> _broadcast() async {
     if (!_running || _socket == null) return;
 
+    // If in pairing mode, send pairing invitations instead
+    if (_pairingMode) {
+      _broadcastPairingInvitation();
+      return;
+    }
+
+    _broadcastDiscovery();
+  }
+
+  Future<void> _broadcastDiscovery() async {
+    if (!_running || _socket == null) return;
+
     try {
       final payload = {
+        'type': 'discovery',
         'deviceId': deviceId,
         'deviceName': deviceName,
         'httpPort': httpPort,
@@ -180,15 +289,53 @@ class PeerDiscovery {
         print('🌐 Using default broadcast address: ${broadcastAddress.address}');
       }
 
-      print('📡 Broadcasting to: ${broadcastAddress.address}:$discoveryPort');
       final bytesSent = _socket!.send(messageBytes, broadcastAddress, discoveryPort);
       print('📡 Sent $bytesSent bytes to broadcast');
-      
+
       // Clean up stale peers
       _cleanupStalePeers();
-      
+
     } catch (e) {
       print('⚠️ Broadcast error: $e');
+    }
+  }
+
+  Future<void> _broadcastPairingInvitation() async {
+    if (!_running || _socket == null || !_pairingMode || _pairingCode == null) return;
+
+    try {
+      final payload = {
+        'type': 'pairing_invitation',
+        'deviceId': deviceId,
+        'deviceName': deviceName,
+        'httpPort': httpPort,
+        'pairingCode': _pairingCode,
+        'validUntil': _pairingCodeExpiry!.millisecondsSinceEpoch,
+        'signPublicKey': await identity.getSignPublicKeyB64(),
+        'encryptPublicKey': await identity.getEncryptPublicKeyB64(),
+      };
+
+      final signature = await identity.signPairingCode(_pairingCode!, payload);
+      final message = {
+        'payload': payload,
+        'signature': signature,
+      };
+
+      final messageBytes = utf8.encode(json.encode(message));
+
+      // Broadcast to local network
+      InternetAddress broadcastAddress;
+      if (_isSimulator) {
+        broadcastAddress = InternetAddress.loopbackIPv4;
+      } else {
+        broadcastAddress = InternetAddress('255.255.255.255');
+      }
+
+      final bytesSent = _socket!.send(messageBytes, broadcastAddress, discoveryPort);
+      print('🔗 Sent pairing invitation: $_pairingCode');
+
+    } catch (e) {
+      print('⚠️ Pairing invitation broadcast error: $e');
     }
   }
 
@@ -196,10 +343,32 @@ class PeerDiscovery {
     try {
       print('📨 Received broadcast from: ${datagram.address.address}');
 
-          final message = json.decode(utf8.decode(datagram.data));
-          final payload = message['payload'] as Map<String, dynamic>;
-          final signature = message['signature'] as String;
+      final message = json.decode(utf8.decode(datagram.data));
+      final payload = message['payload'] as Map<String, dynamic>;
+      final signature = message['signature'] as String;
 
+      final messageType = payload['type'] as String? ?? 'discovery';
+
+      // Handle pairing invitations
+      if (messageType == 'pairing_invitation') {
+        _handlePairingInvitation(datagram, payload, signature);
+        return;
+      }
+
+      // Regular discovery message
+      _handleDiscoveryMessage(datagram, payload, signature);
+
+    } catch (e) {
+      print('⚠️ Error processing packet from ${datagram.address.address}: $e');
+    }
+  }
+
+  Future<void> _handleDiscoveryMessage(
+    Datagram datagram,
+    Map<String, dynamic> payload,
+    String signature,
+  ) async {
+    try {
       // Verify signature
       final signPublicKey = payload['signPublicKey'] as String;
       final signatureValid = await CryptoIdentity.verifyMessage(
@@ -215,26 +384,31 @@ class PeerDiscovery {
 
       // Get peer user ID
       final peerUserId = CryptoIdentity.getUserIdFromPublicKey(signPublicKey);
-      
+
       // Skip our own broadcasts
       if (payload['deviceId'] == deviceId) {
         return;
       }
 
-    // Skip broadcasts from different users
-    if (peerUserId != identity.userId) {
-      return;
-    }
+      // Check if peer is trusted
+      final peerDeviceId = payload['deviceId'] as String;
+      final isTrusted = await TrustedPeers.instance.isTrustedDevice(peerDeviceId);
 
-    // VALIDATE ADDRESS
-    final sourceAddress = datagram.address.address;
-    if (!_isValidIpAddress(sourceAddress)) {
-      print('⚠️ Invalid source address: $sourceAddress, skipping peer');
-      return;
-    }
+      // Skip broadcasts from different users (unless pairing mode or trusted)
+      if (!_pairingMode &&
+          peerUserId != identity.userId &&
+          !isTrusted) {
+        return;
+      }
 
-    final peerDeviceId = payload['deviceId'] as String;
-    final wasNew = !_peers.containsKey(peerDeviceId);
+      // VALIDATE ADDRESS
+      final sourceAddress = datagram.address.address;
+      if (!_isValidIpAddress(sourceAddress)) {
+        print('⚠️ Invalid source address: $sourceAddress, skipping peer');
+        return;
+      }
+
+      final wasNew = !_peers.containsKey(peerDeviceId);
 
       // Update or add peer
       final peer = Peer(
@@ -250,14 +424,84 @@ class PeerDiscovery {
 
       _peers[peerDeviceId] = peer;
 
+      // Update last seen for trusted peers
+      if (isTrusted) {
+        await TrustedPeers.instance.updateLastSeen(peerDeviceId);
+        await TrustedPeers.instance.updatePeerInfo(
+          peerDeviceId,
+          deviceName: peer.deviceName,
+        );
+      }
+
       if (wasNew) {
         print('✨ Discovered peer: ${peer.deviceName} at ${peer.url}');
         _peerDiscoveredController.add(peer);
       }
 
-} catch (e) {
-          print('⚠️ Error processing packet from ${datagram.address.address}: $e');
+    } catch (e) {
+      print('⚠️ Error handling discovery message: $e');
+    }
+  }
+
+  Future<void> _handlePairingInvitation(
+    Datagram datagram,
+    Map<String, dynamic> payload,
+    String signature,
+  ) async {
+    try {
+      final signPublicKey = payload['signPublicKey'] as String;
+      final pairingCode = payload['pairingCode'] as String?;
+
+      // Skip our own invitations
+      if (payload['deviceId'] == deviceId) {
+        return;
+      }
+
+      // Verify pairing code signature
+      if (pairingCode == null) {
+        return;
+      }
+
+      final signatureValid = await CryptoIdentity.verifyPairingCode(
+        signPublicKey,
+        pairingCode,
+        payload,
+        signature,
+      );
+
+      if (!signatureValid) {
+        print('⚠️ Invalid pairing invitation signature');
+        return;
+      }
+
+      // Check if pairing invitation has expired
+      final validUntil = payload['validUntil'] as int?;
+      if (validUntil != null) {
+        final expiry = DateTime.fromMillisecondsSinceEpoch(validUntil);
+        if (DateTime.now().isAfter(expiry)) {
+          print('⚠️ Expired pairing invitation from ${payload['deviceId']}');
+          return;
         }
+      }
+
+      // Emit pairing invitation to stream
+      final invitation = PairingInvitation(
+        deviceId: payload['deviceId'] as String,
+        deviceName: payload['deviceName'] as String,
+        address: datagram.address.address,
+        httpPort: payload['httpPort'] as int,
+        pairingCode: pairingCode,
+        signPublicKey: signPublicKey,
+        encryptPublicKey: payload['encryptPublicKey'] as String,
+        validUntil: DateTime.fromMillisecondsSinceEpoch(validUntil ?? 0),
+      );
+
+      print('🔗 Received pairing invitation from ${invitation.deviceName} (${invitation.pairingCode})');
+      _pairingInvitationController.add(invitation);
+
+    } catch (e) {
+      print('⚠️ Error handling pairing invitation: $e');
+    }
   }
 
   void _cleanupStalePeers() {
@@ -333,13 +577,48 @@ class DeviceInfo {
   static String getDeviceName() {
     // For now, use a simple name. In real implementation,
     // this could use device_info package to get actual device name
-    return Platform.isIOS ? 'iOS Device' : 
-           Platform.isMacOS ? 'Mac' : 
-           Platform.isAndroid ? 'Android Device' : 
+    return Platform.isIOS ? 'iOS Device' :
+           Platform.isMacOS ? 'Mac' :
+           Platform.isAndroid ? 'Android Device' :
            'Unknown Device';
   }
 
   static String generateDeviceId() {
     return const Uuid().v4();
+  }
+}
+
+class PairingInvitation {
+  final String deviceId;
+  final String deviceName;
+  final String address;
+  final int httpPort;
+  final String pairingCode;
+  final String signPublicKey;
+  final String encryptPublicKey;
+  final DateTime validUntil;
+
+  PairingInvitation({
+    required this.deviceId,
+    required this.deviceName,
+    required this.address,
+    required this.httpPort,
+    required this.pairingCode,
+    required this.signPublicKey,
+    required this.encryptPublicKey,
+    required this.validUntil,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'deviceId': deviceId,
+      'deviceName': deviceName,
+      'address': address,
+      'httpPort': httpPort,
+      'pairingCode': pairingCode,
+      'signPublicKey': signPublicKey,
+      'encryptPublicKey': encryptPublicKey,
+      'validUntil': validUntil.toIso8601String(),
+    };
   }
 }

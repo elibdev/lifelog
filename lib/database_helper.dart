@@ -30,7 +30,7 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgrade);
+    return await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _onUpgrade);
   }
 
   Future _createDB(Database db, int version) async {
@@ -51,7 +51,7 @@ class DatabaseHelper {
           last_updated INTEGER
         )
       ''');
-      
+
       await db.execute('''
         CREATE TABLE events (
           event_hash TEXT PRIMARY KEY,
@@ -63,11 +63,26 @@ class DatabaseHelper {
           created_at INTEGER NOT NULL
         )
       ''');
-      
+
       // Create indexes
       await db.execute('CREATE INDEX idx_events_note_id ON events(note_id)');
       await db.execute('CREATE INDEX idx_events_timestamp ON events(timestamp)');
       await db.execute('CREATE INDEX idx_events_type ON events(event_type)');
+
+      // Create trusted_peers table
+      await db.execute('''
+        CREATE TABLE trusted_peers (
+          device_id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          device_name TEXT,
+          sign_public_key TEXT NOT NULL,
+          encrypt_public_key TEXT NOT NULL,
+          paired_at INTEGER NOT NULL,
+          last_seen INTEGER
+        )
+      ''');
+
+      await db.execute('CREATE INDEX idx_trusted_user_id ON trusted_peers(user_id)');
     }
   }
 
@@ -76,7 +91,7 @@ class DatabaseHelper {
       // Add sync columns to entries table
       await db.execute('ALTER TABLE entries ADD COLUMN last_event_hash TEXT');
       await db.execute('ALTER TABLE entries ADD COLUMN last_updated INTEGER');
-      
+
       // Create events table
       await db.execute('''
         CREATE TABLE events (
@@ -89,11 +104,28 @@ class DatabaseHelper {
           created_at INTEGER NOT NULL
         )
       ''');
-      
+
       // Create indexes
       await db.execute('CREATE INDEX idx_events_note_id ON events(note_id)');
       await db.execute('CREATE INDEX idx_events_timestamp ON events(timestamp)');
       await db.execute('CREATE INDEX idx_events_type ON events(event_type)');
+    }
+
+    if (oldVersion < 3) {
+      // Create trusted_peers table
+      await db.execute('''
+        CREATE TABLE trusted_peers (
+          device_id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          device_name TEXT,
+          sign_public_key TEXT NOT NULL,
+          encrypt_public_key TEXT NOT NULL,
+          paired_at INTEGER NOT NULL,
+          last_seen INTEGER
+        )
+      ''');
+
+      await db.execute('CREATE INDEX idx_trusted_user_id ON trusted_peers(user_id)');
     }
   }
 

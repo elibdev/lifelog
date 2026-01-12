@@ -216,6 +216,50 @@ class CryptoIdentity {
     }
   }
 
+  static String generatePairingCode() {
+    final random = Random.secure();
+    final code = List.generate(6, (_) => random.nextInt(10)).join();
+    return code;
+  }
+
+  Future<String> signPairingCode(String code, Map<String, dynamic> payload) async {
+    final payloadWithCode = {...payload, 'pairingCode': code};
+    final messageJson = json.encode(payloadWithCode);
+    final messageBytes = utf8.encode(messageJson);
+
+    final signature = await Ed25519().sign(
+      messageBytes,
+      keyPair: _signKeyPair,
+    );
+    return base64.encode(signature.bytes);
+  }
+
+  static Future<bool> verifyPairingCode(
+    String signPublicKeyB64,
+    String code,
+    Map<String, dynamic> payload,
+    String signatureB64,
+  ) async {
+    try {
+      final pubKeyBytes = base64.decode(signPublicKeyB64);
+      final publicKey = SimplePublicKey(pubKeyBytes, type: KeyPairType.ed25519);
+
+      final payloadWithCode = {...payload, 'pairingCode': code};
+      final messageJson = json.encode(payloadWithCode);
+      final messageBytes = utf8.encode(messageJson);
+
+      final signatureBytes = base64.decode(signatureB64);
+
+      return await Ed25519().verify(
+        messageBytes,
+        signature: Signature(signatureBytes, publicKey: publicKey),
+      );
+    } catch (e) {
+      print('Pairing code verification failed: $e');
+      return false;
+    }
+  }
+
   Future<void> clearKeys() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_signKeyPref);

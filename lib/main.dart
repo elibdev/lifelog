@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import 'database_helper.dart';
 import 'sync/sync_manager.dart';
 import 'sync/event.dart';
+import 'start_pairing_screen.dart';
+import 'join_pairing_screen.dart';
+import 'sync/trusted_peers.dart';
 
 
 void main() async {
@@ -73,43 +76,66 @@ void _showSyncInfo(BuildContext context) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Sync Information'),
-      content: FutureBuilder<Map<String, dynamic>>(
-        future: SyncManager.instance.getSyncStats(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const CircularProgressIndicator();
-          }
+      content: SingleChildScrollView(
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _getDetailedSyncStats(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const CircularProgressIndicator();
+            }
 
-          final stats = snapshot.data!;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Device: ${stats['deviceName']}'),
-              Text('User ID: ${stats['userId']}'),
-              const SizedBox(height: 8),
-              Text('Events: ${stats['eventCount']}'),
-              Text('Peers: ${stats['peerCount']}'),
-              Text('Pending: ${stats['pendingEventCount']}'),
-              const SizedBox(height: 8),
-              Text('Status: ${stats['currentStatus']}'),
-              Text(
-                'Background Sync: ${stats['backgroundSyncEnabled'] ? "On" : "Off"}',
-              ),
-              if (stats['peers'].isNotEmpty) ...[
+            final data = snapshot.data!;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Device: ${data['stats']['deviceName']}'),
+                Text('User ID: ${data['stats']['userId']}'),
+                const SizedBox(height: 8),
+                Text('Events: ${data['stats']['eventCount']}'),
+                Text('Peers: ${data['stats']['peerCount']}'),
+                Text('Pending: ${data['stats']['pendingEventCount']}'),
+                const SizedBox(height: 8),
+                Text('Status: ${data['stats']['currentStatus']}'),
+                Text(
+                  'Background Sync: ${data['stats']['backgroundSyncEnabled'] ? "On" : "Off"}',
+                ),
+                if (data['stats']['peers'].isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Peers:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  ...data['stats']['peers'].map<Widget>(
+                    (peer) =>
+                        Text('• ${peer['deviceName']} (${peer['address']})'),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 const Text(
-                  'Peers:',
+                  'Trusted Devices:',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                ...stats['peers'].map<Widget>(
-                  (peer) =>
-                      Text('• ${peer['deviceName']} (${peer['address']})'),
-                ),
+                if (data['trustedPeers'].isEmpty)
+                  Text('  No trusted devices')
+                else
+                  ...data['trustedPeers'].map<Widget>(
+                    (peer) => Padding(
+                      padding: EdgeInsets.only(left: 8, top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• ${peer.deviceName}'),
+                          Text('  ID: ${peer.deviceId.substring(0, 8)}...', style: TextStyle(fontSize: 10)),
+                          Text('  Paired: ${_formatDate(peer.pairedAt)}', style: TextStyle(fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
       actions: [
         TextButton(
@@ -128,6 +154,31 @@ void _showSyncInfo(BuildContext context) {
   );
 }
 
+Future<Map<String, dynamic>> _getDetailedSyncStats() async {
+  final stats = await SyncManager.instance.getSyncStats();
+  final trustedPeers = await TrustedPeers.instance.getAllTrustedPeers();
+
+  return {
+    'stats': stats,
+    'trustedPeers': trustedPeers,
+  };
+}
+
+String _formatDate(DateTime date) {
+  final now = DateTime.now();
+  final difference = now.difference(date);
+
+  if (difference.inSeconds < 60) {
+    return 'Just now';
+  } else if (difference.inMinutes < 60) {
+    return '${difference.inMinutes}m ago';
+  } else if (difference.inHours < 24) {
+    return '${difference.inHours}h ago';
+  } else {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
 class JournalHome extends StatefulWidget {
   const JournalHome({super.key});
 
@@ -143,43 +194,66 @@ class _JournalHomeState extends State<JournalHome> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Sync Information'),
-        content: FutureBuilder<Map<String, dynamic>>(
-          future: SyncManager.instance.getSyncStats(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const CircularProgressIndicator();
-            }
+        content: SingleChildScrollView(
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _getDetailedSyncStats(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const CircularProgressIndicator();
+              }
 
-            final stats = snapshot.data!;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Device: ${stats['deviceName']}'),
-                Text('User ID: ${stats['userId']}'),
-                const SizedBox(height: 8),
-                Text('Events: ${stats['eventCount']}'),
-                Text('Peers: ${stats['peerCount']}'),
-                Text('Pending: ${stats['pendingEventCount']}'),
-                const SizedBox(height: 8),
-                Text('Status: ${stats['currentStatus']}'),
-                Text(
-                  'Background Sync: ${stats['backgroundSyncEnabled'] ? "On" : "Off"}',
-                ),
-                if (stats['peers'].isNotEmpty) ...[
+              final data = snapshot.data!;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Device: ${data['stats']['deviceName']}'),
+                  Text('User ID: ${data['stats']['userId']}'),
+                  const SizedBox(height: 8),
+                  Text('Events: ${data['stats']['eventCount']}'),
+                  Text('Peers: ${data['stats']['peerCount']}'),
+                  Text('Pending: ${data['stats']['pendingEventCount']}'),
+                  const SizedBox(height: 8),
+                  Text('Status: ${data['stats']['currentStatus']}'),
+                  Text(
+                    'Background Sync: ${data['stats']['backgroundSyncEnabled'] ? "On" : "Off"}',
+                  ),
+                  if (data['stats']['peers'].isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Peers:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    ...data['stats']['peers'].map<Widget>(
+                      (peer) =>
+                          Text('• ${peer['deviceName']} (${peer['address']})'),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Text(
-                    'Peers:',
+                    'Trusted Devices:',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  ...stats['peers'].map<Widget>(
-                    (peer) =>
-                        Text('• ${peer['deviceName']} (${peer['address']})'),
-                  ),
+                  if (data['trustedPeers'].isEmpty)
+                    Text('  No trusted devices')
+                  else
+                    ...data['trustedPeers'].map<Widget>(
+                      (peer) => Padding(
+                        padding: EdgeInsets.only(left: 8, top: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('• ${peer.deviceName}'),
+                            Text('  ID: ${peer.deviceId.substring(0, 8)}...', style: TextStyle(fontSize: 10)),
+                            Text('  Paired: ${_formatDate(peer.pairedAt)}', style: TextStyle(fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
         actions: [
           TextButton(
@@ -216,6 +290,38 @@ class _JournalHomeState extends State<JournalHome> {
         // foregroundColor: Colors.black,
         elevation: 1,
         actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.add_link),
+            onSelected: (value) {
+              if (value == 'start') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const StartPairingScreen()),
+                );
+              } else if (value == 'join') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const JoinPairingScreen()),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'start',
+                child: ListTile(
+                  leading: Icon(Icons.qr_code),
+                  title: Text('Start Pairing'),
+                  subtitle: Text('Generate code for other device'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'join',
+                child: ListTile(
+                  leading: Icon(Icons.qr_code_scanner),
+                  title: Text('Join Pairing'),
+                  subtitle: Text('Enter code from other device'),
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: Icon(Icons.sync),
             onPressed: () async {
