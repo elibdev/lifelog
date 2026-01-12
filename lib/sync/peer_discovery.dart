@@ -47,7 +47,11 @@ class PeerDiscovery {
 
     try {
       // Create UDP socket
-      _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, discoveryPort);
+      _socket = await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        discoveryPort,
+        reusePort: true,
+      );
       
       // Enable broadcast
       _socket!.broadcastEnabled = true;
