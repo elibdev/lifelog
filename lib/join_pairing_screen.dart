@@ -42,11 +42,14 @@ class _JoinPairingScreenState extends State<JoinPairingScreen> {
     super.dispose();
   }
 
-  void _startListening() {
+  void _startListening() async {
     setState(() {
       _status = JoinPairingStatus.selecting;
       _errorMessage = '';
     });
+
+    // Start discovery to ensure UDP socket is running for receiving broadcasts
+    await SyncManager.instance.discovery.start();
 
     _invitationSubscription?.cancel();
     _invitationSubscription = SyncManager.instance.discovery.pairingInvitations.listen(
