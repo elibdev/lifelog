@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'daily_entry_field.dart';
+import 'state/journal_state_registry.dart';
+import 'state/daily_state_manager.dart';
 
 class DailySliverGroup extends StatelessWidget {
   final DateTime date;
@@ -8,6 +11,10 @@ class DailySliverGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the state manager to check if date is empty
+    final registry = context.read<JournalStateRegistry>();
+    final stateManager = registry.getOrCreateManager(date);
+
     return SliverMainAxisGroup(
       slivers: [
         SliverPersistentHeader(
@@ -19,9 +26,19 @@ class DailySliverGroup extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DailyEntryField(date: date),
-                  const SizedBox(height: 10),
+                  // Conditional padding based on whether the date has content
+                  ChangeNotifierProvider<DailyStateManager>.value(
+                    value: stateManager,
+                    child: Consumer<DailyStateManager>(
+                      builder: (context, manager, _) {
+                        final isEmpty = manager.state.isEmpty;
+                        return SizedBox(height: isEmpty ? 8 : 32);
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -42,17 +59,24 @@ class DailyHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final now = DateTime.now();
-    final isToday =
-        now.year == date.year && now.month == date.month && now.day == date.day;
     final dateString = DateFormat('EEEE, MMM d, yyyy').format(date);
 
     return Container(
-      color: Colors.grey[100],
+      color: const Color(0xFFF5F0E8),
       alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700),
-        child: Text(dateString, style: Theme.of(context).textTheme.titleMedium),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16.0, top: 12.0, bottom: 8.0),
+            child: SelectableText(
+              dateString,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
