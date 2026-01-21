@@ -8,7 +8,6 @@ class TodoWidget extends StatefulWidget {
   final bool isEmpty;
   final Function(Map<String, dynamic>)? onUpdate;
   final Function(String)? onCreate;
-  final VoidCallback? onCreateAfter;
   final VoidCallback? onDelete;
 
   const TodoWidget({
@@ -17,7 +16,6 @@ class TodoWidget extends StatefulWidget {
     this.isEmpty = false,
     this.onUpdate,
     this.onCreate,
-    this.onCreateAfter,
     this.onDelete,
   });
 
@@ -74,27 +72,11 @@ class _TodoWidgetState extends State<TodoWidget> {
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      // Handle Enter key - create new todo after this one
-      if (event.logicalKey == LogicalKeyboardKey.enter) {
-        final text = _controller.text;
-
-        // Save current content first
-        _debounce?.cancel();
-        _saveNow(text);
-
-        // Create new todo after this one
-        if (widget.record != null && widget.onCreateAfter != null) {
-          widget.onCreateAfter!();
-        } else if (widget.onCreate != null && text.isNotEmpty) {
-          widget.onCreate!(text);
-        }
-
-        return KeyEventResult.handled;
-      }
-
       // Handle Backspace at beginning - delete empty todo
       if (event.logicalKey == LogicalKeyboardKey.backspace) {
-        if (_controller.text.isEmpty && widget.record != null && widget.onDelete != null) {
+        if (_controller.text.isEmpty &&
+            widget.record != null &&
+            widget.onDelete != null) {
           widget.onDelete!();
           return KeyEventResult.handled;
         }

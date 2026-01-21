@@ -35,7 +35,9 @@ class _DayWidgetState extends State<DayWidget>
   Future<void> _loadRecords() async {
     if (_isLoaded) return;
 
-    final records = await JournalDatabase.instance.getRecordsForDate(widget.date);
+    final records = await JournalDatabase.instance.getRecordsForDate(
+      widget.date,
+    );
     if (mounted) {
       setState(() {
         _records = records;
@@ -63,10 +65,7 @@ class _DayWidgetState extends State<DayWidget>
       recordId: recordId,
       date: widget.date,
       timestamp: now,
-      payload: {
-        'record_type': type,
-        'metadata': metadata,
-      },
+      payload: {'record_type': type, 'metadata': metadata},
     );
 
     await JournalDatabase.instance.createRecord(record, event);
@@ -78,7 +77,10 @@ class _DayWidgetState extends State<DayWidget>
     }
   }
 
-  Future<void> _updateRecord(JournalRecord record, Map<String, dynamic> changes) async {
+  Future<void> _updateRecord(
+    JournalRecord record,
+    Map<String, dynamic> changes,
+  ) async {
     final now = DateTime.now();
     final updatedRecord = record.copyWith(
       metadata: {...record.metadata, ...changes},
@@ -91,10 +93,7 @@ class _DayWidgetState extends State<DayWidget>
       recordId: record.id,
       date: widget.date,
       timestamp: now,
-      payload: {
-        'changes': changes,
-        'previous': record.metadata,
-      },
+      payload: {'changes': changes, 'previous': record.metadata},
     );
 
     await JournalDatabase.instance.updateRecord(updatedRecord, event);
@@ -117,9 +116,7 @@ class _DayWidgetState extends State<DayWidget>
       recordId: record.id,
       date: widget.date,
       timestamp: now,
-      payload: {
-        'record': record.toDb(),
-      },
+      payload: {'record': record.toDb()},
     );
 
     await JournalDatabase.instance.deleteRecord(record.id, event);
@@ -156,23 +153,22 @@ class _DayWidgetState extends State<DayWidget>
               padding: const EdgeInsets.only(left: 16, bottom: 8),
               child: SelectableText(
                 DateFormat('EEEE, MMM d, yyyy').format(widget.date),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
 
             // Todos
-            ...todos.map((record) => TodoWidget(
-              key: ValueKey(record.id),
-              record: record,
-              isEmpty: false,
-              onUpdate: (changes) => _updateRecord(record, changes),
-              onDelete: () => _deleteRecord(record),
-              onCreateAfter: () {
-                _createRecord('todo', {'content': '', 'checked': false});
-              },
-            )),
+            ...todos.map(
+              (record) => TodoWidget(
+                key: ValueKey(record.id),
+                record: record,
+                isEmpty: false,
+                onUpdate: (changes) => _updateRecord(record, changes),
+                onDelete: () => _deleteRecord(record),
+              ),
+            ),
 
             // Empty todo
             if (_isLoaded)
@@ -185,26 +181,19 @@ class _DayWidgetState extends State<DayWidget>
               ),
 
             // Notes
-            ...notes.map((record) => NoteWidget(
-              key: ValueKey(record.id),
-              record: record,
-              isEmpty: false,
-              onUpdate: (changes) => _updateRecord(record, changes),
-              onDelete: () => _deleteRecord(record),
-              onCreateAfter: () {
-                _createRecord('note', {'content': ''});
-              },
-            )),
+            ...notes.map(
+              (record) => NoteWidget(
+                key: ValueKey(record.id),
+                record: record,
+                isEmpty: false,
+                onUpdate: (changes) => _updateRecord(record, changes),
+                onDelete: () => _deleteRecord(record),
+              ),
+            ),
 
             // Empty note
             if (_isLoaded)
-              NoteWidget(
-                key: const ValueKey('ephemeral_note'),
-                isEmpty: true,
-                onCreate: (text) {
-                  _createRecord('note', {'content': text});
-                },
-              ),
+              NoteWidget(key: const ValueKey('ephemeral_note'), isEmpty: true),
           ],
         ),
       ),
