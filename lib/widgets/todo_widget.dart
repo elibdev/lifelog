@@ -4,14 +4,20 @@ import 'package:flutter/services.dart';
 import '../models/journal_record.dart';
 
 class TodoWidget extends StatefulWidget {
-  final JournalRecord record;
-  final Function(Map<String, dynamic>) onUpdate;
+  final JournalRecord? record; // null if ephemeral
+  final bool isEmpty;
+  final Function(Map<String, dynamic>)? onUpdate;
+  final Function(String)? onCreate;
+  final VoidCallback? onCreateAfter;
   final VoidCallback? onDelete;
 
   const TodoWidget({
     super.key,
-    required this.record,
-    required this.onUpdate,
+    this.record,
+    this.isEmpty = false,
+    this.onUpdate,
+    this.onCreate,
+    this.onCreateAfter,
     this.onDelete,
   });
 
@@ -23,13 +29,21 @@ class _TodoWidgetState extends State<TodoWidget> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
   Timer? _debounce;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
-    final content = widget.record.metadata['content'] ?? '';
+    final content = widget.record?.metadata['content'] ?? '';
     _controller = TextEditingController(text: content);
     _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      _isFocused = _focusNode.hasFocus;
+    });
   }
 
   @override
@@ -44,15 +58,43 @@ class _TodoWidgetState extends State<TodoWidget> {
     // Debounced save (500ms)
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      widget.onUpdate({'content': text});
+      _saveNow(text);
     });
+  }
+
+  void _saveNow(String text) {
+    if (widget.record != null && widget.onUpdate != null) {
+      // Update existing record
+      widget.onUpdate!({'content': text});
+    } else if (text.isNotEmpty && widget.onCreate != null) {
+      // Create new record from ephemeral
+      widget.onCreate!(text);
+    }
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      // Handle Enter key - create new todo after this one
+      if (event.logicalKey == LogicalKeyboardKey.enter) {
+        final text = _controller.text;
+
+        // Save current content first
+        _debounce?.cancel();
+        _saveNow(text);
+
+        // Create new todo after this one
+        if (widget.record != null && widget.onCreateAfter != null) {
+          widget.onCreateAfter!();
+        } else if (widget.onCreate != null && text.isNotEmpty) {
+          widget.onCreate!(text);
+        }
+
+        return KeyEventResult.handled;
+      }
+
       // Handle Backspace at beginning - delete empty todo
       if (event.logicalKey == LogicalKeyboardKey.backspace) {
-        if (_controller.text.isEmpty && widget.onDelete != null) {
+        if (_controller.text.isEmpty && widget.record != null && widget.onDelete != null) {
           widget.onDelete!();
           return KeyEventResult.handled;
         }
@@ -64,7 +106,10 @@ class _TodoWidgetState extends State<TodoWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final checked = widget.record.metadata['checked'] ?? false;
+    final checked = widget.record?.metadata['checked'] ?? false;
+
+    // Apply 30% opacity when empty, 100% when not empty or focused
+    final checkboxOpacity = (widget.isEmpty && !_isFocused) ? 0.3 : 1.0;
 
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 2),
@@ -77,11 +122,16 @@ class _TodoWidgetState extends State<TodoWidget> {
             height: 16,
             child: Transform.translate(
               offset: const Offset(0, 3),
-              child: Checkbox(
-                value: checked,
-                onChanged: (val) => widget.onUpdate({'checked': val ?? false}),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+              child: Opacity(
+                opacity: checkboxOpacity,
+                child: Checkbox(
+                  value: checked,
+                  onChanged: widget.record != null && widget.onUpdate != null
+                      ? (val) => widget.onUpdate!({'checked': val ?? false})
+                      : null,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ),

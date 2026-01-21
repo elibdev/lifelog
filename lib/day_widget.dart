@@ -138,10 +138,19 @@ class _DayWidgetState extends State<DayWidget>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
+    // Sort records: todos first, then notes (by type, then position)
+    final sortedRecords = List<JournalRecord>.from(_records);
+    sortedRecords.sort((a, b) {
+      if (a.recordType == b.recordType) {
+        return a.position.compareTo(b.position);
+      }
+      return a.recordType == 'todo' ? -1 : 1;
+    });
+
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 700),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -158,17 +167,18 @@ class _DayWidgetState extends State<DayWidget>
             ),
 
             // Records
-            ..._records.map((record) {
+            ...sortedRecords.map((record) {
               if (record.recordType == 'note') {
                 return NoteWidget(
                   key: ValueKey(record.id),
                   record: record,
+                  isEmpty: false,
                   onUpdate: (changes) => _updateRecord(record, changes),
                   onDelete: () => _deleteRecord(record),
                   onCreateAfter: () {
-                    final nextPos = _records.indexOf(record) + 1;
-                    final newPosition = nextPos < _records.length
-                        ? (record.position + _records[nextPos].position) / 2
+                    final nextPos = sortedRecords.indexOf(record) + 1;
+                    final newPosition = nextPos < sortedRecords.length
+                        ? (record.position + sortedRecords[nextPos].position) / 2
                         : record.position + 1.0;
                     _createRecord('note', newPosition, {'content': ''});
                   },
@@ -177,18 +187,38 @@ class _DayWidgetState extends State<DayWidget>
                 return TodoWidget(
                   key: ValueKey(record.id),
                   record: record,
+                  isEmpty: false,
                   onUpdate: (changes) => _updateRecord(record, changes),
                   onDelete: () => _deleteRecord(record),
+                  onCreateAfter: () {
+                    final nextPos = sortedRecords.indexOf(record) + 1;
+                    final newPosition = nextPos < sortedRecords.length
+                        ? (record.position + sortedRecords[nextPos].position) / 2
+                        : record.position + 1.0;
+                    _createRecord('todo', newPosition, {'content': '', 'checked': false});
+                  },
                 );
               }
               return const SizedBox.shrink();
             }),
 
-            // Empty state - show ephemeral field
-            if (_records.isEmpty && _isLoaded)
-              NoteWidget(
-                onCreate: (text) => _createRecord('note', 1.0, {'content': text}),
+            // Always show 2 ephemeral fields at bottom when loaded
+            if (_isLoaded) ...[
+              TodoWidget(
+                isEmpty: true,
+                onCreate: (text) {
+                  final maxPos = _records.isEmpty ? 1.0 : _records.map((r) => r.position).reduce((a, b) => a > b ? a : b) + 1.0;
+                  _createRecord('todo', maxPos, {'content': text, 'checked': false});
+                },
               ),
+              NoteWidget(
+                isEmpty: true,
+                onCreate: (text) {
+                  final maxPos = _records.isEmpty ? 1.0 : _records.map((r) => r.position).reduce((a, b) => a > b ? a : b) + 1.0;
+                  _createRecord('note', maxPos, {'content': text});
+                },
+              ),
+            ],
           ],
         ),
       ),
