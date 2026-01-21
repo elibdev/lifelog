@@ -193,7 +193,13 @@ class _DayWidgetState extends State<DayWidget>
 
             // Empty note
             if (_isLoaded)
-              NoteWidget(key: const ValueKey('ephemeral_note'), isEmpty: true),
+              NoteWidget(
+                key: const ValueKey('ephemeral_note'),
+                isEmpty: true,
+                onCreate: (text) {
+                  _createRecord('note', {'content': text});
+                },
+              ),
           ],
         ),
       ),

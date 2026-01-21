@@ -67,6 +67,7 @@ class _TodoWidgetState extends State<TodoWidget> {
     } else if (text.isNotEmpty && widget.onCreate != null) {
       // Create new record from ephemeral
       widget.onCreate!(text);
+      _controller.clear();
     }
   }
 

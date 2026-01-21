@@ -67,6 +67,7 @@ class _NoteWidgetState extends State<NoteWidget> {
     } else if (text.isNotEmpty && widget.onCreate != null) {
       // Create new record from ephemeral
       widget.onCreate!(text);
+      _controller.clear();
     }
   }
 
