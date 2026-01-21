@@ -44,7 +44,7 @@ class _DayWidgetState extends State<DayWidget>
     }
   }
 
-  Future<void> _createRecord(String type, double position, Map<String, dynamic> metadata) async {
+  Future<void> _createRecord(String type, Map<String, dynamic> metadata) async {
     final now = DateTime.now();
     final recordId = 'rec_${_uuid.v4()}';
 
@@ -52,7 +52,6 @@ class _DayWidgetState extends State<DayWidget>
       id: recordId,
       date: widget.date,
       recordType: type,
-      position: position,
       metadata: metadata,
       createdAt: now,
       updatedAt: now,
@@ -66,7 +65,6 @@ class _DayWidgetState extends State<DayWidget>
       timestamp: now,
       payload: {
         'record_type': type,
-        'position': position,
         'metadata': metadata,
       },
     );
@@ -76,7 +74,6 @@ class _DayWidgetState extends State<DayWidget>
     if (mounted) {
       setState(() {
         _records.add(record);
-        _records.sort((a, b) => a.position.compareTo(b.position));
       });
     }
   }
@@ -138,14 +135,13 @@ class _DayWidgetState extends State<DayWidget>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    // Sort records: todos first, then notes (by type, then position)
-    final sortedRecords = List<JournalRecord>.from(_records);
-    sortedRecords.sort((a, b) {
-      if (a.recordType == b.recordType) {
-        return a.position.compareTo(b.position);
-      }
-      return a.recordType == 'todo' ? -1 : 1;
-    });
+    // Separate todos and notes
+    final todos = _records.where((r) => r.recordType == 'todo').toList();
+    final notes = _records.where((r) => r.recordType == 'note').toList();
+
+    // Sort each group by createdAt (oldest first)
+    todos.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    notes.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     return Center(
       child: Container(
@@ -166,59 +162,49 @@ class _DayWidgetState extends State<DayWidget>
               ),
             ),
 
-            // Records
-            ...sortedRecords.map((record) {
-              if (record.recordType == 'note') {
-                return NoteWidget(
-                  key: ValueKey(record.id),
-                  record: record,
-                  isEmpty: false,
-                  onUpdate: (changes) => _updateRecord(record, changes),
-                  onDelete: () => _deleteRecord(record),
-                  onCreateAfter: () {
-                    final nextPos = sortedRecords.indexOf(record) + 1;
-                    final newPosition = nextPos < sortedRecords.length
-                        ? (record.position + sortedRecords[nextPos].position) / 2
-                        : record.position + 1.0;
-                    _createRecord('note', newPosition, {'content': ''});
-                  },
-                );
-              } else if (record.recordType == 'todo') {
-                return TodoWidget(
-                  key: ValueKey(record.id),
-                  record: record,
-                  isEmpty: false,
-                  onUpdate: (changes) => _updateRecord(record, changes),
-                  onDelete: () => _deleteRecord(record),
-                  onCreateAfter: () {
-                    final nextPos = sortedRecords.indexOf(record) + 1;
-                    final newPosition = nextPos < sortedRecords.length
-                        ? (record.position + sortedRecords[nextPos].position) / 2
-                        : record.position + 1.0;
-                    _createRecord('todo', newPosition, {'content': '', 'checked': false});
-                  },
-                );
-              }
-              return const SizedBox.shrink();
-            }),
+            // Todos
+            ...todos.map((record) => TodoWidget(
+              key: ValueKey(record.id),
+              record: record,
+              isEmpty: false,
+              onUpdate: (changes) => _updateRecord(record, changes),
+              onDelete: () => _deleteRecord(record),
+              onCreateAfter: () {
+                _createRecord('todo', {'content': '', 'checked': false});
+              },
+            )),
 
-            // Always show 2 ephemeral fields at bottom when loaded
-            if (_isLoaded) ...[
+            // Empty todo
+            if (_isLoaded)
               TodoWidget(
+                key: const ValueKey('ephemeral_todo'),
                 isEmpty: true,
                 onCreate: (text) {
-                  final maxPos = _records.isEmpty ? 1.0 : _records.map((r) => r.position).reduce((a, b) => a > b ? a : b) + 1.0;
-                  _createRecord('todo', maxPos, {'content': text, 'checked': false});
+                  _createRecord('todo', {'content': text, 'checked': false});
                 },
               ),
+
+            // Notes
+            ...notes.map((record) => NoteWidget(
+              key: ValueKey(record.id),
+              record: record,
+              isEmpty: false,
+              onUpdate: (changes) => _updateRecord(record, changes),
+              onDelete: () => _deleteRecord(record),
+              onCreateAfter: () {
+                _createRecord('note', {'content': ''});
+              },
+            )),
+
+            // Empty note
+            if (_isLoaded)
               NoteWidget(
+                key: const ValueKey('ephemeral_note'),
                 isEmpty: true,
                 onCreate: (text) {
-                  final maxPos = _records.isEmpty ? 1.0 : _records.map((r) => r.position).reduce((a, b) => a > b ? a : b) + 1.0;
-                  _createRecord('note', maxPos, {'content': text});
+                  _createRecord('note', {'content': text});
                 },
               ),
-            ],
           ],
         ),
       ),

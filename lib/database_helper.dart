@@ -26,7 +26,7 @@ class JournalDatabase {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -47,14 +47,13 @@ class JournalDatabase {
         id TEXT PRIMARY KEY,
         date TEXT NOT NULL,
         record_type TEXT NOT NULL,
-        position REAL NOT NULL,
         metadata TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
     ''');
     await db.execute('CREATE INDEX idx_records_date ON records(date)');
-    await db.execute('CREATE INDEX idx_records_date_position ON records(date, position)');
+    await db.execute('CREATE INDEX idx_records_date_created ON records(date, created_at)');
     await db.execute('CREATE INDEX idx_records_type ON records(record_type)');
 
     // Events table (immutable log)
@@ -87,7 +86,7 @@ class JournalDatabase {
 
     // Insert schema version
     await db.insert('schema_version', {
-      'version': 2,
+      'version': 3,
       'applied_at': DateTime.now().millisecondsSinceEpoch,
     });
   }
@@ -95,50 +94,50 @@ class JournalDatabase {
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Migrate from v1 to v2
-      // Create new tables
-      await _createDB(db, newVersion);
-
-      // Migrate old entries to new records format
-      final oldEntries = await db.query('entries');
-      for (final entry in oldEntries) {
-        final dateStr = entry['date'] as String;
-        final content = entry['content'] as String;
-
-        if (content.isEmpty) continue;
-
-        final date = DateTime.parse(dateStr);
-        final recordId = 'rec_${_uuid.v4()}';
-        final now = DateTime.now();
-
-        final record = JournalRecord(
-          id: recordId,
-          date: date,
-          recordType: 'note',
-          position: 1.0,
-          metadata: {'content': content},
-          createdAt: now,
-          updatedAt: now,
-        );
-
-        final event = JournalEvent(
-          id: 'evt_${_uuid.v4()}',
-          eventType: EventType.recordCreated,
-          recordId: recordId,
-          date: date,
-          timestamp: now,
-          payload: {
-            'record_type': 'note',
-            'position': 1.0,
-            'metadata': {'content': content},
-          },
-        );
-
-        await db.insert('records', record.toDb());
-        await db.insert('events', event.toDb());
-      }
-
-      // Drop old table
+      // Drop old table and recreate
       await db.execute('DROP TABLE IF EXISTS entries');
+      await db.execute('DROP TABLE IF EXISTS records');
+      await db.execute('DROP TABLE IF EXISTS events');
+      await db.execute('DROP TABLE IF EXISTS snapshots');
+      await db.execute('DROP TABLE IF EXISTS schema_version');
+      await _createDB(db, newVersion);
+    }
+
+    if (oldVersion < 3) {
+      // Migrate from v2 to v3: Remove position column
+      // Create new table without position
+      await db.execute('''
+        CREATE TABLE records_new (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          record_type TEXT NOT NULL,
+          metadata TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+
+      // Copy data (excluding position column)
+      await db.execute('''
+        INSERT INTO records_new (id, date, record_type, metadata, created_at, updated_at)
+        SELECT id, date, record_type, metadata, created_at, updated_at
+        FROM records
+      ''');
+
+      // Drop old table and rename new one
+      await db.execute('DROP TABLE records');
+      await db.execute('ALTER TABLE records_new RENAME TO records');
+
+      // Recreate indexes without position
+      await db.execute('CREATE INDEX idx_records_date ON records(date)');
+      await db.execute('CREATE INDEX idx_records_date_created ON records(date, created_at)');
+      await db.execute('CREATE INDEX idx_records_type ON records(record_type)');
+
+      // Update schema version
+      await db.update('schema_version', {
+        'version': 3,
+        'applied_at': DateTime.now().millisecondsSinceEpoch,
+      });
     }
   }
 
@@ -186,7 +185,7 @@ class JournalDatabase {
       'records',
       where: 'date = ?',
       whereArgs: [dateKey(date)],
-      orderBy: 'position ASC',
+      orderBy: 'created_at ASC',
     );
 
     return maps.map((map) => JournalRecord.fromDb(map)).toList();
@@ -202,7 +201,7 @@ class JournalDatabase {
       'records',
       where: 'date BETWEEN ? AND ?',
       whereArgs: [dateKey(startDate), dateKey(endDate)],
-      orderBy: 'date ASC, position ASC',
+      orderBy: 'date ASC, created_at ASC',
     );
 
     // Group by date
