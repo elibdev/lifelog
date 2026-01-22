@@ -1,14 +1,10 @@
 import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
 import '../models/record.dart';
 import '../models/event.dart';
 import 'database_provider.dart';
 
 class RecordRepository {
   Future<void> saveRecord(Record record) async {
-    final db = await DatabaseProvider.instance.database;
-
-    // Prepare event - use unified 'saved' event type (database does upsert)
     final event = Event(
       eventType: EventType.recordSaved,
       recordId: record.id,
@@ -18,38 +14,50 @@ class RecordRepository {
     );
 
     // Atomic transaction: update records + log event
-    await db.transaction((txn) async {
-      // Upsert to records table
-      await txn.insert(
-        'records',
-        {
-          'id': record.id,
-          'date': record.date,
-          'type': record.type,
-          'metadata': jsonEncode({
-            'content': record.content,
-            if (record is TodoRecord) 'checked': record.checked,
-          }),
-          'created_at': record.createdAt,
-          'updated_at': record.updatedAt,
-          'order_position': record.orderPosition,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    await DatabaseProvider.instance.transactionAsync((db) {
+      // INSERT OR REPLACE using named parameters
+      final stmt = db.prepare('''
+        INSERT OR REPLACE INTO records
+        (id, date, type, metadata, created_at, updated_at, order_position)
+        VALUES (:id, :date, :type, :metadata, :created_at, :updated_at, :order_position)
+      ''');
+
+      stmt.execute([
+        record.id,
+        record.date,
+        record.type,
+        jsonEncode({
+          'content': record.content,
+          if (record is TodoRecord) 'checked': record.checked,
+        }),
+        record.createdAt,
+        record.updatedAt,
+        record.orderPosition,
+      ]);
+      stmt.dispose();
 
       // Append to event_log
-      await txn.insert('event_log', event.toJson());
+      final eventStmt = db.prepare('''
+        INSERT INTO event_log (event_type, record_id, payload, timestamp, device_id)
+        VALUES (:event_type, :record_id, :payload, :timestamp, :device_id)
+      ''');
+      final eventJson = event.toJson();
+      eventStmt.execute([
+        eventJson['event_type'],
+        eventJson['record_id'],
+        eventJson['payload'],
+        eventJson['timestamp'],
+        eventJson['device_id'],
+      ]);
+      eventStmt.dispose();
     });
   }
 
   Future<void> deleteRecord(String recordId) async {
-    final db = await DatabaseProvider.instance.database;
-
-    // Get the record before deletion for event payload
-    final results = await db.query(
-      'records',
-      where: 'id = ?',
-      whereArgs: [recordId],
+    // Get record before deletion
+    final results = await DatabaseProvider.instance.queryAsync(
+      'SELECT * FROM records WHERE id = :id',
+      {'id': recordId},
     );
 
     if (results.isEmpty) return;
@@ -57,7 +65,6 @@ class RecordRepository {
     final recordJson = _parseRecordFromDb(results.first);
     final record = Record.fromJson(recordJson);
 
-    // Prepare deletion event
     final event = Event(
       eventType: EventType.recordDeleted,
       recordId: recordId,
@@ -66,20 +73,30 @@ class RecordRepository {
       deviceId: null,
     );
 
-    // Atomic transaction: delete from records + log event
-    await db.transaction((txn) async {
-      await txn.delete('records', where: 'id = ?', whereArgs: [recordId]);
-      await txn.insert('event_log', event.toJson());
+    await DatabaseProvider.instance.transactionAsync((db) {
+      final deleteStmt = db.prepare('DELETE FROM records WHERE id = :id');
+      deleteStmt.execute([recordId]);
+      deleteStmt.dispose();
+
+      final eventStmt = db.prepare('''
+        INSERT INTO event_log (event_type, record_id, payload, timestamp, device_id)
+        VALUES (:event_type, :record_id, :payload, :timestamp, :device_id)
+      ''');
+      eventStmt.execute([
+        event.eventType.toDbValue(),
+        event.recordId,
+        jsonEncode(event.payload),
+        event.timestamp,
+        event.deviceId,
+      ]);
+      eventStmt.dispose();
     });
   }
 
   Future<List<Record>> getRecordsForDate(String date) async {
-    final db = await DatabaseProvider.instance.database;
-    final results = await db.query(
-      'records',
-      where: 'date = ?',
-      whereArgs: [date],
-      orderBy: 'order_position ASC',
+    final results = await DatabaseProvider.instance.queryAsync(
+      'SELECT * FROM records WHERE date = :date ORDER BY order_position ASC',
+      {'date': date},
     );
 
     return results.map((row) {
@@ -89,12 +106,9 @@ class RecordRepository {
   }
 
   Future<List<Record>> getRecordsForDateRange(String startDate, String endDate) async {
-    final db = await DatabaseProvider.instance.database;
-    final results = await db.query(
-      'records',
-      where: 'date >= ? AND date <= ?',
-      whereArgs: [startDate, endDate],
-      orderBy: 'date ASC, order_position ASC',
+    final results = await DatabaseProvider.instance.queryAsync(
+      'SELECT * FROM records WHERE date >= :start AND date <= :end ORDER BY date ASC, order_position ASC',
+      {'start': startDate, 'end': endDate},
     );
 
     return results.map((row) {
@@ -104,7 +118,7 @@ class RecordRepository {
   }
 
   // Helper to parse DB row into Record JSON format
-  Map<String, dynamic> _parseRecordFromDb(Map<String, dynamic> row) {
+  Map<String, dynamic> _parseRecordFromDb(Map<String, Object?> row) {
     final metadata = jsonDecode(row['metadata'] as String) as Map<String, dynamic>;
     return {
       'id': row['id'],

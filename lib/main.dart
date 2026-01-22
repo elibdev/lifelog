@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'widgets/journal_screen.dart';
+import 'database/database_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize database path (async operation required before using database)
+  await DatabaseProvider.instance.initialize();
+
   runApp(const LifelogApp());
 }
 

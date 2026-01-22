@@ -3,28 +3,35 @@ import 'database_provider.dart';
 
 class EventRepository {
   Future<void> logEvent(Event event) async {
-    final db = await DatabaseProvider.instance.database;
-    await db.insert('event_log', event.toJson());
+    await DatabaseProvider.instance.executeAsync(
+      '''
+      INSERT INTO event_log (event_type, record_id, payload, timestamp, device_id)
+      VALUES (:event_type, :record_id, :payload, :timestamp, :device_id)
+      ''',
+      event.toJson(),
+    );
   }
 
   Future<List<Event>> getEventsForRecord(String recordId) async {
-    final db = await DatabaseProvider.instance.database;
-    final results = await db.query(
-      'event_log',
-      where: 'record_id = ?',
-      whereArgs: [recordId],
-      orderBy: 'timestamp ASC',
+    final results = await DatabaseProvider.instance.queryAsync(
+      'SELECT * FROM event_log WHERE record_id = :record_id ORDER BY timestamp ASC',
+      {'record_id': recordId},
     );
-    return results.map((json) => Event.fromJson(json)).toList();
+    return results.map((row) => Event.fromJson(row)).toList();
   }
 
   Future<List<Event>> getAllEvents({int? limit}) async {
-    final db = await DatabaseProvider.instance.database;
-    final results = await db.query(
-      'event_log',
-      orderBy: 'timestamp DESC',
-      limit: limit,
-    );
-    return results.map((json) => Event.fromJson(json)).toList();
+    if (limit != null) {
+      final results = await DatabaseProvider.instance.queryAsync(
+        'SELECT * FROM event_log ORDER BY timestamp DESC LIMIT :limit',
+        {'limit': limit},
+      );
+      return results.map((row) => Event.fromJson(row)).toList();
+    } else {
+      final results = await DatabaseProvider.instance.queryAsync(
+        'SELECT * FROM event_log ORDER BY timestamp DESC',
+      );
+      return results.map((row) => Event.fromJson(row)).toList();
+    }
   }
 }
