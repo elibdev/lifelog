@@ -195,28 +195,22 @@ class _RecordWidgetState extends State<RecordWidget> {
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   // Subtle background on focus for better feedback
-                  decoration: _focusNode.hasFocus && !isEmpty
+                  decoration: _focusNode.hasFocus
                       ? BoxDecoration(
                           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(4),
                         )
                       : null,
-                  padding: _focusNode.hasFocus && !isEmpty
+                  padding: _focusNode.hasFocus
                       ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
                       : EdgeInsets.zero,
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
-                      // Subtle hint for empty fields
-                      hintText: isEmpty ? (record is TodoRecord ? 'Add a task...' : 'Add a note...') : null,
-                      hintStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-                        fontStyle: FontStyle.italic,
-                      ),
                     ),
                     // Strikethrough for completed todos - satisfying visual feedback!
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
