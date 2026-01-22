@@ -166,7 +166,8 @@ class _RecordWidgetState extends State<RecordWidget> {
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  style: const TextStyle(height: 1.3),
+                  // Use theme's body text style for consistent typography
+                  style: Theme.of(context).textTheme.bodyMedium,
                   maxLines: null,
                   textInputAction: TextInputAction.done,
                   onChanged: (_) => _handleTextChange(),

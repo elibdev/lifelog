@@ -146,11 +146,42 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Use theme's surface color for background (warm cream on larger screens)
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       body: SafeArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          center: _todayKey,
-          slivers: [
+        // LayoutBuilder lets us adapt layout based on available width
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Responsive breakpoints:
+            // Mobile: < 600px - full width with edge padding
+            // Tablet: 600-900px - constrained to 600px
+            // Desktop: > 900px - constrained to 700px with paper shadow
+
+            final screenWidth = constraints.maxWidth;
+            final bool isDesktop = screenWidth > 900;
+            final bool isTablet = screenWidth >= 600 && screenWidth <= 900;
+
+            // Max content width (like paper on a desk)
+            final double maxWidth = isDesktop ? 700 : (isTablet ? 600 : double.infinity);
+
+            return Center(
+              child: Container(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                // Paper shadow effect on desktop (subtle depth)
+                decoration: isDesktop ? BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ) : null,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  center: _todayKey,
+                  slivers: [
             // Past days (before today) - lazy loaded
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -275,6 +306,10 @@ class _JournalScreenState extends State<JournalScreen> {
               ),
             ),
           ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
