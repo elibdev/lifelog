@@ -1,16 +1,13 @@
 import 'dart:convert';
 
 enum EventType {
-  recordCreated,
-  recordUpdated,
+  recordSaved,  // Unified event for both create and update (database uses upsert)
   recordDeleted;
 
   String toDbValue() {
     switch (this) {
-      case EventType.recordCreated:
-        return 'record_created';
-      case EventType.recordUpdated:
-        return 'record_updated';
+      case EventType.recordSaved:
+        return 'record_saved';
       case EventType.recordDeleted:
         return 'record_deleted';
     }
@@ -18,10 +15,12 @@ enum EventType {
 
   static EventType fromDbValue(String value) {
     switch (value) {
+      case 'record_saved':
+        return EventType.recordSaved;
+      // Legacy support for old event types
       case 'record_created':
-        return EventType.recordCreated;
       case 'record_updated':
-        return EventType.recordUpdated;
+        return EventType.recordSaved;
       case 'record_deleted':
         return EventType.recordDeleted;
       default:

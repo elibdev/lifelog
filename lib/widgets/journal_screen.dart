@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
+import '../utils/debouncer.dart';
 import 'record_section.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -21,6 +22,9 @@ class _JournalScreenState extends State<JournalScreen> {
   // Map of record ID -> focus callback for navigation
   final Map<String, VoidCallback> _focusCallbacks = {};
 
+  // Per-record debouncing for disk writes (optimistic UI pattern)
+  final Map<String, Debouncer> _debouncers = {};
+
   // Date range to support (1 year in each direction)
   static const int daysBeforeToday = 365;
   static const int daysAfterToday = 365;
@@ -37,6 +41,10 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    // Clean up all debouncers to prevent memory leaks
+    for (final debouncer in _debouncers.values) {
+      debouncer.dispose();
+    }
     super.dispose();
   }
 
@@ -107,7 +115,7 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _handleSaveRecord(Record record) async {
-    // Update local cache first for immediate UI update
+    // OPTIMISTIC UI: Update UI cache immediately (no delay)
     setState(() {
       final records = _recordsByDate[record.date] ?? [];
       final index = records.indexWhere((r) => r.id == record.id);
@@ -121,15 +129,19 @@ class _JournalScreenState extends State<JournalScreen> {
       _recordsByDate[record.date] = records;
     });
 
-    // Determine if this is a new record
-    final existingRecords = _recordsByDate[record.date] ?? [];
-    final isNew = existingRecords.where((r) => r.id == record.id).length == 1;
-
-    // Save to database
-    await _repository.saveRecord(record, isNew: isNew);
+    // DEBOUNCED DISK WRITE: Per-record debouncing prevents excessive writes
+    // Each record gets its own debouncer to avoid interference between edits
+    final debouncer = _debouncers.putIfAbsent(record.id, () => Debouncer());
+    debouncer.call(() async {
+      await _repository.saveRecord(record);
+    });
   }
 
   Future<void> _handleDeleteRecord(String recordId) async {
+    // Cancel any pending saves for this record (prevents race condition)
+    _debouncers[recordId]?.dispose();
+    _debouncers.remove(recordId);
+
     // Update local cache first
     setState(() {
       for (final date in _recordsByDate.keys) {

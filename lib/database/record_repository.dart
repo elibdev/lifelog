@@ -5,12 +5,12 @@ import '../models/event.dart';
 import 'database_provider.dart';
 
 class RecordRepository {
-  Future<void> saveRecord(Record record, {bool isNew = false}) async {
+  Future<void> saveRecord(Record record) async {
     final db = await DatabaseProvider.instance.database;
 
-    // Prepare event
+    // Prepare event - use unified 'saved' event type (database does upsert)
     final event = Event(
-      eventType: isNew ? EventType.recordCreated : EventType.recordUpdated,
+      eventType: EventType.recordSaved,
       recordId: record.id,
       payload: record.toJson(),
       timestamp: DateTime.now().millisecondsSinceEpoch,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/record.dart';
-import '../utils/debouncer.dart';
 
 class RecordWidget extends StatefulWidget {
   final Record record;
@@ -29,14 +28,12 @@ class RecordWidget extends StatefulWidget {
 
 class _RecordWidgetState extends State<RecordWidget> {
   late TextEditingController _controller;
-  late Debouncer _debouncer;
   late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.record.content);
-    _debouncer = Debouncer();
     _focusNode = FocusNode();
 
     // Auto-focus if requested
@@ -68,7 +65,6 @@ class _RecordWidgetState extends State<RecordWidget> {
   @override
   void dispose() {
     _controller.dispose();
-    _debouncer.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -76,26 +72,21 @@ class _RecordWidgetState extends State<RecordWidget> {
   void _handleTextChange() {
     final text = _controller.text;
 
-    // Delete immediately when content is cleared (no debounce)
-    if (text.isEmpty && widget.record.content.isNotEmpty) {
+    // Delete when content is empty/whitespace - immediately triggers deletion
+    if (text.trim().isEmpty) {
       widget.onDelete(widget.record.id);
       return;
     }
 
-    // Debounce saves
-    _debouncer.call(() {
-      if (!mounted) return;
-
-      if (text != widget.record.content && text.isNotEmpty) {
-        // Content changed - save record
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final updatedRecord = widget.record.copyWith(
-          content: text,
-          updatedAt: now,
-        );
-        widget.onSave(updatedRecord);
-      }
-    });
+    // Save immediately (no debouncing at widget level - parent handles it)
+    if (text != widget.record.content) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final updatedRecord = widget.record.copyWith(
+        content: text,
+        updatedAt: now,
+      );
+      widget.onSave(updatedRecord);
+    }
   }
 
   void _handleCheckboxToggle(bool? value) {
