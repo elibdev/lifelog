@@ -45,6 +45,12 @@ class _JournalScreenState extends State<JournalScreen> {
     return DateFormat('EEE, MMM d').format(dateTime);
   }
 
+  bool _isToday(String isoDate) {
+    final date = DateTime.parse(isoDate);
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
   // Get a flat ordered list of all record IDs currently loaded
   List<String> _getAllRecordIdsInOrder() {
     final List<String> ids = [];
@@ -197,19 +203,39 @@ class _JournalScreenState extends State<JournalScreen> {
                       final todos = records.whereType<TodoRecord>().toList();
                       final notes = records.whereType<NoteRecord>().toList();
 
+                      final isToday = _isToday(date);
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Date header
+                          // Date header - highlighted if today
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                            padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 12.0),
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Text(
-                                _formatDateHeader(date),
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                              child: Container(
+                                padding: isToday
+                                    ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+                                    : EdgeInsets.zero,
+                                decoration: isToday
+                                    ? BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                          width: 1,
+                                        ),
+                                      )
+                                    : null,
+                                child: Text(
+                                  isToday ? 'Today • ${_formatDateHeader(date)}' : _formatDateHeader(date),
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                                        color: isToday
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                ),
                               ),
                             ),
                           ),
@@ -234,7 +260,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             onDelete: _handleDeleteRecord,
                             onNavigate: _handleNavigate,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 32),
                         ],
                       );
                     },
@@ -259,19 +285,39 @@ class _JournalScreenState extends State<JournalScreen> {
                       final todos = records.whereType<TodoRecord>().toList();
                       final notes = records.whereType<NoteRecord>().toList();
 
+                      final isToday = _isToday(date);
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Date header
+                          // Date header - highlighted if today
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                            padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 12.0),
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Text(
-                                _formatDateHeader(date),
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                              child: Container(
+                                padding: isToday
+                                    ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+                                    : EdgeInsets.zero,
+                                decoration: isToday
+                                    ? BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                          width: 1,
+                                        ),
+                                      )
+                                    : null,
+                                child: Text(
+                                  isToday ? 'Today • ${_formatDateHeader(date)}' : _formatDateHeader(date),
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                                        color: isToday
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                ),
                               ),
                             ),
                           ),
@@ -296,7 +342,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             onDelete: _handleDeleteRecord,
                             onNavigate: _handleNavigate,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 32),
                         ],
                       );
                     },

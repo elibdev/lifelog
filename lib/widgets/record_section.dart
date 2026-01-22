@@ -153,11 +153,12 @@ class _RecordSectionState extends State<RecordSection> {
       children: [
         // Section title (TODOS / NOTES)
         Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
           child: Text(
             widget.title,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

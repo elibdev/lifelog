@@ -39,6 +39,11 @@ class _RecordWidgetState extends State<RecordWidget> {
     _debouncer = Debouncer();
     _focusNode = FocusNode();
 
+    // Rebuild when focus changes to show/hide focus background
+    _focusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     // Auto-focus if requested
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,30 +118,43 @@ class _RecordWidgetState extends State<RecordWidget> {
   Widget build(BuildContext context) {
     final record = widget.record;
     final isEmpty = record.content.isEmpty;
+    final isChecked = record is TodoRecord && record.checked;
 
     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Leading widget (polymorphic!)
+            // Leading widget (polymorphic!) - checkbox or bullet
             Padding(
-              padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+              padding: const EdgeInsets.only(top: 4.0, right: 12.0),
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: record is TodoRecord
-                    ? GestureDetector(
-                        onTap: isEmpty ? null : () => _handleCheckboxToggle(!record.checked),
+                    ? Transform.scale(
+                        scale: 1.1, // Slightly larger for easier clicking
                         child: Checkbox(
                           value: record.checked,
                           onChanged: isEmpty ? null : _handleCheckboxToggle,
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
+                          // Smooth animation when checking/unchecking
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       )
                     : Center(
-                        child: Icon(Icons.circle, size: 6, color: Colors.grey[700]),
+                        // More refined bullet point
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
               ),
             ),
@@ -158,32 +176,63 @@ class _RecordWidgetState extends State<RecordWidget> {
                   }
                   return KeyEventResult.ignored;
                 },
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                child: AnimatedContainer(
+                  // Smooth transition when focus changes (200ms animation)
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  // Subtle background on focus for better feedback
+                  decoration: _focusNode.hasFocus && !isEmpty
+                      ? BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(4),
+                        )
+                      : null,
+                  padding: _focusNode.hasFocus && !isEmpty
+                      ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+                      : EdgeInsets.zero,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      // Subtle hint for empty fields
+                      hintText: isEmpty ? (record is TodoRecord ? 'Add a task...' : 'Add a note...') : null,
+                      hintStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    // Strikethrough for completed todos - satisfying visual feedback!
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      decoration: isChecked ? TextDecoration.lineThrough : null,
+                      decorationColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                      color: isChecked
+                          ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5)
+                          : null,
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.done,
+                    onChanged: (_) {
+                      _handleTextChange();
+                      // Rebuild to update focus background
+                      setState(() {});
+                    },
+                    onSubmitted: (_) {
+                      // Save current text immediately
+                      if (_controller.text.isNotEmpty && _controller.text != widget.record.content) {
+                        final now = DateTime.now().millisecondsSinceEpoch;
+                        final updatedRecord = widget.record.copyWith(
+                          content: _controller.text,
+                          updatedAt: now,
+                        );
+                        widget.onSave(updatedRecord);
+                      }
+                      // Notify parent which record triggered Enter
+                      widget.onSubmitted?.call(widget.record.id);
+                    },
                   ),
-                  // Use theme's body text style for consistent typography
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: null,
-                  textInputAction: TextInputAction.done,
-                  onChanged: (_) => _handleTextChange(),
-                  onSubmitted: (_) {
-                    // Save current text immediately
-                    if (_controller.text.isNotEmpty && _controller.text != widget.record.content) {
-                      final now = DateTime.now().millisecondsSinceEpoch;
-                      final updatedRecord = widget.record.copyWith(
-                        content: _controller.text,
-                        updatedAt: now,
-                      );
-                      widget.onSave(updatedRecord);
-                    }
-                    // Notify parent which record triggered Enter
-                    widget.onSubmitted?.call(widget.record.id);
-                  },
                 ),
               ),
             ),

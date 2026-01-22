@@ -29,19 +29,32 @@ class LifelogApp extends StatelessWidget {
           titleMedium: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.15,
+            letterSpacing: 0.2,
+            height: 1.3,
           ),
           // Section titles (TODOS/NOTES): small, uppercase, spaced
           labelMedium: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            letterSpacing: 1.2,
+            letterSpacing: 1.3,
+            height: 1.2,
           ),
           // Body text: comfortable reading size with good line height
           bodyMedium: TextStyle(
             fontSize: 15,
-            height: 1.5,
-            letterSpacing: 0.1,
+            height: 1.6,
+            letterSpacing: 0.15,
+          ),
+        ),
+
+        // Checkbox theme for smoother, more refined appearance
+        checkboxTheme: CheckboxThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
+          side: const BorderSide(
+            color: Color(0xFF5B7C99),
+            width: 1.5,
           ),
         ),
 
