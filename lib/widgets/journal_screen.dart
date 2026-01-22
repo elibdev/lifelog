@@ -190,7 +190,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   color: Theme.of(context).colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha: 0.08),
                       blurRadius: 24,
                       offset: const Offset(0, 4),
                     ),
@@ -231,10 +231,10 @@ class _JournalScreenState extends State<JournalScreen> {
                                     : EdgeInsets.zero,
                                 decoration: isToday
                                     ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                                           width: 1,
                                         ),
                                       )
@@ -313,10 +313,10 @@ class _JournalScreenState extends State<JournalScreen> {
                                     : EdgeInsets.zero,
                                 decoration: isToday
                                     ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                                           width: 1,
                                         ),
                                       )

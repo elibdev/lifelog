@@ -157,7 +157,7 @@ class _RecordSectionState extends State<RecordSection> {
           child: Text(
             widget.title,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -145,7 +145,7 @@ class _RecordWidgetState extends State<RecordWidget> {
                           width: 5,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -159,10 +159,10 @@ class _RecordWidgetState extends State<RecordWidget> {
                   if (event is KeyDownEvent) {
                     // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
                     if (event.logicalKey == LogicalKeyboardKey.enter &&
-                        (event.isControlPressed || event.isMetaPressed) &&
+                        (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed) &&
                         record is TodoRecord &&
                         !isEmpty) {
-                      _handleCheckboxToggle(!(record as TodoRecord).checked);
+                      _handleCheckboxToggle(!record.checked);
                       return KeyEventResult.handled;
                     }
                     // Arrow down = Tab (focus next)
@@ -185,7 +185,7 @@ class _RecordWidgetState extends State<RecordWidget> {
                   // Subtle background on focus for better feedback
                   decoration: _focusNode.hasFocus && !isEmpty
                       ? BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(4),
                         )
                       : null,
@@ -202,16 +202,16 @@ class _RecordWidgetState extends State<RecordWidget> {
                       // Subtle hint for empty fields
                       hintText: isEmpty ? (record is TodoRecord ? 'Add a task...' : 'Add a note...') : null,
                       hintStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                         fontStyle: FontStyle.italic,
                       ),
                     ),
                     // Strikethrough for completed todos - satisfying visual feedback!
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       decoration: isChecked ? TextDecoration.lineThrough : null,
-                      decorationColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                      decorationColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                       color: isChecked
-                          ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5)
+                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
                           : null,
                     ),
                     maxLines: null,
