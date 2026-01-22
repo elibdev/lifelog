@@ -48,7 +48,7 @@ class _RecordWidgetState extends State<RecordWidget> {
   }
 
   void _handleFocusChange() {
-    // Rebuild to show/hide focus background
+    // Rebuild widget on focus change
     if (mounted) setState(() {});
 
     // When focus is lost, delete if content is empty/whitespace
@@ -190,21 +190,7 @@ class _RecordWidgetState extends State<RecordWidget> {
                   }
                   return KeyEventResult.ignored;
                 },
-                child: AnimatedContainer(
-                  // Smooth transition when focus changes (200ms animation)
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  // Subtle background on focus for better feedback
-                  decoration: _focusNode.hasFocus
-                      ? BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
-                          borderRadius: BorderRadius.circular(4),
-                        )
-                      : null,
-                  padding: _focusNode.hasFocus
-                      ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
-                      : EdgeInsets.zero,
-                  child: TextField(
+                child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
                     decoration: const InputDecoration(
@@ -224,7 +210,6 @@ class _RecordWidgetState extends State<RecordWidget> {
                     textInputAction: TextInputAction.done,
                     onChanged: (_) {
                       _handleTextChange();
-                      // Rebuild to update focus background
                       setState(() {});
                     },
                     onSubmitted: (_) {
@@ -243,7 +228,6 @@ class _RecordWidgetState extends State<RecordWidget> {
                   ),
                 ),
               ),
-            ),
           ],
         ),
     );
