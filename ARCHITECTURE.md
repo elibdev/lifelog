@@ -147,27 +147,9 @@ Behavior:
 ### Bidirectional Loading
 
 Start with today centered in viewport:
-- Scroll down → load 10 past days
-- Scroll up → load 10 future days
+- Scroll down → load past days
+- Scroll up → load future days
 - Trigger threshold: 200px from edge
-
-### Day Range Management
-
-```dart
-List<String> _visibleDates = []; // ISO8601 dates
-int _earliestOffset = -3;  // 3 days ago
-int _latestOffset = 3;     // 3 days forward
-
-void _loadMorePastDays() {
-  _earliestOffset -= 10;
-  // Generate new dates, fetch records
-}
-
-void _loadMoreFutureDays() {
-  _latestOffset += 10;
-  // Generate new dates (empty until user adds content)
-}
-```
 
 ## Key Design Decisions
 

@@ -8,6 +8,7 @@ class DaySection extends StatelessWidget {
   final List<Record> records;
   final Function(Record) onSave;
   final Function(String) onDelete;
+  final Function(String recordId, int direction)? onNavigate;
 
   const DaySection({
     super.key,
@@ -15,68 +16,69 @@ class DaySection extends StatelessWidget {
     required this.records,
     required this.onSave,
     required this.onDelete,
+    this.onNavigate,
   });
 
   String _formatDate(String isoDate) {
     final dateTime = DateTime.parse(isoDate);
-    return DateFormat('EEEE, MMM d').format(dateTime); // "Wednesday, Jan 22"
+    return DateFormat('EEE, MMM d').format(dateTime); // "Wed, Jan 22"
   }
 
-  @override
-  Widget build(BuildContext context) {
+  List<Widget> buildSlivers(BuildContext context, {required String todosKey, required String notesKey}) {
     // Separate records by type
     final todos = records.whereType<TodoRecord>().toList();
     final notes = records.whereType<NoteRecord>().toList();
 
-    // Create placeholder templates
-    final todoPlaceholder = TodoRecord(
-      id: 'placeholder-todo',
-      date: date,
-      content: '',
-      createdAt: 0,
-      updatedAt: 0,
-    );
-
-    final notePlaceholder = NoteRecord(
-      id: 'placeholder-note',
-      date: date,
-      content: '',
-      createdAt: 0,
-      updatedAt: 0,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Date header
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            _formatDate(date),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+    return [
+      // Date header (not pinned, just scrolls normally)
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _formatDate(date),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ),
         ),
-        // Todo section
-        RecordSection(
-          title: 'TODOS',
-          records: todos,
-          placeholderTemplate: todoPlaceholder,
-          onSave: onSave,
-          onDelete: onDelete,
+      ),
+      // Records
+      SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RecordSection(
+              key: ValueKey(todosKey),
+              title: 'TODOS',
+              records: todos,
+              date: date,
+              recordType: 'todo',
+              onSave: onSave,
+              onDelete: onDelete,
+              onNavigate: onNavigate,
+            ),
+            RecordSection(
+              key: ValueKey(notesKey),
+              title: 'NOTES',
+              records: notes,
+              date: date,
+              recordType: 'note',
+              onSave: onSave,
+              onDelete: onDelete,
+              onNavigate: onNavigate,
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
-        const SizedBox(height: 16),
-        // Notes section
-        RecordSection(
-          title: 'NOTES',
-          records: notes,
-          placeholderTemplate: notePlaceholder,
-          onSave: onSave,
-          onDelete: onDelete,
-        ),
-        const Divider(height: 32),
-      ],
-    );
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink(); // Not used anymore
   }
 }

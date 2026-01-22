@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/record.dart';
 import '../utils/debouncer.dart';
 
 class RecordWidget extends StatefulWidget {
-  final Record? record; // null for placeholder
+  final Record record;
   final Function(Record) onSave;
   final Function(String) onDelete;
+  final VoidCallback? onSubmitted; // Called when user presses Enter
+  final VoidCallback? onNavigateUp; // Called when user presses arrow up
+  final VoidCallback? onNavigateDown; // Called when user presses arrow down
+  final bool autofocus; // Auto-focus this field
 
   const RecordWidget({
     super.key,
-    this.record,
+    required this.record,
     required this.onSave,
     required this.onDelete,
+    this.onSubmitted,
+    this.onNavigateUp,
+    this.onNavigateDown,
+    this.autofocus = false,
   });
 
   @override
@@ -21,61 +30,72 @@ class RecordWidget extends StatefulWidget {
 class _RecordWidgetState extends State<RecordWidget> {
   late TextEditingController _controller;
   late Debouncer _debouncer;
+  late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.record?.content ?? '');
+    _controller = TextEditingController(text: widget.record.content);
     _debouncer = Debouncer();
+    _focusNode = FocusNode();
+
+    // Auto-focus if requested
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusNode.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(RecordWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the record ID changed, update the controller
+    if (widget.record.id != oldWidget.record.id) {
+      _controller.text = widget.record.content;
+    }
+    // If content changed externally, update controller
+    else if (widget.record.content != oldWidget.record.content &&
+             widget.record.content != _controller.text) {
+      _controller.text = widget.record.content;
+    }
+  }
+
+  void requestFocus() {
+    _focusNode.requestFocus();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _debouncer.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _handleTextChange() {
     final text = _controller.text;
 
-    // Debounce the save operation
+    // Delete immediately when content is cleared (no debounce)
+    if (text.isEmpty && widget.record.content.isNotEmpty) {
+      widget.onDelete(widget.record.id);
+      return;
+    }
+
+    // Debounce saves
     _debouncer.call(() {
-      if (widget.record == null) {
-        // Placeholder received text - create new record
-        if (text.isNotEmpty) {
-          _createNewRecord(text);
-        }
-      } else {
-        // Existing record
-        if (text.isEmpty) {
-          // Content cleared - delete record
-          widget.onDelete(widget.record!.id);
-        } else if (text != widget.record!.content) {
-          // Content changed - update record
-          _updateRecord(text);
-        }
+      if (!mounted) return;
+
+      if (text != widget.record.content && text.isNotEmpty) {
+        // Content changed - save record
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final updatedRecord = widget.record.copyWith(
+          content: text,
+          updatedAt: now,
+        );
+        widget.onSave(updatedRecord);
       }
     });
-  }
-
-  void _createNewRecord(String content) {
-    // This will be called by RecordSection which knows the record type
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedRecord = widget.record!.copyWith(
-      content: content,
-      updatedAt: now,
-    );
-    widget.onSave(updatedRecord);
-  }
-
-  void _updateRecord(String content) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final updatedRecord = widget.record!.copyWith(
-      content: content,
-      updatedAt: now,
-    );
-    widget.onSave(updatedRecord);
   }
 
   void _handleCheckboxToggle(bool? value) {
@@ -91,51 +111,83 @@ class _RecordWidgetState extends State<RecordWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isPlaceholder = widget.record == null;
     final record = widget.record;
+    final isEmpty = record.content.isEmpty;
 
-    return Opacity(
-      opacity: isPlaceholder ? 0.5 : 1.0,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Leading widget (polymorphic!)
-            if (record != null)
-              GestureDetector(
-                onTap: record is TodoRecord
-                    ? () => _handleCheckboxToggle(!(record as TodoRecord).checked)
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12.0, right: 8.0),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: record is TodoRecord
-                        ? Checkbox(
-                            value: (record as TodoRecord).checked,
-                            onChanged: _handleCheckboxToggle,
-                          )
-                        : const Icon(Icons.circle, size: 8),
-                  ),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: record is TodoRecord
+                    ? GestureDetector(
+                        onTap: isEmpty ? null : () => _handleCheckboxToggle(!record.checked),
+                        child: Checkbox(
+                          value: record.checked,
+                          onChanged: isEmpty ? null : _handleCheckboxToggle,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                    : Center(
+                        child: Icon(Icons.circle, size: 6, color: Colors.grey[700]),
+                      ),
               ),
+            ),
             // Text field
             Expanded(
-              child: TextField(
-                controller: _controller,
-                decoration: InputDecoration(
-                  hintText: record?.hintText ?? 'Type here...',
-                  border: InputBorder.none,
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent) {
+                    // Arrow down = Tab (focus next)
+                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                      FocusScope.of(context).nextFocus();
+                      return KeyEventResult.handled;
+                    }
+                    // Arrow up = Shift+Tab (focus previous)
+                    else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      FocusScope.of(context).previousFocus();
+                      return KeyEventResult.handled;
+                    }
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: const TextStyle(height: 1.3),
+                  maxLines: null,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => _handleTextChange(),
+                  onSubmitted: (_) {
+                    // Save current text immediately
+                    if (_controller.text.isNotEmpty && _controller.text != widget.record.content) {
+                      final now = DateTime.now().millisecondsSinceEpoch;
+                      final updatedRecord = widget.record.copyWith(
+                        content: _controller.text,
+                        updatedAt: now,
+                      );
+                      widget.onSave(updatedRecord);
+                    }
+                    // Notify parent (will focus next field)
+                    widget.onSubmitted?.call();
+                  },
                 ),
-                maxLines: null,
-                onChanged: (_) => _handleTextChange(),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 }

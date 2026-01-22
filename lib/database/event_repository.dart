@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 import '../models/event.dart';
 import 'database_provider.dart';
 

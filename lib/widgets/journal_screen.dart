@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
-import 'day_section.dart';
+import 'record_section.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -14,21 +15,23 @@ class _JournalScreenState extends State<JournalScreen> {
   final RecordRepository _repository = RecordRepository();
   final ScrollController _scrollController = ScrollController();
 
-  // Track which days are loaded
-  int _earliestOffset = -3; // Today - 3 days
-  int _latestOffset = 3; // Today + 3 days
+  // Map of date -> records (lazy loaded cache)
+  final Map<String, List<Record>> _recordsByDate = {};
 
-  // Map of date -> records
-  Map<String, List<Record>> _recordsByDate = {};
+  // Map of record ID -> focus callback for navigation
+  final Map<String, VoidCallback> _focusCallbacks = {};
 
-  bool _isLoadingPast = false;
-  bool _isLoadingFuture = false;
+  // Date range to support (1 year in each direction)
+  static const int daysBeforeToday = 365;
+  static const int daysAfterToday = 365;
+
+  final GlobalKey _todayKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _loadInitialDays();
-    _scrollController.addListener(_onScroll);
+    // No pre-loading - everything is lazy!
+    // No scroll listener needed - SliverList handles lazy loading automatically
   }
 
   @override
@@ -37,105 +40,82 @@ class _JournalScreenState extends State<JournalScreen> {
     super.dispose();
   }
 
-  String _getDateForOffset(int offset) {
-    final date = DateTime.now().add(Duration(days: offset));
-    return _formatDateForDb(date);
+  void _registerFocusCallback(String recordId, VoidCallback callback) {
+    _focusCallbacks[recordId] = callback;
+  }
+
+  void _unregisterFocusCallback(String recordId) {
+    _focusCallbacks.remove(recordId);
+  }
+
+  String _formatDateHeader(String isoDate) {
+    final dateTime = DateTime.parse(isoDate);
+    return DateFormat('EEE, MMM d').format(dateTime);
+  }
+
+  // Get a flat ordered list of all record IDs currently loaded
+  List<String> _getAllRecordIdsInOrder() {
+    final List<String> ids = [];
+
+    // Generate all loaded dates in order
+    final allDates = <String>[];
+    for (int i = daysBeforeToday; i >= 1; i--) {
+      final date = _getDateForOffset(-i);
+      if (_recordsByDate.containsKey(date)) allDates.add(date);
+    }
+    for (int i = 0; i < daysAfterToday; i++) {
+      final date = _getDateForOffset(i);
+      if (_recordsByDate.containsKey(date)) allDates.add(date);
+    }
+
+    // For each date, add todos then notes
+    for (final date in allDates) {
+      final records = _recordsByDate[date] ?? [];
+      final todos = records.whereType<TodoRecord>().toList();
+      final notes = records.whereType<NoteRecord>().toList();
+      ids.addAll(todos.map((r) => r.id));
+      ids.addAll(notes.map((r) => r.id));
+    }
+
+    return ids;
+  }
+
+  void _handleNavigate(String currentRecordId, int direction) {
+    final allIds = _getAllRecordIdsInOrder();
+    final currentIndex = allIds.indexOf(currentRecordId);
+
+    if (currentIndex == -1) return;
+
+    final targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= allIds.length) return;
+
+    final targetId = allIds[targetIndex];
+    final focusCallback = _focusCallbacks[targetId];
+    focusCallback?.call();
   }
 
   String _formatDateForDb(DateTime date) {
     return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _loadInitialDays() async {
-    final dates = List.generate(
-      _latestOffset - _earliestOffset + 1,
-      (i) => _getDateForOffset(_earliestOffset + i),
-    );
-
-    for (final date in dates) {
-      final records = await _repository.getRecordsForDate(date);
-      _recordsByDate[date] = records;
-    }
-
-    if (mounted) setState(() {});
+  String _getDateForOffset(int offsetFromToday) {
+    final date = DateTime.now().add(Duration(days: offsetFromToday));
+    return _formatDateForDb(date);
   }
 
-  Future<void> _loadMorePastDays() async {
-    if (_isLoadingPast) return;
-    _isLoadingPast = true;
-
-    final oldScrollExtent = _scrollController.position.maxScrollExtent;
-
-    // Load 10 more days in the past
-    final newEarliestOffset = _earliestOffset - 10;
-    final dates = List.generate(
-      10,
-      (i) => _getDateForOffset(newEarliestOffset + i),
-    );
-
-    for (final date in dates) {
-      final records = await _repository.getRecordsForDate(date);
-      _recordsByDate[date] = records;
+  // Lazy load records for a date (only when needed)
+  Future<List<Record>> _getRecordsForDate(String date) async {
+    if (_recordsByDate.containsKey(date)) {
+      return _recordsByDate[date]!;
     }
 
-    _earliestOffset = newEarliestOffset;
-
-    if (mounted) {
-      setState(() {});
-      // Adjust scroll position to prevent jump
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final newScrollExtent = _scrollController.position.maxScrollExtent;
-        final delta = newScrollExtent - oldScrollExtent;
-        _scrollController.jumpTo(_scrollController.offset + delta);
-      });
-    }
-
-    _isLoadingPast = false;
-  }
-
-  Future<void> _loadMoreFutureDays() async {
-    if (_isLoadingFuture) return;
-    _isLoadingFuture = true;
-
-    // Load 10 more days in the future
-    final newLatestOffset = _latestOffset + 10;
-    final dates = List.generate(
-      10,
-      (i) => _getDateForOffset(_latestOffset + 1 + i),
-    );
-
-    for (final date in dates) {
-      final records = await _repository.getRecordsForDate(date);
-      _recordsByDate[date] = records;
-    }
-
-    _latestOffset = newLatestOffset;
-
-    if (mounted) setState(() {});
-
-    _isLoadingFuture = false;
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels <=
-        _scrollController.position.minScrollExtent + 200) {
-      _loadMorePastDays();
-    }
-
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMoreFutureDays();
-    }
+    final records = await _repository.getRecordsForDate(date);
+    _recordsByDate[date] = records;
+    return records;
   }
 
   Future<void> _handleSaveRecord(Record record) async {
-    // Determine if this is a new record (check if it exists in our map)
-    final existingRecords = _recordsByDate[record.date] ?? [];
-    final isNew = !existingRecords.any((r) => r.id == record.id);
-
-    await _repository.saveRecord(record, isNew: isNew);
-
-    // Update local state
+    // Update local cache first for immediate UI update
     setState(() {
       final records = _recordsByDate[record.date] ?? [];
       final index = records.indexWhere((r) => r.id == record.id);
@@ -146,12 +126,17 @@ class _JournalScreenState extends State<JournalScreen> {
       }
       _recordsByDate[record.date] = records;
     });
+
+    // Determine if this is a new record
+    final existingRecords = _recordsByDate[record.date] ?? [];
+    final isNew = existingRecords.where((r) => r.id == record.id).length == 1;
+
+    // Save to database
+    await _repository.saveRecord(record, isNew: isNew);
   }
 
   Future<void> _handleDeleteRecord(String recordId) async {
-    await _repository.deleteRecord(recordId);
-
-    // Update local state
+    // Update local cache first
     setState(() {
       for (final date in _recordsByDate.keys) {
         _recordsByDate[date] = _recordsByDate[date]!
@@ -159,41 +144,144 @@ class _JournalScreenState extends State<JournalScreen> {
             .toList();
       }
     });
+
+    // Delete from database
+    await _repository.deleteRecord(recordId);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Generate sorted list of dates
-    final dates = List.generate(
-      _latestOffset - _earliestOffset + 1,
-      (i) => _getDateForOffset(_earliestOffset + i),
-    );
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lifelog'),
-      ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final date = dates[index];
-                final records = _recordsByDate[date] ?? [];
+      body: SafeArea(
+        child: CustomScrollView(
+          controller: _scrollController,
+          center: _todayKey,
+          slivers: [
+            // Past days (before today) - lazy loaded
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  // index 0 is yesterday, index 1 is 2 days ago, etc.
+                  final daysAgo = index + 1;
+                  final date = _getDateForOffset(-daysAgo);
 
-                return DaySection(
-                  key: ValueKey(date),
-                  date: date,
-                  records: records,
-                  onSave: _handleSaveRecord,
-                  onDelete: _handleDeleteRecord,
-                );
-              },
-              childCount: dates.length,
+                  return FutureBuilder<List<Record>>(
+                    future: _getRecordsForDate(date),
+                    builder: (context, snapshot) {
+                      final records = snapshot.data ?? [];
+                      final todos = records.whereType<TodoRecord>().toList();
+                      final notes = records.whereType<NoteRecord>().toList();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Date header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _formatDateHeader(date),
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                          ),
+                          // Records
+                          RecordSection(
+                            key: ValueKey('$date-todos'),
+                            title: 'TODOS',
+                            records: todos,
+                            date: date,
+                            recordType: 'todo',
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
+                            onNavigate: _handleNavigate,
+                          ),
+                          RecordSection(
+                            key: ValueKey('$date-notes'),
+                            title: 'NOTES',
+                            records: notes,
+                            date: date,
+                            recordType: 'note',
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
+                            onNavigate: _handleNavigate,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    },
+                  );
+                },
+                childCount: daysBeforeToday,
+              ),
             ),
-          ),
-        ],
+            // Center anchor (today starts here)
+            SliverToBoxAdapter(key: _todayKey, child: const SizedBox.shrink()),
+            // Today and future days - lazy loaded
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  // index 0 is today, index 1 is tomorrow, etc.
+                  final date = _getDateForOffset(index);
+
+                  return FutureBuilder<List<Record>>(
+                    future: _getRecordsForDate(date),
+                    builder: (context, snapshot) {
+                      final records = snapshot.data ?? [];
+                      final todos = records.whereType<TodoRecord>().toList();
+                      final notes = records.whereType<NoteRecord>().toList();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Date header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _formatDateHeader(date),
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                          ),
+                          // Records
+                          RecordSection(
+                            key: ValueKey('$date-todos'),
+                            title: 'TODOS',
+                            records: todos,
+                            date: date,
+                            recordType: 'todo',
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
+                            onNavigate: _handleNavigate,
+                          ),
+                          RecordSection(
+                            key: ValueKey('$date-notes'),
+                            title: 'NOTES',
+                            records: notes,
+                            date: date,
+                            recordType: 'note',
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
+                            onNavigate: _handleNavigate,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    },
+                  );
+                },
+                childCount: daysAfterToday,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
