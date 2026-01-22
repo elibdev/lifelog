@@ -132,16 +132,19 @@ class _RecordWidgetState extends State<RecordWidget> {
                 width: 20,
                 height: 20,
                 child: record is TodoRecord
-                    ? Transform.scale(
-                        scale: 1.1, // Slightly larger for easier clicking
-                        child: Checkbox(
-                          value: record.checked,
-                          onChanged: isEmpty ? null : _handleCheckboxToggle,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                          // Smooth animation when checking/unchecking
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
+                    // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
+                    ? ExcludeFocus(
+                        child: Transform.scale(
+                          scale: 1.1, // Slightly larger for easier clicking
+                          child: Checkbox(
+                            value: record.checked,
+                            onChanged: isEmpty ? null : _handleCheckboxToggle,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            // Smooth animation when checking/unchecking
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
                         ),
                       )
@@ -163,8 +166,16 @@ class _RecordWidgetState extends State<RecordWidget> {
               child: Focus(
                 onKeyEvent: (node, event) {
                   if (event is KeyDownEvent) {
+                    // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
+                    if (event.logicalKey == LogicalKeyboardKey.enter &&
+                        (event.isControlPressed || event.isMetaPressed) &&
+                        record is TodoRecord &&
+                        !isEmpty) {
+                      _handleCheckboxToggle(!(record as TodoRecord).checked);
+                      return KeyEventResult.handled;
+                    }
                     // Arrow down = Tab (focus next)
-                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                    else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                       FocusScope.of(context).nextFocus();
                       return KeyEventResult.handled;
                     }
