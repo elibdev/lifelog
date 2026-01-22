@@ -36,16 +36,24 @@ class _RecordWidgetState extends State<RecordWidget> {
     _controller = TextEditingController(text: widget.record.content);
     _focusNode = FocusNode();
 
-    // Rebuild when focus changes to show/hide focus background
-    _focusNode.addListener(() {
-      if (mounted) setState(() {});
-    });
+    // Listen for focus changes - rebuild for visual feedback AND delete empty records
+    _focusNode.addListener(_handleFocusChange);
 
     // Auto-focus if requested
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
       });
+    }
+  }
+
+  void _handleFocusChange() {
+    // Rebuild to show/hide focus background
+    if (mounted) setState(() {});
+
+    // When focus is lost, delete if content is empty/whitespace
+    if (!_focusNode.hasFocus && _controller.text.trim().isEmpty) {
+      widget.onDelete(widget.record.id);
     }
   }
 
@@ -77,13 +85,8 @@ class _RecordWidgetState extends State<RecordWidget> {
   void _handleTextChange() {
     final text = _controller.text;
 
-    // Delete when content is empty/whitespace - immediately triggers deletion
-    if (text.trim().isEmpty) {
-      widget.onDelete(widget.record.id);
-      return;
-    }
-
     // Save immediately (no debouncing at widget level - parent handles it)
+    // Note: We no longer delete immediately when empty - deletion happens on focus loss or delete key
     if (text != widget.record.content) {
       final now = DateTime.now().millisecondsSinceEpoch;
       final updatedRecord = widget.record.copyWith(
@@ -163,6 +166,15 @@ class _RecordWidgetState extends State<RecordWidget> {
                         record is TodoRecord &&
                         !isEmpty) {
                       _handleCheckboxToggle(!record.checked);
+                      return KeyEventResult.handled;
+                    }
+                    // Delete/backspace at beginning of empty record = delete record
+                    // This allows users to delete empty records by pressing backspace/delete
+                    else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
+                         event.logicalKey == LogicalKeyboardKey.delete) &&
+                        _controller.text.trim().isEmpty &&
+                        _controller.selection.start == 0) {
+                      widget.onDelete(widget.record.id);
                       return KeyEventResult.handled;
                     }
                     // Arrow down = Tab (focus next)
