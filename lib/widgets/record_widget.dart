@@ -7,7 +7,7 @@ class RecordWidget extends StatefulWidget {
   final Record record;
   final Function(Record) onSave;
   final Function(String) onDelete;
-  final VoidCallback? onSubmitted; // Called when user presses Enter
+  final Function(String)? onSubmitted; // Called when user presses Enter, passes record ID
   final VoidCallback? onNavigateUp; // Called when user presses arrow up
   final VoidCallback? onNavigateDown; // Called when user presses arrow down
   final bool autofocus; // Auto-focus this field
@@ -180,8 +180,8 @@ class _RecordWidgetState extends State<RecordWidget> {
                       );
                       widget.onSave(updatedRecord);
                     }
-                    // Notify parent (will focus next field)
-                    widget.onSubmitted?.call();
+                    // Notify parent which record triggered Enter
+                    widget.onSubmitted?.call(widget.record.id);
                   },
                 ),
               ),

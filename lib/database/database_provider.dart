@@ -19,8 +19,9 @@ class DatabaseProvider {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDb,
+      onUpgrade: _upgradeDb,
     );
   }
 
@@ -33,7 +34,8 @@ class DatabaseProvider {
         type TEXT NOT NULL,
         metadata TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        order_position REAL NOT NULL DEFAULT 0
       )
     ''');
 
@@ -53,6 +55,21 @@ class DatabaseProvider {
         device_id TEXT
       )
     ''');
+  }
+
+  Future<void> _upgradeDb(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add order_position column
+      await db.execute('''
+        ALTER TABLE records ADD COLUMN order_position REAL NOT NULL DEFAULT 0
+      ''');
+
+      // Backfill order_position with created_at values (normalized to floating point)
+      // This maintains current ordering while allowing future fractional inserts
+      await db.execute('''
+        UPDATE records SET order_position = created_at
+      ''');
+    }
   }
 
   Future<void> close() async {

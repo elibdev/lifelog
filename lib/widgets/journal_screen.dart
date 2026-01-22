@@ -40,14 +40,6 @@ class _JournalScreenState extends State<JournalScreen> {
     super.dispose();
   }
 
-  void _registerFocusCallback(String recordId, VoidCallback callback) {
-    _focusCallbacks[recordId] = callback;
-  }
-
-  void _unregisterFocusCallback(String recordId) {
-    _focusCallbacks.remove(recordId);
-  }
-
   String _formatDateHeader(String isoDate) {
     final dateTime = DateTime.parse(isoDate);
     return DateFormat('EEE, MMM d').format(dateTime);
@@ -124,6 +116,8 @@ class _JournalScreenState extends State<JournalScreen> {
       } else {
         records.add(record);
       }
+      // Sort by orderPosition to maintain correct order
+      records.sort((a, b) => a.orderPosition.compareTo(b.orderPosition));
       _recordsByDate[record.date] = records;
     });
 

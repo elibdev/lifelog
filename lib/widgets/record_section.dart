@@ -37,6 +37,15 @@ class _RecordSectionState extends State<RecordSection> {
     _placeholderId = const Uuid().v4();
   }
 
+  double _calculateAppendPosition() {
+    // Calculate position at end of list
+    if (widget.records.isEmpty) {
+      return 1.0;
+    }
+    final maxPosition = widget.records.map((r) => r.orderPosition).reduce((a, b) => a > b ? a : b);
+    return maxPosition + 1.0;
+  }
+
   void _handlePlaceholderSave(Record placeholder) {
     // Save the placeholder (it already has an ID)
     widget.onSave(placeholder);
@@ -46,8 +55,28 @@ class _RecordSectionState extends State<RecordSection> {
     });
   }
 
-  void _handleEnterPressed() {
-    // Create a new empty record
+  void _handleEnterPressed(String fromRecordId) {
+    // Find which record triggered Enter
+    final currentIndex = widget.records.indexWhere((r) => r.id == fromRecordId);
+
+    // Calculate position between current and next record
+    final double newPosition;
+    if (currentIndex == -1) {
+      // Enter pressed from placeholder - append to end
+      newPosition = _calculateAppendPosition();
+    } else if (currentIndex == widget.records.length - 1) {
+      // Last record - insert between it and placeholder
+      final currentPos = widget.records[currentIndex].orderPosition;
+      final placeholderPos = _calculateAppendPosition();
+      newPosition = (currentPos + placeholderPos) / 2;
+    } else {
+      // Middle of list - insert between current and next
+      final currentPos = widget.records[currentIndex].orderPosition;
+      final nextPos = widget.records[currentIndex + 1].orderPosition;
+      newPosition = (currentPos + nextPos) / 2;
+    }
+
+    // Create new record
     final uuid = const Uuid();
     final now = DateTime.now().millisecondsSinceEpoch;
     final newId = uuid.v4();
@@ -57,15 +86,17 @@ class _RecordSectionState extends State<RecordSection> {
             id: newId,
             date: widget.date,
             content: '',
-            createdAt: now + 1,
-            updatedAt: now + 1,
+            createdAt: now,
+            updatedAt: now,
+            orderPosition: newPosition,
           )
         : NoteRecord(
             id: newId,
             date: widget.date,
             content: '',
-            createdAt: now + 1,
-            updatedAt: now + 1,
+            createdAt: now,
+            updatedAt: now,
+            orderPosition: newPosition,
           );
 
     // Mark the new record for autofocus
@@ -96,6 +127,7 @@ class _RecordSectionState extends State<RecordSection> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final placeholderPosition = _calculateAppendPosition();
 
     // Create placeholder
     final Record placeholder = widget.recordType == 'todo'
@@ -105,6 +137,7 @@ class _RecordSectionState extends State<RecordSection> {
             content: '',
             createdAt: now,
             updatedAt: now,
+            orderPosition: placeholderPosition,
           )
         : NoteRecord(
             id: _placeholderId,
@@ -112,6 +145,7 @@ class _RecordSectionState extends State<RecordSection> {
             content: '',
             createdAt: now,
             updatedAt: now,
+            orderPosition: placeholderPosition,
           );
 
     return Column(

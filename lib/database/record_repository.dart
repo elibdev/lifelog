@@ -32,6 +32,7 @@ class RecordRepository {
           }),
           'created_at': record.createdAt,
           'updated_at': record.updatedAt,
+          'order_position': record.orderPosition,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -78,7 +79,7 @@ class RecordRepository {
       'records',
       where: 'date = ?',
       whereArgs: [date],
-      orderBy: 'created_at ASC',
+      orderBy: 'order_position ASC',
     );
 
     return results.map((row) {
@@ -93,7 +94,7 @@ class RecordRepository {
       'records',
       where: 'date >= ? AND date <= ?',
       whereArgs: [startDate, endDate],
-      orderBy: 'date ASC, created_at ASC',
+      orderBy: 'date ASC, order_position ASC',
     );
 
     return results.map((row) {
@@ -112,6 +113,7 @@ class RecordRepository {
       'metadata': metadata,
       'created_at': row['created_at'],
       'updated_at': row['updated_at'],
+      'order_position': row['order_position'],
     };
   }
 }

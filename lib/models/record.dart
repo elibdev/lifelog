@@ -8,6 +8,7 @@ abstract class Record {
   String get hintText;
   int get createdAt;
   int get updatedAt;
+  double get orderPosition;
 
   // Polymorphic widget - each subclass provides its own
   Widget get leadingWidget;
@@ -46,6 +47,8 @@ class NoteRecord extends Record {
   final int createdAt;
   @override
   final int updatedAt;
+  @override
+  final double orderPosition;
 
   NoteRecord({
     required this.id,
@@ -53,6 +56,7 @@ class NoteRecord extends Record {
     required this.content,
     required this.createdAt,
     required this.updatedAt,
+    required this.orderPosition,
   }) : super();
 
   @override
@@ -72,6 +76,7 @@ class NoteRecord extends Record {
       content: content ?? this.content,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      orderPosition: orderPosition,
     );
   }
 
@@ -84,6 +89,7 @@ class NoteRecord extends Record {
       'metadata': {'content': content},
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'order_position': orderPosition,
     };
   }
 
@@ -95,6 +101,7 @@ class NoteRecord extends Record {
       content: metadata['content'] as String,
       createdAt: json['created_at'] as int,
       updatedAt: json['updated_at'] as int,
+      orderPosition: (json['order_position'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -110,6 +117,8 @@ class TodoRecord extends Record {
   final int createdAt;
   @override
   final int updatedAt;
+  @override
+  final double orderPosition;
   final bool checked;
 
   TodoRecord({
@@ -118,6 +127,7 @@ class TodoRecord extends Record {
     required this.content,
     required this.createdAt,
     required this.updatedAt,
+    required this.orderPosition,
     this.checked = false,
   }) : super();
 
@@ -141,6 +151,7 @@ class TodoRecord extends Record {
       content: content ?? this.content,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      orderPosition: orderPosition,
       checked: checked,
     );
   }
@@ -153,6 +164,7 @@ class TodoRecord extends Record {
       content: content,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      orderPosition: orderPosition,
       checked: checked ?? this.checked,
     );
   }
@@ -169,6 +181,7 @@ class TodoRecord extends Record {
       },
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'order_position': orderPosition,
     };
   }
 
@@ -180,6 +193,7 @@ class TodoRecord extends Record {
       content: metadata['content'] as String,
       createdAt: json['created_at'] as int,
       updatedAt: json['updated_at'] as int,
+      orderPosition: (json['order_position'] as num?)?.toDouble() ?? 0.0,
       checked: metadata['checked'] as bool? ?? false,
     );
   }
