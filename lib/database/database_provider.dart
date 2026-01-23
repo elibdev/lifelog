@@ -109,28 +109,9 @@ class DatabaseProvider {
   // === Isolate Wrappers ===
   // These hide Isolate.run() from repositories for cleaner code
 
-  // Helper: Convert named parameters map to positional list based on SQL
-  // ELI: What is this? seems like a hacky anti pattern
-  static List<Object?> _convertNamedToPositional(
-    String sql,
-    Map<String, dynamic> params,
-  ) {
-    // Extract parameter names from SQL in order of appearance
-    final paramPattern = RegExp(r':(\w+)');
-    final matches = paramPattern.allMatches(sql);
-    final paramNames = matches.map((m) => m.group(1)!).toList();
-
-    // Build positional list matching SQL parameter order
-    return paramNames.map((name) {
-      if (!params.containsKey(name)) {
-        throw ArgumentError('Missing parameter: $name');
-      }
-      return params[name];
-    }).toList();
-  }
-
   // Query wrapper - for SELECT statements
-  // Accepts named parameters (:name in SQL, 'name' in params map)
+  // Accepts named parameters (:name in SQL, 'name': value in params map)
+  // Note: Include the colon prefix in param keys (e.g., {':id': '123'})
   Future<List<Map<String, Object?>>> queryAsync(
     String sql, [
     Map<String, dynamic>? params,
@@ -139,23 +120,13 @@ class DatabaseProvider {
     if (dbPath == null) throw StateError('Database not initialized');
 
     return await Isolate.run(() {
-      // Open database in this isolate
       final db = sqlite3.open(dbPath);
 
       try {
-        // Convert SQL with :name to ? and convert params to positional list
-        String positionalSql = sql;
-        List<Object?>? positionalParams;
-
-        if (params != null && params.isNotEmpty) {
-          positionalParams = _convertNamedToPositional(sql, params);
-          // Replace all :name with ?
-          positionalSql = sql.replaceAll(RegExp(r':\w+'), '?');
-        }
-
-        final stmt = db.prepare(positionalSql);
-        final result = positionalParams != null
-            ? stmt.select(positionalParams)
+        final stmt = db.prepare(sql);
+        // Use native named parameter support via selectWith()
+        final result = params != null && params.isNotEmpty
+            ? stmt.selectWith(StatementParameters.named(params))
             : stmt.select();
         final rows = result
             .map((row) => Map<String, Object?>.from(row))
@@ -169,6 +140,8 @@ class DatabaseProvider {
   }
 
   // Execute wrapper - for INSERT/UPDATE/DELETE without results
+  // Accepts named parameters (:name in SQL, 'name': value in params map)
+  // Note: Include the colon prefix in param keys (e.g., {':id': '123'})
   Future<void> executeAsync(String sql, [Map<String, dynamic>? params]) async {
     final dbPath = _dbPath;
     if (dbPath == null) throw StateError('Database not initialized');
@@ -177,17 +150,10 @@ class DatabaseProvider {
       final db = sqlite3.open(dbPath);
 
       try {
-        String positionalSql = sql;
-        List<Object?>? positionalParams;
-
-        if (params != null && params.isNotEmpty) {
-          positionalParams = _convertNamedToPositional(sql, params);
-          positionalSql = sql.replaceAll(RegExp(r':\w+'), '?');
-        }
-
-        final stmt = db.prepare(positionalSql);
-        positionalParams != null
-            ? stmt.execute(positionalParams)
+        final stmt = db.prepare(sql);
+        // Use native named parameter support via executeWith()
+        params != null && params.isNotEmpty
+            ? stmt.executeWith(StatementParameters.named(params))
             : stmt.execute();
         stmt.dispose();
       } finally {

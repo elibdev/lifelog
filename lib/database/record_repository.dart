@@ -23,7 +23,6 @@ class RecordRepository {
         VALUES (:id, :date, :type, :metadata, :created_at, :updated_at, :order_position)
       ''');
 
-      // Hey Claude Do you see how I did this with name parameters? Do this for all the statements.
       stmt.executeWith(
         StatementParameters.named({
           ':id': record.id,
@@ -46,13 +45,15 @@ class RecordRepository {
         VALUES (:event_type, :record_id, :payload, :timestamp, :device_id)
       ''');
       final eventJson = event.toJson();
-      eventStmt.execute([
-        eventJson['event_type'],
-        eventJson['record_id'],
-        eventJson['payload'],
-        eventJson['timestamp'],
-        eventJson['device_id'],
-      ]);
+      eventStmt.executeWith(
+        StatementParameters.named({
+          ':event_type': eventJson['event_type'],
+          ':record_id': eventJson['record_id'],
+          ':payload': eventJson['payload'],
+          ':timestamp': eventJson['timestamp'],
+          ':device_id': eventJson['device_id'],
+        }),
+      );
       eventStmt.dispose();
     });
   }
@@ -61,7 +62,7 @@ class RecordRepository {
     // Get record before deletion
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE id = :id',
-      {'id': recordId},
+      {':id': recordId},
     );
 
     if (results.isEmpty) return;
@@ -78,45 +79,34 @@ class RecordRepository {
     );
 
     await DatabaseProvider.instance.transactionAsync((db) {
+      // Use consistent named parameters throughout
       final deleteStmt = db.prepare('DELETE FROM records WHERE id = :id');
-      deleteStmt.execute([recordId]);
+      deleteStmt.executeWith(
+        StatementParameters.named({':id': recordId}),
+      );
       deleteStmt.dispose();
 
       final eventStmt = db.prepare('''
         INSERT INTO event_log (event_type, record_id, payload, timestamp, device_id)
         VALUES (:event_type, :record_id, :payload, :timestamp, :device_id)
       ''');
-      eventStmt.execute([
-        event.eventType.toDbValue(),
-        event.recordId,
-        jsonEncode(event.payload),
-        event.timestamp,
-        event.deviceId,
-      ]);
+      eventStmt.executeWith(
+        StatementParameters.named({
+          ':event_type': event.eventType.toDbValue(),
+          ':record_id': event.recordId,
+          ':payload': jsonEncode(event.payload),
+          ':timestamp': event.timestamp,
+          ':device_id': event.deviceId,
+        }),
+      );
       eventStmt.dispose();
     });
   }
 
   Future<List<Record>> getRecordsForDate(String date) async {
-    // Claude, is there no better way of doing this with selectWith or iterateWith?
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE date = :date ORDER BY order_position ASC',
-      {'date': date},
-    );
-
-    return results.map((row) {
-      final json = _parseRecordFromDb(row);
-      return Record.fromJson(json);
-    }).toList();
-  }
-
-  Future<List<Record>> getRecordsForDateRange(
-    String startDate,
-    String endDate,
-  ) async {
-    final results = await DatabaseProvider.instance.queryAsync(
-      'SELECT * FROM records WHERE date >= :start AND date <= :end ORDER BY date ASC, order_position ASC',
-      {'start': startDate, 'end': endDate},
+      {':date': date},
     );
 
     return results.map((row) {
