@@ -21,9 +21,7 @@ class _JournalScreenState extends State<JournalScreen> {
   // Per-record debouncing for disk writes (optimistic UI pattern)
   final Map<String, Debouncer> _debouncers = {};
 
-  // Date range to support (1 year in each direction)
-  static const int daysBeforeToday = 365;
-  static const int daysAfterToday = 365;
+  // No date range limits - truly infinite scrolling!
 
   final GlobalKey _todayKey = GlobalKey();
 
@@ -45,7 +43,8 @@ class _JournalScreenState extends State<JournalScreen> {
 
   String _formatDateHeader(String isoDate) {
     final dateTime = DateTime.parse(isoDate);
-    return DateFormat('EEE, MMM d').format(dateTime);
+    // Always show year for clarity (e.g., "Mon, Jan 23, 2025")
+    return DateFormat('EEE, MMM d, y').format(dateTime);
   }
 
   bool _isToday(String isoDate) {
@@ -169,13 +168,13 @@ class _JournalScreenState extends State<JournalScreen> {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Date header - simple text, no custom styling
+                                // Date header - compact spacing for information density
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16.0,
-                                    24.0,
+                                    16.0, // Reduced from 24.0
                                     16.0,
-                                    12.0,
+                                    8.0,  // Reduced from 12.0
                                   ),
                                   child: Text(
                                     isToday
@@ -203,12 +202,13 @@ class _JournalScreenState extends State<JournalScreen> {
                                   onSave: _handleSaveRecord,
                                   onDelete: _handleDeleteRecord,
                                 ),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 24), // Reduced from 32 for compactness
                               ],
                             );
                           },
                         );
-                      }, childCount: daysBeforeToday),
+                      } // No childCount = infinite scrolling!
+                      ),
                     ),
                     // Center anchor (today starts here)
                     SliverToBoxAdapter(
@@ -237,13 +237,13 @@ class _JournalScreenState extends State<JournalScreen> {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Date header - simple text, no custom styling
+                                // Date header - compact spacing for information density
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16.0,
-                                    24.0,
+                                    16.0, // Reduced from 24.0
                                     16.0,
-                                    12.0,
+                                    8.0,  // Reduced from 12.0
                                   ),
                                   child: Text(
                                     isToday
@@ -271,12 +271,13 @@ class _JournalScreenState extends State<JournalScreen> {
                                   onSave: _handleSaveRecord,
                                   onDelete: _handleDeleteRecord,
                                 ),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 24), // Reduced from 32 for compactness
                               ],
                             );
                           },
                         );
-                      }, childCount: daysAfterToday),
+                      } // No childCount = infinite scrolling!
+                      ),
                     ),
                   ],
                 ),

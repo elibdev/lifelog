@@ -108,13 +108,14 @@ class _RecordWidgetState extends State<RecordWidget> {
     final isChecked = record is TodoRecord && record.checked;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // Reduced from 4.0 for compactness
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Leading widget (polymorphic!) - checkbox or bullet
+          // No top padding - aligns with first line of text
           Padding(
-            padding: const EdgeInsets.only(top: 4.0, right: 12.0),
+            padding: const EdgeInsets.only(right: 12.0),
             child: SizedBox(
               width: 20,
               height: 20,
