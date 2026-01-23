@@ -23,16 +23,38 @@ class RecordSection extends StatefulWidget {
   });
 
   @override
-  State<RecordSection> createState() => _RecordSectionState();
+  State<RecordSection> createState() => RecordSectionState();
 }
 
-class _RecordSectionState extends State<RecordSection> {
+// Made public so JournalScreen can access it via GlobalKey for cross-section navigation
+class RecordSectionState extends State<RecordSection> {
   late String _placeholderId;
   String? _autoFocusRecordId;
 
   // FOCUS NODE TRACKING: Map of recordId -> FocusNode
   // RecordSection tracks FocusNodes so it can call requestFocus() during navigation
   final Map<String, FocusNode> _focusNodes = {};
+
+  // PUBLIC API: Focus the first record in this section
+  // Called by JournalScreen via GlobalKey for cross-section navigation
+  //
+  // WHY PUBLIC: When a navigation notification bubbles up to JournalScreen
+  // (user at end/start of section), JournalScreen needs to directly tell
+  // the next section "focus your first/last record". This ensures we focus
+  // TEXT FIELDS, not checkboxes or other focusable widgets.
+  void focusFirstRecord() {
+    _tryFocusRecordAt(0);
+  }
+
+  // PUBLIC API: Focus the last record in this section (or placeholder)
+  // Called by JournalScreen via GlobalKey for cross-section navigation
+  void focusLastRecord() {
+    final allRecordIds = [
+      ...widget.records.map((r) => r.id),
+      _placeholderId,
+    ];
+    _tryFocusRecordAt(allRecordIds.length - 1);
+  }
 
   @override
   void initState() {

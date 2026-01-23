@@ -40,9 +40,17 @@ class NavigateDownNotification extends Notification {
   /// Index of the record within its parent RecordSection
   final int recordIndex;
 
+  /// ISO date string (e.g., '2026-01-23') of the day this record belongs to
+  final String date;
+
+  /// Type of section: 'todo' or 'note'
+  final String sectionType;
+
   NavigateDownNotification({
     required this.recordId,
     required this.recordIndex,
+    required this.date,
+    required this.sectionType,
   });
 }
 
@@ -60,8 +68,16 @@ class NavigateUpNotification extends Notification {
   /// Index of the record within its parent RecordSection
   final int recordIndex;
 
+  /// ISO date string (e.g., '2026-01-23') of the day this record belongs to
+  final String date;
+
+  /// Type of section: 'todo' or 'note'
+  final String sectionType;
+
   NavigateUpNotification({
     required this.recordId,
     required this.recordIndex,
+    required this.date,
+    required this.sectionType,
   });
 }

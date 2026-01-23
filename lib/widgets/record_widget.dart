@@ -171,6 +171,8 @@ class _RecordWidgetState extends State<RecordWidget> {
     NavigateDownNotification(
       recordId: widget.record.id,
       recordIndex: widget.recordIndex ?? -1,
+      date: widget.record.date,
+      sectionType: widget.record.type,
     ).dispatch(context);
 
     return KeyEventResult.handled;
@@ -183,6 +185,8 @@ class _RecordWidgetState extends State<RecordWidget> {
     NavigateUpNotification(
       recordId: widget.record.id,
       recordIndex: widget.recordIndex ?? -1,
+      date: widget.record.date,
+      sectionType: widget.record.type,
     ).dispatch(context);
 
     return KeyEventResult.handled;

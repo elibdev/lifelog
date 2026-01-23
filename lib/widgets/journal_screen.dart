@@ -22,9 +22,141 @@ class _JournalScreenState extends State<JournalScreen> {
   // Per-record debouncing for disk writes (optimistic UI pattern)
   final Map<String, Debouncer> _debouncers = {};
 
+  // CROSS-SECTION NAVIGATION: Map of (date, sectionType) -> GlobalKey
+  //
+  // WHAT IS A GLOBALKEY?
+  // A GlobalKey is like a "remote control" for a widget. It lets us access
+  // a widget's state from anywhere in the app, even if that widget is deep
+  // in the widget tree and we don't have a direct reference to it.
+  //
+  // WHY DO WE NEED IT HERE?
+  // When a navigation notification bubbles up to JournalScreen, we need to
+  // tell a specific RecordSection "focus your first/last record". Without
+  // GlobalKey, we'd have no way to call methods on RecordSection's state.
+  //
+  // EXAMPLE:
+  // User presses arrow down on last todo of Jan 23:
+  //   1. Notification bubbles up to JournalScreen
+  //   2. JournalScreen knows: "go to first note of Jan 23"
+  //   3. JournalScreen looks up: _sectionKeys['2026-01-23-note']
+  //   4. Calls: key.currentState?.focusFirstRecord()
+  //   5. Notes section focuses its first text field
+  //
+  // This is how we avoid FocusScope.nextFocus() which would focus ANY
+  // widget (checkboxes, buttons, etc.) instead of specifically text fields.
+  final Map<String, GlobalKey<RecordSectionState>> _sectionKeys = {};
+
   // No date range limits - truly infinite scrolling!
 
   final GlobalKey _todayKey = GlobalKey();
+
+  // Get or create a GlobalKey for a specific RecordSection
+  //
+  // WHY USE A MAP INSTEAD OF CREATING NEW KEYS?
+  // GlobalKeys must be STABLE across rebuilds. If we created a new
+  // GlobalKey() every time build() runs, Flutter would think we're
+  // creating a completely new widget and lose the connection to the
+  // RecordSection's state.
+  //
+  // By storing keys in a Map, we ensure the SAME key is used for the
+  // SAME section across rebuilds, so currentState stays connected.
+  //
+  // AVOIDING THE GLOBALKEY PITFALL:
+  // ❌ BAD:  key: GlobalKey<RecordSectionState>()  // New key every build!
+  // ✅ GOOD: key: _getSectionKey(date, type)       // Returns same key
+  //
+  // putIfAbsent ensures:
+  // - First call: Creates key, stores in map, returns it
+  // - Subsequent calls: Returns EXISTING key from map (no recreation)
+  //
+  // EXAMPLE:
+  // - First build: Creates GlobalKey for '2026-01-23-todo', attaches to RecordSection
+  // - Second build: Returns SAME key, maintains connection to RecordSection
+  // - Later: key.currentState points to the RecordSection's state
+  GlobalKey<RecordSectionState> _getSectionKey(String date, String sectionType) {
+    final key = '$date-$sectionType';
+    return _sectionKeys.putIfAbsent(key, () => GlobalKey<RecordSectionState>());
+  }
+
+  // SMART NAVIGATION: Handle arrow down from end of section
+  // Navigate to the first record of the next logical section
+  //
+  // PROBLEM: FocusScope.nextFocus() is too generic - it traverses the entire
+  // focus tree and focuses ANY focusable widget (checkboxes, buttons, etc.)
+  //
+  // SOLUTION: Use the notification's metadata (date, sectionType) to directly
+  // access the next RecordSection's state and call focusFirstRecord() on it.
+  // This ensures we ALWAYS focus a text field, never a checkbox.
+  void _navigateDown(String date, String sectionType) {
+    if (sectionType == 'todo') {
+      // From last todo → first note (same day)
+      _focusFirstRecordOfSection(date, 'note');
+    } else {
+      // From last note → first todo of next day
+      final nextDate = _getNextDate(date);
+      _focusFirstRecordOfSection(nextDate, 'todo');
+    }
+  }
+
+  // SMART NAVIGATION: Handle arrow up from start of section
+  // Navigate to the last record of the previous logical section
+  //
+  // Same logic as _navigateDown but in reverse direction
+  void _navigateUp(String date, String sectionType) {
+    if (sectionType == 'note') {
+      // From first note → last todo (same day)
+      _focusLastRecordOfSection(date, 'todo');
+    } else {
+      // From first todo → last note of previous day
+      final prevDate = _getPreviousDate(date);
+      _focusLastRecordOfSection(prevDate, 'note');
+    }
+  }
+
+  // Focus the first record of a specific section
+  // Uses GlobalKey to access RecordSection's state and call its public method
+  //
+  // HOW IT WORKS:
+  //   1. Get the GlobalKey for the target section
+  //   2. Access the key's currentState (RecordSectionState instance)
+  //   3. Call the public method focusFirstRecord() on that state
+  //
+  // VISUAL FLOW:
+  //   JournalScreen (here)
+  //        ↓ key.currentState?.focusFirstRecord()
+  //   RecordSectionState (in record_section.dart)
+  //        ↓ _tryFocusRecordAt(0)
+  //        ↓ _focusNodes[firstRecordId]?.requestFocus()
+  //   TextField gets focus ✅
+  void _focusFirstRecordOfSection(String date, String sectionType) {
+    final key = _getSectionKey(date, sectionType);
+    // currentState may be null if the section hasn't been built yet (lazy loading)
+    // In that case, navigation simply doesn't happen (stay in place)
+    key.currentState?.focusFirstRecord();
+  }
+
+  // Focus the last record of a specific section
+  // Uses GlobalKey to access RecordSection's state and call its public method
+  void _focusLastRecordOfSection(String date, String sectionType) {
+    final key = _getSectionKey(date, sectionType);
+    // currentState may be null if the section hasn't been built yet (lazy loading)
+    // In that case, navigation simply doesn't happen (stay in place)
+    key.currentState?.focusLastRecord();
+  }
+
+  // Get the next day's date string
+  String _getNextDate(String isoDate) {
+    final date = DateTime.parse(isoDate);
+    final nextDay = date.add(const Duration(days: 1));
+    return _formatDateForDb(nextDay);
+  }
+
+  // Get the previous day's date string
+  String _getPreviousDate(String isoDate) {
+    final date = DateTime.parse(isoDate);
+    final prevDay = date.subtract(const Duration(days: 1));
+    return _formatDateForDb(prevDay);
+  }
 
   @override
   void initState() {
@@ -146,20 +278,20 @@ class _JournalScreenState extends State<JournalScreen> {
                 // No decorations - just responsive width constraints
                 // NOTIFICATION LISTENERS: Handle cross-section navigation
                 // When RecordSection can't handle navigation (at end/start of section),
-                // the notification bubbles up here and we use FocusScope to move
-                // to the next/previous focusable widget (which will be the next section)
+                // the notification bubbles up here and we intelligently navigate
+                // to the next/previous section using the metadata in the notification
                 child: NotificationListener<NavigateDownNotification>(
                   onNotification: (notification) {
                     // RecordSection couldn't handle it (at end of section)
-                    // Move to next focusable widget (next section or day)
-                    FocusScope.of(context).nextFocus();
+                    // Navigate to next logical section (todos→notes, notes→next day's todos)
+                    _navigateDown(notification.date, notification.sectionType);
                     return true; // We handled it
                   },
                   child: NotificationListener<NavigateUpNotification>(
                     onNotification: (notification) {
                       // RecordSection couldn't handle it (at start of section)
-                      // Move to previous focusable widget (previous section or day)
-                      FocusScope.of(context).previousFocus();
+                      // Navigate to previous logical section (notes→todos, todos→prev day's notes)
+                      _navigateUp(notification.date, notification.sectionType);
                       return true; // We handled it
                     },
                     child: CustomScrollView(
@@ -207,8 +339,16 @@ class _JournalScreenState extends State<JournalScreen> {
                                     ),
                                   ),
                                   // Records
+                                  //
+                                  // ATTACHING THE GLOBALKEY:
+                                  // We pass the GlobalKey to RecordSection via the 'key' parameter.
+                                  // This creates the connection: key.currentState → RecordSectionState
+                                  //
+                                  // WHY: Later when a navigation notification arrives, we can call
+                                  // _getSectionKey(date, 'todo').currentState?.focusFirstRecord()
+                                  // to directly tell THIS specific RecordSection to focus a record.
                                   RecordSection(
-                                    key: ValueKey('$date-todos'),
+                                    key: _getSectionKey(date, 'todo'), // "Remote control" attached here
                                     title: 'TODOS',
                                     records: todos,
                                     date: date,
@@ -217,7 +357,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                   ),
                                   RecordSection(
-                                    key: ValueKey('$date-notes'),
+                                    key: _getSectionKey(date, 'note'),
                                     title: 'NOTES',
                                     records: notes,
                                     date: date,
@@ -278,8 +418,16 @@ class _JournalScreenState extends State<JournalScreen> {
                                     ),
                                   ),
                                   // Records
+                                  //
+                                  // ATTACHING THE GLOBALKEY:
+                                  // We pass the GlobalKey to RecordSection via the 'key' parameter.
+                                  // This creates the connection: key.currentState → RecordSectionState
+                                  //
+                                  // WHY: Later when a navigation notification arrives, we can call
+                                  // _getSectionKey(date, 'todo').currentState?.focusFirstRecord()
+                                  // to directly tell THIS specific RecordSection to focus a record.
                                   RecordSection(
-                                    key: ValueKey('$date-todos'),
+                                    key: _getSectionKey(date, 'todo'), // "Remote control" attached here
                                     title: 'TODOS',
                                     records: todos,
                                     date: date,
@@ -288,7 +436,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                   ),
                                   RecordSection(
-                                    key: ValueKey('$date-notes'),
+                                    key: _getSectionKey(date, 'note'),
                                     title: 'NOTES',
                                     records: notes,
                                     date: date,
