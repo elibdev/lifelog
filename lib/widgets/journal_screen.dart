@@ -276,9 +276,6 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onSave: _handleSaveRecord,
                                     onDelete: _handleDeleteRecord,
                                   ),
-                                  const SizedBox(
-                                    height: 24,
-                                  ), // Reduced from 32 for compactness
                                 ],
                               );
                             },
