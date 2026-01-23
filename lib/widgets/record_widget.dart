@@ -7,8 +7,17 @@ class RecordWidget extends StatefulWidget {
   final Function(Record) onSave;
   final Function(String) onDelete;
   final Function(String)?
-  onSubmitted; // Called when user presses Enter, passes record ID
+      onSubmitted; // Called when user presses Enter, passes record ID
   final bool autofocus; // Auto-focus this field
+
+  // CUSTOM NAVIGATION CALLBACKS (optional - for future custom focus registry)
+  // These allow parent widgets to override default arrow key behavior
+  final int? recordIndex; // Position in parent's list (needed for callbacks)
+  final void Function(int index, String recordId, FocusNode node)?
+      onFocusNodeCreated;
+  final void Function(String recordId)? onFocusNodeDisposed;
+  final void Function(FocusNode currentNode)? onArrowUp;
+  final void Function(FocusNode currentNode)? onArrowDown;
 
   const RecordWidget({
     super.key,
@@ -17,6 +26,12 @@ class RecordWidget extends StatefulWidget {
     required this.onDelete,
     this.onSubmitted,
     this.autofocus = false,
+    // Custom navigation callbacks - all optional
+    this.recordIndex,
+    this.onFocusNodeCreated,
+    this.onFocusNodeDisposed,
+    this.onArrowUp,
+    this.onArrowDown,
   });
 
   @override
@@ -31,12 +46,25 @@ class _RecordWidgetState extends State<RecordWidget> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.record.content);
+    _setupFocusNode();
+  }
+
+  // FOCUS LIFECYCLE: Setup
+  void _setupFocusNode() {
+    // Create FocusNode
     _focusNode = FocusNode();
 
-    // Listen for focus changes - rebuild for visual feedback AND delete empty records
+    // Register with parent if callback provided (for custom focus registry)
+    widget.onFocusNodeCreated?.call(
+      widget.recordIndex ?? -1,
+      widget.record.id,
+      _focusNode,
+    );
+
+    // Attach focus change listener (rebuilds on focus + deletes empty on blur)
     _focusNode.addListener(_handleFocusChange);
 
-    // Auto-focus if requested
+    // Request autofocus if needed
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
@@ -71,8 +99,20 @@ class _RecordWidgetState extends State<RecordWidget> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
+    _teardownFocusNode();
     super.dispose();
+  }
+
+  // FOCUS LIFECYCLE: Cleanup
+  void _teardownFocusNode() {
+    // Remove listener first (good practice before disposal)
+    _focusNode.removeListener(_handleFocusChange);
+
+    // Unregister from parent if callback provided
+    widget.onFocusNodeDisposed?.call(widget.record.id);
+
+    // Dispose FocusNode to prevent memory leaks
+    _focusNode.dispose();
   }
 
   void _handleTextChange() {
@@ -99,6 +139,81 @@ class _RecordWidgetState extends State<RecordWidget> {
       updatedAt: now,
     );
     widget.onSave(updated);
+  }
+
+  // KEYBOARD SHORTCUTS: Main handler delegates to specialized handlers
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    // Try navigation shortcuts first (arrow keys)
+    final navResult = _handleNavigationKey(event, node);
+    if (navResult == KeyEventResult.handled) return navResult;
+
+    // Then try action shortcuts (Ctrl+Enter, Delete)
+    final actionResult = _handleActionKey(event);
+    if (actionResult == KeyEventResult.handled) return actionResult;
+
+    return KeyEventResult.ignored;
+  }
+
+  // NAVIGATION SHORTCUTS: Arrow keys for moving between records
+  KeyEventResult _handleNavigationKey(KeyEvent event, FocusNode node) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      return _handleArrowDown(node);
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      return _handleArrowUp(node);
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleArrowDown(FocusNode node) {
+    // Use custom callback if provided, otherwise default to nextFocus
+    if (widget.onArrowDown != null) {
+      widget.onArrowDown!(node);
+    } else {
+      FocusScope.of(context).nextFocus();
+    }
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult _handleArrowUp(FocusNode node) {
+    // Use custom callback if provided, otherwise default to previousFocus
+    if (widget.onArrowUp != null) {
+      widget.onArrowUp!(node);
+    } else {
+      FocusScope.of(context).previousFocus();
+    }
+    return KeyEventResult.handled;
+  }
+
+  // ACTION SHORTCUTS: Ctrl+Enter toggles checkbox, Delete removes empty
+  KeyEventResult _handleActionKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final record = widget.record;
+    final isEmpty = _controller.text.trim().isEmpty;
+
+    // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
+    if (event.logicalKey == LogicalKeyboardKey.enter &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed) &&
+        record is TodoRecord &&
+        !isEmpty) {
+      _handleCheckboxToggle(!record.checked);
+      return KeyEventResult.handled;
+    }
+
+    // Delete/backspace at beginning of empty record = delete record
+    if ((event.logicalKey == LogicalKeyboardKey.backspace ||
+            event.logicalKey == LogicalKeyboardKey.delete) &&
+        isEmpty &&
+        _controller.selection.start == 0) {
+      widget.onDelete(widget.record.id);
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -139,39 +254,7 @@ class _RecordWidgetState extends State<RecordWidget> {
           // Text field
           Expanded(
             child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent) {
-                  // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
-                  if (event.logicalKey == LogicalKeyboardKey.enter &&
-                      (HardwareKeyboard.instance.isControlPressed ||
-                          HardwareKeyboard.instance.isMetaPressed) &&
-                      record is TodoRecord &&
-                      !isEmpty) {
-                    _handleCheckboxToggle(!record.checked);
-                    return KeyEventResult.handled;
-                  }
-                  // Delete/backspace at beginning of empty record = delete record
-                  // This allows users to delete empty records by pressing backspace/delete
-                  else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
-                          event.logicalKey == LogicalKeyboardKey.delete) &&
-                      _controller.text.trim().isEmpty &&
-                      _controller.selection.start == 0) {
-                    widget.onDelete(widget.record.id);
-                    return KeyEventResult.handled;
-                  }
-                  // Arrow down = Tab (focus next)
-                  else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    FocusScope.of(context).nextFocus();
-                    return KeyEventResult.handled;
-                  }
-                  // Arrow up = Shift+Tab (focus previous)
-                  else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                    FocusScope.of(context).previousFocus();
-                    return KeyEventResult.handled;
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
+              onKeyEvent: _handleKeyEvent,
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
