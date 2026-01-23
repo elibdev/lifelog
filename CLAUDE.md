@@ -37,14 +37,32 @@ Use `Bash` to run `flutter analyze` to check for any issues with the code.
 
 Note: You should run `flutter analyze`, NOT `flutter run`. The user will run the app themselves.
 
-### 4. Explain What You Added
+### 4. Link to Learning Resources
+Use `WebFetch` or `WebSearch` to find and link to:
+- Official Flutter documentation for patterns you explained
+- Flutter API docs for widgets/classes used
+- Good tutorials or guides for concepts that came up
+- Stack Overflow discussions for common patterns
+
+Provide actual links in your response so the user can read more.
+
+### 5. Explain What You Added
 In your response text:
 - Tell the user which files you've annotated
 - Give a high-level overview of what the code does
 - Point out key patterns or concepts they should understand
-- Link to relevant Flutter documentation using `WebFetch` or `WebSearch`
+- Reference the learning resources you linked
 
-### 5. The User Will Delete Comments
+### 6. Check Understanding
+After explaining, ask the user questions to verify they understood:
+- "What do you think would happen if we removed this setState()?"
+- "Why do you think we need a StatefulWidget here instead of StatelessWidget?"
+- "Can you explain in your own words what initState() does?"
+- "Where else in the codebase might we use this same pattern?"
+
+These questions help solidify learning and reveal gaps in understanding.
+
+### 7. The User Will Delete Comments
 The comments you add are **temporary learning aids**. The user will delete them once they understand the code. Don't treat them as permanent documentation.
 
 ## What to Comment
@@ -77,10 +95,19 @@ As you write new code, add comments explaining:
 - How it fits into the existing codebase
 - What the user should understand about this code
 
-### 3. Explain Your Choices
-In your response, walk through what you built and why you built it that way. Link to relevant Flutter documentation.
+### 3. Link to Resources
+Use `WebFetch` or `WebSearch` to link to Flutter documentation for the patterns you used.
 
-### 4. Check Your Work
+### 4. Explain Your Choices
+In your response, walk through what you built and why you built it that way.
+
+### 5. Check Understanding
+Ask questions to ensure the user understands the implementation:
+- "Can you explain why I chose this approach?"
+- "What would you change if we needed to add X feature?"
+- "How does this fit with the rest of your app's architecture?"
+
+### 6. Check Your Work
 Use `Bash` to run `flutter analyze` to verify no errors were introduced.
 
 ## Tool Usage Summary
