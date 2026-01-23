@@ -8,11 +8,12 @@ import 'record_section.dart';
 // Helper class for focus registry - tracks text field FocusNodes across sections
 class _FocusNodeEntry {
   final DateTime date;
+  final String sectionType; // 'todo' or 'note' to maintain correct section order
   final int index;
   final String recordId;
   final FocusNode node;
 
-  _FocusNodeEntry(this.date, this.index, this.recordId, this.node);
+  _FocusNodeEntry(this.date, this.sectionType, this.index, this.recordId, this.node);
 }
 
 class JournalScreen extends StatefulWidget {
@@ -130,14 +131,14 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   // FOCUS REGISTRY: Register a text field FocusNode for arrow navigation
-  void _registerFocusNode(DateTime date, int index, String recordId, FocusNode node) {
+  void _registerFocusNode(DateTime date, String sectionType, int index, String recordId, FocusNode node) {
     // Remove existing entry for this record (handles rebuilds)
     _textFieldFocusNodes.removeWhere((e) => e.recordId == recordId);
 
     // Add new entry
-    _textFieldFocusNodes.add(_FocusNodeEntry(date, index, recordId, node));
+    _textFieldFocusNodes.add(_FocusNodeEntry(date, sectionType, index, recordId, node));
 
-    // Sort by visual order (date, then index within date)
+    // Sort by visual order (date, then section, then index within section)
     _sortFocusNodes();
   }
 
@@ -152,7 +153,13 @@ class _JournalScreenState extends State<JournalScreen> {
       // Sort by date first (chronological order)
       final dateCompare = a.date.compareTo(b.date);
       if (dateCompare != 0) return dateCompare;
-      // Then by index within the same date
+
+      // Then by section type (todos before notes)
+      final sectionOrder = {'todo': 0, 'note': 1};
+      final sectionCompare = (sectionOrder[a.sectionType] ?? 0).compareTo(sectionOrder[b.sectionType] ?? 0);
+      if (sectionCompare != 0) return sectionCompare;
+
+      // Finally by index within the same section
       return a.index.compareTo(b.index);
     });
   }
@@ -256,7 +263,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                     // Focus management callbacks
                                     onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), index, recordId, node);
+                                      _registerFocusNode(DateTime.parse(date), 'todo', index, recordId, node);
                                     },
                                     onFocusNodeDisposed: _unregisterFocusNode,
                                     onArrowUp: _focusPreviousTextField,
@@ -272,7 +279,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                     // Focus management callbacks
                                     onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), index, recordId, node);
+                                      _registerFocusNode(DateTime.parse(date), 'note', index, recordId, node);
                                     },
                                     onFocusNodeDisposed: _unregisterFocusNode,
                                     onArrowUp: _focusPreviousTextField,
@@ -341,7 +348,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                     // Focus management callbacks
                                     onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), index, recordId, node);
+                                      _registerFocusNode(DateTime.parse(date), 'todo', index, recordId, node);
                                     },
                                     onFocusNodeDisposed: _unregisterFocusNode,
                                     onArrowUp: _focusPreviousTextField,
@@ -357,7 +364,7 @@ class _JournalScreenState extends State<JournalScreen> {
                                     onDelete: _handleDeleteRecord,
                                     // Focus management callbacks
                                     onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), index, recordId, node);
+                                      _registerFocusNode(DateTime.parse(date), 'note', index, recordId, node);
                                     },
                                     onFocusNodeDisposed: _unregisterFocusNode,
                                     onArrowUp: _focusPreviousTextField,
