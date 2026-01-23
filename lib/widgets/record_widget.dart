@@ -6,9 +6,8 @@ class RecordWidget extends StatefulWidget {
   final Record record;
   final Function(Record) onSave;
   final Function(String) onDelete;
-  final Function(String)? onSubmitted; // Called when user presses Enter, passes record ID
-  final VoidCallback? onNavigateUp; // Called when user presses arrow up
-  final VoidCallback? onNavigateDown; // Called when user presses arrow down
+  final Function(String)?
+  onSubmitted; // Called when user presses Enter, passes record ID
   final bool autofocus; // Auto-focus this field
 
   const RecordWidget({
@@ -17,8 +16,6 @@ class RecordWidget extends StatefulWidget {
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.onNavigateUp,
-    this.onNavigateDown,
     this.autofocus = false,
   });
 
@@ -66,13 +63,9 @@ class _RecordWidgetState extends State<RecordWidget> {
     }
     // If content changed externally, update controller
     else if (widget.record.content != oldWidget.record.content &&
-             widget.record.content != _controller.text) {
+        widget.record.content != _controller.text) {
       _controller.text = widget.record.content;
     }
-  }
-
-  void requestFocus() {
-    _focusNode.requestFocus();
   }
 
   @override
@@ -115,121 +108,130 @@ class _RecordWidgetState extends State<RecordWidget> {
     final isChecked = record is TodoRecord && record.checked;
 
     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Leading widget (polymorphic!) - checkbox or bullet
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0, right: 12.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: record is TodoRecord
-                    // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
-                    ? ExcludeFocus(
-                        child: Transform.scale(
-                          scale: 1.1, // Slightly larger for easier clicking
-                          child: Checkbox(
-                            value: record.checked,
-                            onChanged: isEmpty ? null : _handleCheckboxToggle,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            // Smooth animation when checking/unchecking
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ),
-                      )
-                    : Center(
-                        // More refined bullet point
-                        child: Container(
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                            shape: BoxShape.circle,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Leading widget (polymorphic!) - checkbox or bullet
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0, right: 12.0),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: record is TodoRecord
+                  // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
+                  ? ExcludeFocus(
+                      child: Transform.scale(
+                        scale: 1.1, // Slightly larger for easier clicking
+                        child: Checkbox(
+                          value: record.checked,
+                          onChanged: isEmpty ? null : _handleCheckboxToggle,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          // Smooth animation when checking/unchecking
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
                           ),
                         ),
                       ),
+                    )
+                  : Center(
+                      // More refined bullet point
+                      child: Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          // Text field
+          Expanded(
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent) {
+                  // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
+                  if (event.logicalKey == LogicalKeyboardKey.enter &&
+                      (HardwareKeyboard.instance.isControlPressed ||
+                          HardwareKeyboard.instance.isMetaPressed) &&
+                      record is TodoRecord &&
+                      !isEmpty) {
+                    _handleCheckboxToggle(!record.checked);
+                    return KeyEventResult.handled;
+                  }
+                  // Delete/backspace at beginning of empty record = delete record
+                  // This allows users to delete empty records by pressing backspace/delete
+                  else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
+                          event.logicalKey == LogicalKeyboardKey.delete) &&
+                      _controller.text.trim().isEmpty &&
+                      _controller.selection.start == 0) {
+                    widget.onDelete(widget.record.id);
+                    return KeyEventResult.handled;
+                  }
+                  // Arrow down = Tab (focus next)
+                  else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                    FocusScope.of(context).nextFocus();
+                    return KeyEventResult.handled;
+                  }
+                  // Arrow up = Shift+Tab (focus previous)
+                  else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                    FocusScope.of(context).previousFocus();
+                    return KeyEventResult.handled;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                // Strikethrough for completed todos - satisfying visual feedback!
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  decoration: isChecked ? TextDecoration.lineThrough : null,
+                  decorationColor: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.4),
+                  color: isChecked
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5)
+                      : null,
+                ),
+                maxLines: null,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) {
+                  _handleTextChange();
+                  setState(() {});
+                },
+                onSubmitted: (_) {
+                  // Save current text immediately
+                  if (_controller.text.isNotEmpty &&
+                      _controller.text != widget.record.content) {
+                    final now = DateTime.now().millisecondsSinceEpoch;
+                    final updatedRecord = widget.record.copyWith(
+                      content: _controller.text,
+                      updatedAt: now,
+                    );
+                    widget.onSave(updatedRecord);
+                  }
+                  // Notify parent which record triggered Enter
+                  widget.onSubmitted?.call(widget.record.id);
+                },
               ),
             ),
-            // Text field
-            Expanded(
-              child: Focus(
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent) {
-                    // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
-                    if (event.logicalKey == LogicalKeyboardKey.enter &&
-                        (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed) &&
-                        record is TodoRecord &&
-                        !isEmpty) {
-                      _handleCheckboxToggle(!record.checked);
-                      return KeyEventResult.handled;
-                    }
-                    // Delete/backspace at beginning of empty record = delete record
-                    // This allows users to delete empty records by pressing backspace/delete
-                    else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
-                         event.logicalKey == LogicalKeyboardKey.delete) &&
-                        _controller.text.trim().isEmpty &&
-                        _controller.selection.start == 0) {
-                      widget.onDelete(widget.record.id);
-                      return KeyEventResult.handled;
-                    }
-                    // Arrow down = Tab (focus next)
-                    else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                      FocusScope.of(context).nextFocus();
-                      return KeyEventResult.handled;
-                    }
-                    // Arrow up = Shift+Tab (focus previous)
-                    else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                      FocusScope.of(context).previousFocus();
-                      return KeyEventResult.handled;
-                    }
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    // Strikethrough for completed todos - satisfying visual feedback!
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      decoration: isChecked ? TextDecoration.lineThrough : null,
-                      decorationColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                      color: isChecked
-                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
-                          : null,
-                    ),
-                    maxLines: null,
-                    textInputAction: TextInputAction.done,
-                    onChanged: (_) {
-                      _handleTextChange();
-                      setState(() {});
-                    },
-                    onSubmitted: (_) {
-                      // Save current text immediately
-                      if (_controller.text.isNotEmpty && _controller.text != widget.record.content) {
-                        final now = DateTime.now().millisecondsSinceEpoch;
-                        final updatedRecord = widget.record.copyWith(
-                          content: _controller.text,
-                          updatedAt: now,
-                        );
-                        widget.onSave(updatedRecord);
-                      }
-                      // Notify parent which record triggered Enter
-                      widget.onSubmitted?.call(widget.record.id);
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }

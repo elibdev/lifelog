@@ -110,7 +110,11 @@ class DatabaseProvider {
   // These hide Isolate.run() from repositories for cleaner code
 
   // Helper: Convert named parameters map to positional list based on SQL
-  static List<Object?> _convertNamedToPositional(String sql, Map<String, dynamic> params) {
+  // ELI: What is this? seems like a hacky anti pattern
+  static List<Object?> _convertNamedToPositional(
+    String sql,
+    Map<String, dynamic> params,
+  ) {
     // Extract parameter names from SQL in order of appearance
     final paramPattern = RegExp(r':(\w+)');
     final matches = paramPattern.allMatches(sql);
@@ -127,7 +131,10 @@ class DatabaseProvider {
 
   // Query wrapper - for SELECT statements
   // Accepts named parameters (:name in SQL, 'name' in params map)
-  Future<List<Map<String, Object?>>> queryAsync(String sql, [Map<String, dynamic>? params]) async {
+  Future<List<Map<String, Object?>>> queryAsync(
+    String sql, [
+    Map<String, dynamic>? params,
+  ]) async {
     final dbPath = _dbPath;
     if (dbPath == null) throw StateError('Database not initialized');
 
@@ -147,8 +154,12 @@ class DatabaseProvider {
         }
 
         final stmt = db.prepare(positionalSql);
-        final result = positionalParams != null ? stmt.select(positionalParams) : stmt.select();
-        final rows = result.map((row) => Map<String, Object?>.from(row)).toList();
+        final result = positionalParams != null
+            ? stmt.select(positionalParams)
+            : stmt.select();
+        final rows = result
+            .map((row) => Map<String, Object?>.from(row))
+            .toList();
         stmt.dispose();
         return rows;
       } finally {
@@ -175,7 +186,9 @@ class DatabaseProvider {
         }
 
         final stmt = db.prepare(positionalSql);
-        positionalParams != null ? stmt.execute(positionalParams) : stmt.execute();
+        positionalParams != null
+            ? stmt.execute(positionalParams)
+            : stmt.execute();
         stmt.dispose();
       } finally {
         db.dispose();

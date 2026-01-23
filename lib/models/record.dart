@@ -1,17 +1,11 @@
-import 'package:flutter/material.dart';
-
 abstract class Record {
   String get id;
   String get date; // ISO8601: '2026-01-21'
   String get type; // 'note', 'todo'
   String get content;
-  String get hintText;
   int get createdAt;
   int get updatedAt;
   double get orderPosition;
-
-  // Polymorphic widget - each subclass provides its own
-  Widget get leadingWidget;
 
   // Constructor for subclasses
   Record();
@@ -61,12 +55,6 @@ class NoteRecord extends Record {
 
   @override
   String get type => 'note';
-
-  @override
-  String get hintText => 'Add a note...';
-
-  @override
-  Widget get leadingWidget => const Icon(Icons.circle, size: 8);
 
   @override
   Record copyWith({String? content, int? updatedAt}) {
@@ -135,15 +123,6 @@ class TodoRecord extends Record {
   String get type => 'todo';
 
   @override
-  String get hintText => 'Add a todo...';
-
-  @override
-  Widget get leadingWidget => Checkbox(
-        value: checked,
-        onChanged: null, // Read-only here, handled by RecordWidget
-      );
-
-  @override
   Record copyWith({String? content, int? updatedAt}) {
     return TodoRecord(
       id: id,
@@ -175,10 +154,7 @@ class TodoRecord extends Record {
       'id': id,
       'date': date,
       'type': type,
-      'metadata': {
-        'content': content,
-        'checked': checked,
-      },
+      'metadata': {'content': content, 'checked': checked},
       'created_at': createdAt,
       'updated_at': updatedAt,
       'order_position': orderPosition,

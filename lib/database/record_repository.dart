@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:sqlite3/common.dart';
+
 import '../models/record.dart';
 import '../models/event.dart';
 import 'database_provider.dart';
@@ -10,7 +12,6 @@ class RecordRepository {
       recordId: record.id,
       payload: record.toJson(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      deviceId: null, // TODO: Add device ID if needed for multi-device sync
     );
 
     // Atomic transaction: update records + log event
@@ -22,18 +23,21 @@ class RecordRepository {
         VALUES (:id, :date, :type, :metadata, :created_at, :updated_at, :order_position)
       ''');
 
-      stmt.execute([
-        record.id,
-        record.date,
-        record.type,
-        jsonEncode({
-          'content': record.content,
-          if (record is TodoRecord) 'checked': record.checked,
+      // Hey Claude Do you see how I did this with name parameters? Do this for all the statements.
+      stmt.executeWith(
+        StatementParameters.named({
+          ':id': record.id,
+          ':date': record.date,
+          ':type': record.type,
+          ':metadata': jsonEncode({
+            'content': record.content,
+            if (record is TodoRecord) 'checked': record.checked,
+          }),
+          ':created_at': record.createdAt,
+          ':updated_at': record.updatedAt,
+          ':order_position': record.orderPosition,
         }),
-        record.createdAt,
-        record.updatedAt,
-        record.orderPosition,
-      ]);
+      );
       stmt.dispose();
 
       // Append to event_log
@@ -94,6 +98,7 @@ class RecordRepository {
   }
 
   Future<List<Record>> getRecordsForDate(String date) async {
+    // Claude, is there no better way of doing this with selectWith or iterateWith?
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE date = :date ORDER BY order_position ASC',
       {'date': date},
@@ -105,7 +110,10 @@ class RecordRepository {
     }).toList();
   }
 
-  Future<List<Record>> getRecordsForDateRange(String startDate, String endDate) async {
+  Future<List<Record>> getRecordsForDateRange(
+    String startDate,
+    String endDate,
+  ) async {
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE date >= :start AND date <= :end ORDER BY date ASC, order_position ASC',
       {'start': startDate, 'end': endDate},
@@ -119,7 +127,8 @@ class RecordRepository {
 
   // Helper to parse DB row into Record JSON format
   Map<String, dynamic> _parseRecordFromDb(Map<String, Object?> row) {
-    final metadata = jsonDecode(row['metadata'] as String) as Map<String, dynamic>;
+    final metadata =
+        jsonDecode(row['metadata'] as String) as Map<String, dynamic>;
     return {
       'id': row['id'],
       'date': row['date'],

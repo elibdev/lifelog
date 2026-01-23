@@ -14,13 +14,9 @@ class JournalScreen extends StatefulWidget {
 
 class _JournalScreenState extends State<JournalScreen> {
   final RecordRepository _repository = RecordRepository();
-  final ScrollController _scrollController = ScrollController();
 
   // Map of date -> records (lazy loaded cache)
   final Map<String, List<Record>> _recordsByDate = {};
-
-  // Map of record ID -> focus callback for navigation
-  final Map<String, VoidCallback> _focusCallbacks = {};
 
   // Per-record debouncing for disk writes (optimistic UI pattern)
   final Map<String, Debouncer> _debouncers = {};
@@ -40,7 +36,6 @@ class _JournalScreenState extends State<JournalScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     // Clean up all debouncers to prevent memory leaks
     for (final debouncer in _debouncers.values) {
       debouncer.dispose();
@@ -56,48 +51,9 @@ class _JournalScreenState extends State<JournalScreen> {
   bool _isToday(String isoDate) {
     final date = DateTime.parse(isoDate);
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
-  }
-
-  // Get a flat ordered list of all record IDs currently loaded
-  List<String> _getAllRecordIdsInOrder() {
-    final List<String> ids = [];
-
-    // Generate all loaded dates in order
-    final allDates = <String>[];
-    for (int i = daysBeforeToday; i >= 1; i--) {
-      final date = _getDateForOffset(-i);
-      if (_recordsByDate.containsKey(date)) allDates.add(date);
-    }
-    for (int i = 0; i < daysAfterToday; i++) {
-      final date = _getDateForOffset(i);
-      if (_recordsByDate.containsKey(date)) allDates.add(date);
-    }
-
-    // For each date, add todos then notes
-    for (final date in allDates) {
-      final records = _recordsByDate[date] ?? [];
-      final todos = records.whereType<TodoRecord>().toList();
-      final notes = records.whereType<NoteRecord>().toList();
-      ids.addAll(todos.map((r) => r.id));
-      ids.addAll(notes.map((r) => r.id));
-    }
-
-    return ids;
-  }
-
-  void _handleNavigate(String currentRecordId, int direction) {
-    final allIds = _getAllRecordIdsInOrder();
-    final currentIndex = allIds.indexOf(currentRecordId);
-
-    if (currentIndex == -1) return;
-
-    final targetIndex = currentIndex + direction;
-    if (targetIndex < 0 || targetIndex >= allIds.length) return;
-
-    final targetId = allIds[targetIndex];
-    final focusCallback = _focusCallbacks[targetId];
-    focusCallback?.call();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   String _formatDateForDb(DateTime date) {
@@ -180,190 +136,246 @@ class _JournalScreenState extends State<JournalScreen> {
             final bool isTablet = screenWidth >= 600 && screenWidth <= 900;
 
             // Max content width (like paper on a desk)
-            final double maxWidth = isDesktop ? 700 : (isTablet ? 600 : double.infinity);
+            final double maxWidth = isDesktop
+                ? 700
+                : (isTablet ? 600 : double.infinity);
 
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
                 // Paper shadow effect on desktop (subtle depth)
-                decoration: isDesktop ? BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ) : null,
+                decoration: isDesktop
+                    ? BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      )
+                    : null,
                 child: CustomScrollView(
-                  controller: _scrollController,
                   center: _todayKey,
                   slivers: [
-            // Past days (before today) - lazy loaded
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  // index 0 is yesterday, index 1 is 2 days ago, etc.
-                  final daysAgo = index + 1;
-                  final date = _getDateForOffset(-daysAgo);
+                    // Past days (before today) - lazy loaded
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        // index 0 is yesterday, index 1 is 2 days ago, etc.
+                        final daysAgo = index + 1;
+                        final date = _getDateForOffset(-daysAgo);
 
-                  return FutureBuilder<List<Record>>(
-                    future: _getRecordsForDate(date),
-                    builder: (context, snapshot) {
-                      final records = snapshot.data ?? [];
-                      final todos = records.whereType<TodoRecord>().toList();
-                      final notes = records.whereType<NoteRecord>().toList();
+                        return FutureBuilder<List<Record>>(
+                          future: _getRecordsForDate(date),
+                          builder: (context, snapshot) {
+                            final records = snapshot.data ?? [];
+                            final todos = records
+                                .whereType<TodoRecord>()
+                                .toList();
+                            final notes = records
+                                .whereType<NoteRecord>()
+                                .toList();
 
-                      final isToday = _isToday(date);
+                            final isToday = _isToday(date);
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Date header - highlighted if today
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 12.0),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                padding: isToday
-                                    ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
-                                    : EdgeInsets.zero,
-                                decoration: isToday
-                                    ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                                          width: 1,
-                                        ),
-                                      )
-                                    : null,
-                                child: Text(
-                                  isToday ? 'Today • ${_formatDateHeader(date)}' : _formatDateHeader(date),
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                                        color: isToday
-                                            ? Theme.of(context).colorScheme.primary
-                                            : Theme.of(context).colorScheme.onSurface,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Date header - highlighted if today
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16.0,
+                                    24.0,
+                                    16.0,
+                                    12.0,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      padding: isToday
+                                          ? const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            )
+                                          : EdgeInsets.zero,
+                                      decoration: isToday
+                                          ? BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.2),
+                                                width: 1,
+                                              ),
+                                            )
+                                          : null,
+                                      child: Text(
+                                        isToday
+                                            ? 'Today • ${_formatDateHeader(date)}'
+                                            : _formatDateHeader(date),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: isToday
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w600,
+                                              color: isToday
+                                                  ? Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary
+                                                  : Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
+                                            ),
                                       ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          // Records
-                          RecordSection(
-                            key: ValueKey('$date-todos'),
-                            title: 'TODOS',
-                            records: todos,
-                            date: date,
-                            recordType: 'todo',
-                            onSave: _handleSaveRecord,
-                            onDelete: _handleDeleteRecord,
-                            onNavigate: _handleNavigate,
-                          ),
-                          RecordSection(
-                            key: ValueKey('$date-notes'),
-                            title: 'NOTES',
-                            records: notes,
-                            date: date,
-                            recordType: 'note',
-                            onSave: _handleSaveRecord,
-                            onDelete: _handleDeleteRecord,
-                            onNavigate: _handleNavigate,
-                          ),
-                          const SizedBox(height: 32),
-                        ],
-                      );
-                    },
-                  );
-                },
-                childCount: daysBeforeToday,
-              ),
-            ),
-            // Center anchor (today starts here)
-            SliverToBoxAdapter(key: _todayKey, child: const SizedBox.shrink()),
-            // Today and future days - lazy loaded
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  // index 0 is today, index 1 is tomorrow, etc.
-                  final date = _getDateForOffset(index);
+                                // Records
+                                RecordSection(
+                                  key: ValueKey('$date-todos'),
+                                  title: 'TODOS',
+                                  records: todos,
+                                  date: date,
+                                  recordType: 'todo',
+                                  onSave: _handleSaveRecord,
+                                  onDelete: _handleDeleteRecord,
+                                ),
+                                RecordSection(
+                                  key: ValueKey('$date-notes'),
+                                  title: 'NOTES',
+                                  records: notes,
+                                  date: date,
+                                  recordType: 'note',
+                                  onSave: _handleSaveRecord,
+                                  onDelete: _handleDeleteRecord,
+                                ),
+                                const SizedBox(height: 32),
+                              ],
+                            );
+                          },
+                        );
+                      }, childCount: daysBeforeToday),
+                    ),
+                    // Center anchor (today starts here)
+                    SliverToBoxAdapter(
+                      key: _todayKey,
+                      child: const SizedBox.shrink(),
+                    ),
+                    // Today and future days - lazy loaded
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        // index 0 is today, index 1 is tomorrow, etc.
+                        final date = _getDateForOffset(index);
 
-                  return FutureBuilder<List<Record>>(
-                    future: _getRecordsForDate(date),
-                    builder: (context, snapshot) {
-                      final records = snapshot.data ?? [];
-                      final todos = records.whereType<TodoRecord>().toList();
-                      final notes = records.whereType<NoteRecord>().toList();
+                        return FutureBuilder<List<Record>>(
+                          future: _getRecordsForDate(date),
+                          builder: (context, snapshot) {
+                            final records = snapshot.data ?? [];
+                            final todos = records
+                                .whereType<TodoRecord>()
+                                .toList();
+                            final notes = records
+                                .whereType<NoteRecord>()
+                                .toList();
 
-                      final isToday = _isToday(date);
+                            final isToday = _isToday(date);
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Date header - highlighted if today
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 12.0),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                padding: isToday
-                                    ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
-                                    : EdgeInsets.zero,
-                                decoration: isToday
-                                    ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                                          width: 1,
-                                        ),
-                                      )
-                                    : null,
-                                child: Text(
-                                  isToday ? 'Today • ${_formatDateHeader(date)}' : _formatDateHeader(date),
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                                        color: isToday
-                                            ? Theme.of(context).colorScheme.primary
-                                            : Theme.of(context).colorScheme.onSurface,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Date header - highlighted if today
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16.0,
+                                    24.0,
+                                    16.0,
+                                    12.0,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      padding: isToday
+                                          ? const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            )
+                                          : EdgeInsets.zero,
+                                      decoration: isToday
+                                          ? BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.2),
+                                                width: 1,
+                                              ),
+                                            )
+                                          : null,
+                                      child: Text(
+                                        isToday
+                                            ? 'Today • ${_formatDateHeader(date)}'
+                                            : _formatDateHeader(date),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: isToday
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w600,
+                                              color: isToday
+                                                  ? Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary
+                                                  : Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
+                                            ),
                                       ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          // Records
-                          RecordSection(
-                            key: ValueKey('$date-todos'),
-                            title: 'TODOS',
-                            records: todos,
-                            date: date,
-                            recordType: 'todo',
-                            onSave: _handleSaveRecord,
-                            onDelete: _handleDeleteRecord,
-                            onNavigate: _handleNavigate,
-                          ),
-                          RecordSection(
-                            key: ValueKey('$date-notes'),
-                            title: 'NOTES',
-                            records: notes,
-                            date: date,
-                            recordType: 'note',
-                            onSave: _handleSaveRecord,
-                            onDelete: _handleDeleteRecord,
-                            onNavigate: _handleNavigate,
-                          ),
-                          const SizedBox(height: 32),
-                        ],
-                      );
-                    },
-                  );
-                },
-                childCount: daysAfterToday,
-              ),
-            ),
-          ],
+                                // Records
+                                RecordSection(
+                                  key: ValueKey('$date-todos'),
+                                  title: 'TODOS',
+                                  records: todos,
+                                  date: date,
+                                  recordType: 'todo',
+                                  onSave: _handleSaveRecord,
+                                  onDelete: _handleDeleteRecord,
+                                ),
+                                RecordSection(
+                                  key: ValueKey('$date-notes'),
+                                  title: 'NOTES',
+                                  records: notes,
+                                  date: date,
+                                  recordType: 'note',
+                                  onSave: _handleSaveRecord,
+                                  onDelete: _handleDeleteRecord,
+                                ),
+                                const SizedBox(height: 32),
+                              ],
+                            );
+                          },
+                        );
+                      }, childCount: daysAfterToday),
+                    ),
+                  ],
                 ),
               ),
             );

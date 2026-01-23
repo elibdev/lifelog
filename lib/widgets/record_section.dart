@@ -10,7 +10,6 @@ class RecordSection extends StatefulWidget {
   final String recordType; // 'todo' or 'note'
   final Function(Record) onSave;
   final Function(String) onDelete;
-  final Function(String recordId, int direction)? onNavigate;
 
   const RecordSection({
     super.key,
@@ -20,7 +19,6 @@ class RecordSection extends StatefulWidget {
     required this.recordType,
     required this.onSave,
     required this.onDelete,
-    this.onNavigate,
   });
 
   @override
@@ -42,7 +40,9 @@ class _RecordSectionState extends State<RecordSection> {
     if (widget.records.isEmpty) {
       return 1.0;
     }
-    final maxPosition = widget.records.map((r) => r.orderPosition).reduce((a, b) => a > b ? a : b);
+    final maxPosition = widget.records
+        .map((r) => r.orderPosition)
+        .reduce((a, b) => a > b ? a : b);
     return maxPosition + 1.0;
   }
 
@@ -159,8 +159,6 @@ class _RecordSectionState extends State<RecordSection> {
             onSave: widget.onSave,
             onDelete: widget.onDelete,
             onSubmitted: _handleEnterPressed,
-            onNavigateUp: widget.onNavigate != null ? () => widget.onNavigate!(record.id, -1) : null,
-            onNavigateDown: widget.onNavigate != null ? () => widget.onNavigate!(record.id, 1) : null,
             autofocus: record.id == _autoFocusRecordId,
           ),
         ),
@@ -171,8 +169,6 @@ class _RecordSectionState extends State<RecordSection> {
           onSave: _handlePlaceholderSave,
           onDelete: (_) {}, // Can't delete placeholder
           onSubmitted: _handleEnterPressed,
-          onNavigateUp: widget.onNavigate != null ? () => widget.onNavigate!(_placeholderId, -1) : null,
-          onNavigateDown: widget.onNavigate != null ? () => widget.onNavigate!(_placeholderId, 1) : null,
         ),
       ],
     );
