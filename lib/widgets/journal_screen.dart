@@ -120,8 +120,7 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Use theme's surface color for background (warm cream on larger screens)
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      // Use default Material theme background
       body: SafeArea(
         // LayoutBuilder lets us adapt layout based on available width
         child: LayoutBuilder(
@@ -143,19 +142,7 @@ class _JournalScreenState extends State<JournalScreen> {
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
-                // Paper shadow effect on desktop (subtle depth)
-                decoration: isDesktop
-                    ? BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      )
-                    : null,
+                // No decorations - just responsive width constraints
                 child: CustomScrollView(
                   center: _todayKey,
                   slivers: [
@@ -182,7 +169,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Date header - highlighted if today
+                                // Date header - simple text, no custom styling
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16.0,
@@ -190,53 +177,11 @@ class _JournalScreenState extends State<JournalScreen> {
                                     16.0,
                                     12.0,
                                   ),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      padding: isToday
-                                          ? const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            )
-                                          : EdgeInsets.zero,
-                                      decoration: isToday
-                                          ? BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
-                                                  .withValues(alpha: 0.08),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .primary
-                                                    .withValues(alpha: 0.2),
-                                                width: 1,
-                                              ),
-                                            )
-                                          : null,
-                                      child: Text(
-                                        isToday
-                                            ? 'Today • ${_formatDateHeader(date)}'
-                                            : _formatDateHeader(date),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: isToday
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w600,
-                                              color: isToday
-                                                  ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary
-                                                  : Theme.of(
-                                                      context,
-                                                    ).colorScheme.onSurface,
-                                            ),
-                                      ),
-                                    ),
+                                  child: Text(
+                                    isToday
+                                        ? 'Today • ${_formatDateHeader(date)}'
+                                        : _formatDateHeader(date),
+                                    style: Theme.of(context).textTheme.titleMedium,
                                   ),
                                 ),
                                 // Records
@@ -292,7 +237,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Date header - highlighted if today
+                                // Date header - simple text, no custom styling
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16.0,
@@ -300,53 +245,11 @@ class _JournalScreenState extends State<JournalScreen> {
                                     16.0,
                                     12.0,
                                   ),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      padding: isToday
-                                          ? const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            )
-                                          : EdgeInsets.zero,
-                                      decoration: isToday
-                                          ? BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
-                                                  .withValues(alpha: 0.08),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .primary
-                                                    .withValues(alpha: 0.2),
-                                                width: 1,
-                                              ),
-                                            )
-                                          : null,
-                                      child: Text(
-                                        isToday
-                                            ? 'Today • ${_formatDateHeader(date)}'
-                                            : _formatDateHeader(date),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: isToday
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w600,
-                                              color: isToday
-                                                  ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary
-                                                  : Theme.of(
-                                                      context,
-                                                    ).colorScheme.onSurface,
-                                            ),
-                                      ),
-                                    ),
+                                  child: Text(
+                                    isToday
+                                        ? 'Today • ${_formatDateHeader(date)}'
+                                        : _formatDateHeader(date),
+                                    style: Theme.of(context).textTheme.titleMedium,
                                   ),
                                 ),
                                 // Records

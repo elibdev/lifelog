@@ -121,33 +121,17 @@ class _RecordWidgetState extends State<RecordWidget> {
               child: record is TodoRecord
                   // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
                   ? ExcludeFocus(
-                      child: Transform.scale(
-                        scale: 1.1, // Slightly larger for easier clicking
-                        child: Checkbox(
-                          value: record.checked,
-                          onChanged: isEmpty ? null : _handleCheckboxToggle,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                          // Smooth animation when checking/unchecking
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
+                      child: Checkbox(
+                        value: record.checked,
+                        onChanged: isEmpty ? null : _handleCheckboxToggle,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
                       ),
                     )
-                  : Center(
-                      // More refined bullet point
-                      child: Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                  : const Center(
+                      // Simple bullet point for notes
+                      child: Text('•'),
                     ),
             ),
           ),
@@ -195,17 +179,9 @@ class _RecordWidgetState extends State<RecordWidget> {
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
-                // Strikethrough for completed todos - satisfying visual feedback!
+                // Strikethrough for completed todos - uses default Material styling
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   decoration: isChecked ? TextDecoration.lineThrough : null,
-                  decorationColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.4),
-                  color: isChecked
-                      ? Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.5)
-                      : null,
                 ),
                 maxLines: null,
                 textInputAction: TextInputAction.done,
