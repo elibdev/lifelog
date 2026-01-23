@@ -235,15 +235,13 @@ class _RecordWidgetState extends State<RecordWidget> {
               width: 20,
               height: 20,
               child: record is TodoRecord
-                  // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
-                  ? ExcludeFocus(
-                      child: Checkbox(
-                        value: record.checked,
-                        onChanged: isEmpty ? null : _handleCheckboxToggle,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                  // Checkbox is now focusable (Tab includes it, arrow keys skip it)
+                  ? Checkbox(
+                      value: record.checked,
+                      onChanged: isEmpty ? null : _handleCheckboxToggle,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
                     )
                   : const Center(
                       // Simple bullet point for notes

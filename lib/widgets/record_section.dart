@@ -11,6 +11,12 @@ class RecordSection extends StatefulWidget {
   final Function(Record) onSave;
   final Function(String) onDelete;
 
+  // Focus management callbacks (optional - for custom arrow key navigation)
+  final Function(int index, String recordId, FocusNode node)? onFocusNodeCreated;
+  final Function(String recordId)? onFocusNodeDisposed;
+  final Function(FocusNode currentNode)? onArrowUp;
+  final Function(FocusNode currentNode)? onArrowDown;
+
   const RecordSection({
     super.key,
     required this.title,
@@ -19,6 +25,10 @@ class RecordSection extends StatefulWidget {
     required this.recordType,
     required this.onSave,
     required this.onDelete,
+    this.onFocusNodeCreated,
+    this.onFocusNodeDisposed,
+    this.onArrowUp,
+    this.onArrowDown,
   });
 
   @override
@@ -152,15 +162,25 @@ class _RecordSectionState extends State<RecordSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Existing records
-        ...widget.records.map(
-          (record) => RecordWidget(
-            key: ValueKey(record.id),
-            record: record,
-            onSave: widget.onSave,
-            onDelete: widget.onDelete,
-            onSubmitted: _handleEnterPressed,
-            autofocus: record.id == _autoFocusRecordId,
-          ),
+        ...widget.records.asMap().entries.map(
+          (entry) {
+            final index = entry.key;
+            final record = entry.value;
+            return RecordWidget(
+              key: ValueKey(record.id),
+              record: record,
+              onSave: widget.onSave,
+              onDelete: widget.onDelete,
+              onSubmitted: _handleEnterPressed,
+              autofocus: record.id == _autoFocusRecordId,
+              // Forward focus management callbacks with index
+              recordIndex: index,
+              onFocusNodeCreated: widget.onFocusNodeCreated,
+              onFocusNodeDisposed: widget.onFocusNodeDisposed,
+              onArrowUp: widget.onArrowUp,
+              onArrowDown: widget.onArrowDown,
+            );
+          },
         ),
         // Placeholder
         RecordWidget(
@@ -169,6 +189,12 @@ class _RecordSectionState extends State<RecordSection> {
           onSave: _handlePlaceholderSave,
           onDelete: (_) {}, // Can't delete placeholder
           onSubmitted: _handleEnterPressed,
+          // Placeholder is last in order
+          recordIndex: widget.records.length,
+          onFocusNodeCreated: widget.onFocusNodeCreated,
+          onFocusNodeDisposed: widget.onFocusNodeDisposed,
+          onArrowUp: widget.onArrowUp,
+          onArrowDown: widget.onArrowDown,
         ),
       ],
     );
