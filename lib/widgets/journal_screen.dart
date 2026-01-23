@@ -147,67 +147,69 @@ class _JournalScreenState extends State<JournalScreen> {
                   slivers: [
                     // Past days (before today) - lazy loaded
                     SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        // index 0 is yesterday, index 1 is 2 days ago, etc.
-                        final daysAgo = index + 1;
-                        final date = _getDateForOffset(-daysAgo);
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          // index 0 is yesterday, index 1 is 2 days ago, etc.
+                          final daysAgo = index + 1;
+                          final date = _getDateForOffset(-daysAgo);
 
-                        return FutureBuilder<List<Record>>(
-                          future: _getRecordsForDate(date),
-                          builder: (context, snapshot) {
-                            final records = snapshot.data ?? [];
-                            final todos = records
-                                .whereType<TodoRecord>()
-                                .toList();
-                            final notes = records
-                                .whereType<NoteRecord>()
-                                .toList();
+                          return FutureBuilder<List<Record>>(
+                            future: _getRecordsForDate(date),
+                            builder: (context, snapshot) {
+                              final records = snapshot.data ?? [];
+                              final todos = records
+                                  .whereType<TodoRecord>()
+                                  .toList();
+                              final notes = records
+                                  .whereType<NoteRecord>()
+                                  .toList();
 
-                            final isToday = _isToday(date);
+                              final isToday = _isToday(date);
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Date header - compact spacing for information density
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16.0,
-                                    16.0, // Reduced from 24.0
-                                    16.0,
-                                    8.0,  // Reduced from 12.0
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Date header - compact spacing for information density
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16.0,
+                                      16.0, // Reduced from 24.0
+                                      16.0,
+                                      8.0, // Reduced from 12.0
+                                    ),
+                                    child: Text(
+                                      isToday
+                                          ? 'Today • ${_formatDateHeader(date)}'
+                                          : _formatDateHeader(date),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
                                   ),
-                                  child: Text(
-                                    isToday
-                                        ? 'Today • ${_formatDateHeader(date)}'
-                                        : _formatDateHeader(date),
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                  // Records
+                                  RecordSection(
+                                    key: ValueKey('$date-todos'),
+                                    title: 'TODOS',
+                                    records: todos,
+                                    date: date,
+                                    recordType: 'todo',
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
                                   ),
-                                ),
-                                // Records
-                                RecordSection(
-                                  key: ValueKey('$date-todos'),
-                                  title: 'TODOS',
-                                  records: todos,
-                                  date: date,
-                                  recordType: 'todo',
-                                  onSave: _handleSaveRecord,
-                                  onDelete: _handleDeleteRecord,
-                                ),
-                                RecordSection(
-                                  key: ValueKey('$date-notes'),
-                                  title: 'NOTES',
-                                  records: notes,
-                                  date: date,
-                                  recordType: 'note',
-                                  onSave: _handleSaveRecord,
-                                  onDelete: _handleDeleteRecord,
-                                ),
-                                const SizedBox(height: 24), // Reduced from 32 for compactness
-                              ],
-                            );
-                          },
-                        );
-                      } // No childCount = infinite scrolling!
+                                  RecordSection(
+                                    key: ValueKey('$date-notes'),
+                                    title: 'NOTES',
+                                    records: notes,
+                                    date: date,
+                                    recordType: 'note',
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        }, // No childCount = infinite scrolling!
                       ),
                     ),
                     // Center anchor (today starts here)
@@ -217,66 +219,71 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
                     // Today and future days - lazy loaded
                     SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        // index 0 is today, index 1 is tomorrow, etc.
-                        final date = _getDateForOffset(index);
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          // index 0 is today, index 1 is tomorrow, etc.
+                          final date = _getDateForOffset(index);
 
-                        return FutureBuilder<List<Record>>(
-                          future: _getRecordsForDate(date),
-                          builder: (context, snapshot) {
-                            final records = snapshot.data ?? [];
-                            final todos = records
-                                .whereType<TodoRecord>()
-                                .toList();
-                            final notes = records
-                                .whereType<NoteRecord>()
-                                .toList();
+                          return FutureBuilder<List<Record>>(
+                            future: _getRecordsForDate(date),
+                            builder: (context, snapshot) {
+                              final records = snapshot.data ?? [];
+                              final todos = records
+                                  .whereType<TodoRecord>()
+                                  .toList();
+                              final notes = records
+                                  .whereType<NoteRecord>()
+                                  .toList();
 
-                            final isToday = _isToday(date);
+                              final isToday = _isToday(date);
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Date header - compact spacing for information density
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16.0,
-                                    16.0, // Reduced from 24.0
-                                    16.0,
-                                    8.0,  // Reduced from 12.0
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Date header - compact spacing for information density
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16.0,
+                                      16.0, // Reduced from 24.0
+                                      16.0,
+                                      8.0, // Reduced from 12.0
+                                    ),
+                                    child: Text(
+                                      isToday
+                                          ? 'Today • ${_formatDateHeader(date)}'
+                                          : _formatDateHeader(date),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
                                   ),
-                                  child: Text(
-                                    isToday
-                                        ? 'Today • ${_formatDateHeader(date)}'
-                                        : _formatDateHeader(date),
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                  // Records
+                                  RecordSection(
+                                    key: ValueKey('$date-todos'),
+                                    title: 'TODOS',
+                                    records: todos,
+                                    date: date,
+                                    recordType: 'todo',
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
                                   ),
-                                ),
-                                // Records
-                                RecordSection(
-                                  key: ValueKey('$date-todos'),
-                                  title: 'TODOS',
-                                  records: todos,
-                                  date: date,
-                                  recordType: 'todo',
-                                  onSave: _handleSaveRecord,
-                                  onDelete: _handleDeleteRecord,
-                                ),
-                                RecordSection(
-                                  key: ValueKey('$date-notes'),
-                                  title: 'NOTES',
-                                  records: notes,
-                                  date: date,
-                                  recordType: 'note',
-                                  onSave: _handleSaveRecord,
-                                  onDelete: _handleDeleteRecord,
-                                ),
-                                const SizedBox(height: 24), // Reduced from 32 for compactness
-                              ],
-                            );
-                          },
-                        );
-                      } // No childCount = infinite scrolling!
+                                  RecordSection(
+                                    key: ValueKey('$date-notes'),
+                                    title: 'NOTES',
+                                    records: notes,
+                                    date: date,
+                                    recordType: 'note',
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
+                                  ),
+                                  const SizedBox(
+                                    height: 24,
+                                  ), // Reduced from 32 for compactness
+                                ],
+                              );
+                            },
+                          );
+                        }, // No childCount = infinite scrolling!
                       ),
                     ),
                   ],
