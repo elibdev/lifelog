@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/record.dart';
+import '../notifications/navigation_notifications.dart';
 
 class RecordWidget extends StatefulWidget {
   final Record record;
@@ -10,14 +11,12 @@ class RecordWidget extends StatefulWidget {
       onSubmitted; // Called when user presses Enter, passes record ID
   final bool autofocus; // Auto-focus this field
 
-  // CUSTOM NAVIGATION CALLBACKS (optional - for future custom focus registry)
-  // These allow parent widgets to override default arrow key behavior
-  final int? recordIndex; // Position in parent's list (needed for callbacks)
+  // FOCUS NODE LIFECYCLE CALLBACKS
+  // RecordSection needs to track FocusNodes so it can call requestFocus() during navigation
+  final int? recordIndex; // Position in parent's list (needed for tracking)
   final void Function(int index, String recordId, FocusNode node)?
       onFocusNodeCreated;
   final void Function(String recordId)? onFocusNodeDisposed;
-  final void Function(FocusNode currentNode)? onArrowUp;
-  final void Function(FocusNode currentNode)? onArrowDown;
 
   const RecordWidget({
     super.key,
@@ -26,12 +25,10 @@ class RecordWidget extends StatefulWidget {
     required this.onDelete,
     this.onSubmitted,
     this.autofocus = false,
-    // Custom navigation callbacks - all optional
+    // Focus node lifecycle callbacks - optional
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
-    this.onArrowUp,
-    this.onArrowDown,
   });
 
   @override
@@ -168,22 +165,26 @@ class _RecordWidgetState extends State<RecordWidget> {
   }
 
   KeyEventResult _handleArrowDown(FocusNode node) {
-    // Use custom callback if provided, otherwise default to nextFocus
-    if (widget.onArrowDown != null) {
-      widget.onArrowDown!(_focusNode);  // Pass TextField's FocusNode (the one we registered)
-    } else {
-      FocusScope.of(context).nextFocus();
-    }
+    // DISPATCH NOTIFICATION: This bubbles up the widget tree
+    // RecordSection will try to handle it first (focus next record in section)
+    // If RecordSection can't handle it (at end), it bubbles to JournalScreen
+    NavigateDownNotification(
+      recordId: widget.record.id,
+      recordIndex: widget.recordIndex ?? -1,
+    ).dispatch(context);
+
     return KeyEventResult.handled;
   }
 
   KeyEventResult _handleArrowUp(FocusNode node) {
-    // Use custom callback if provided, otherwise default to previousFocus
-    if (widget.onArrowUp != null) {
-      widget.onArrowUp!(_focusNode);  // Pass TextField's FocusNode (the one we registered)
-    } else {
-      FocusScope.of(context).previousFocus();
-    }
+    // DISPATCH NOTIFICATION: This bubbles up the widget tree
+    // RecordSection will try to handle it first (focus previous record in section)
+    // If RecordSection can't handle it (at start), it bubbles to JournalScreen
+    NavigateUpNotification(
+      recordId: widget.record.id,
+      recordIndex: widget.recordIndex ?? -1,
+    ).dispatch(context);
+
     return KeyEventResult.handled;
   }
 

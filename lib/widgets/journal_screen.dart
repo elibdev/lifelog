@@ -2,19 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
+import '../notifications/navigation_notifications.dart';
 import '../utils/debouncer.dart';
 import 'record_section.dart';
-
-// Helper class for focus registry - tracks text field FocusNodes across sections
-class _FocusNodeEntry {
-  final DateTime date;
-  final String sectionType; // 'todo' or 'note' to maintain correct section order
-  final int index;
-  final String recordId;
-  final FocusNode node;
-
-  _FocusNodeEntry(this.date, this.sectionType, this.index, this.recordId, this.node);
-}
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -31,9 +21,6 @@ class _JournalScreenState extends State<JournalScreen> {
 
   // Per-record debouncing for disk writes (optimistic UI pattern)
   final Map<String, Debouncer> _debouncers = {};
-
-  // Global focus registry for arrow key navigation (text fields only)
-  final List<_FocusNodeEntry> _textFieldFocusNodes = [];
 
   // No date range limits - truly infinite scrolling!
 
@@ -130,57 +117,6 @@ class _JournalScreenState extends State<JournalScreen> {
     await _repository.deleteRecord(recordId);
   }
 
-  // FOCUS REGISTRY: Register a text field FocusNode for arrow navigation
-  void _registerFocusNode(DateTime date, String sectionType, int index, String recordId, FocusNode node) {
-    // Remove existing entry for this record (handles rebuilds)
-    _textFieldFocusNodes.removeWhere((e) => e.recordId == recordId);
-
-    // Add new entry
-    _textFieldFocusNodes.add(_FocusNodeEntry(date, sectionType, index, recordId, node));
-
-    // Sort by visual order (date, then section, then index within section)
-    _sortFocusNodes();
-  }
-
-  // FOCUS REGISTRY: Unregister a FocusNode when widget is disposed
-  void _unregisterFocusNode(String recordId) {
-    _textFieldFocusNodes.removeWhere((e) => e.recordId == recordId);
-  }
-
-  // FOCUS REGISTRY: Sort nodes by visual order for correct navigation
-  void _sortFocusNodes() {
-    _textFieldFocusNodes.sort((a, b) {
-      // Sort by date first (chronological order)
-      final dateCompare = a.date.compareTo(b.date);
-      if (dateCompare != 0) return dateCompare;
-
-      // Then by section type (todos before notes)
-      final sectionOrder = {'todo': 0, 'note': 1};
-      final sectionCompare = (sectionOrder[a.sectionType] ?? 0).compareTo(sectionOrder[b.sectionType] ?? 0);
-      if (sectionCompare != 0) return sectionCompare;
-
-      // Finally by index within the same section
-      return a.index.compareTo(b.index);
-    });
-  }
-
-  // ARROW KEY NAVIGATION: Move to previous text field (skips checkboxes)
-  void _focusPreviousTextField(FocusNode currentNode) {
-    final index = _textFieldFocusNodes.indexWhere((e) => e.node == currentNode);
-    if (index > 0) {
-      _textFieldFocusNodes[index - 1].node.requestFocus();
-    }
-    // At top - stay in place
-  }
-
-  // ARROW KEY NAVIGATION: Move to next text field (skips checkboxes)
-  void _focusNextTextField(FocusNode currentNode) {
-    final index = _textFieldFocusNodes.indexWhere((e) => e.node == currentNode);
-    if (index >= 0 && index < _textFieldFocusNodes.length - 1) {
-      _textFieldFocusNodes[index + 1].node.requestFocus();
-    }
-    // At bottom - stay in place
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +144,25 @@ class _JournalScreenState extends State<JournalScreen> {
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
                 // No decorations - just responsive width constraints
-                child: CustomScrollView(
+                // NOTIFICATION LISTENERS: Handle cross-section navigation
+                // When RecordSection can't handle navigation (at end/start of section),
+                // the notification bubbles up here and we use FocusScope to move
+                // to the next/previous focusable widget (which will be the next section)
+                child: NotificationListener<NavigateDownNotification>(
+                  onNotification: (notification) {
+                    // RecordSection couldn't handle it (at end of section)
+                    // Move to next focusable widget (next section or day)
+                    FocusScope.of(context).nextFocus();
+                    return true; // We handled it
+                  },
+                  child: NotificationListener<NavigateUpNotification>(
+                    onNotification: (notification) {
+                      // RecordSection couldn't handle it (at start of section)
+                      // Move to previous focusable widget (previous section or day)
+                      FocusScope.of(context).previousFocus();
+                      return true; // We handled it
+                    },
+                    child: CustomScrollView(
                   center: _todayKey,
                   slivers: [
                     // Past days (before today) - lazy loaded
@@ -261,13 +215,6 @@ class _JournalScreenState extends State<JournalScreen> {
                                     recordType: 'todo',
                                     onSave: _handleSaveRecord,
                                     onDelete: _handleDeleteRecord,
-                                    // Focus management callbacks
-                                    onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), 'todo', index, recordId, node);
-                                    },
-                                    onFocusNodeDisposed: _unregisterFocusNode,
-                                    onArrowUp: _focusPreviousTextField,
-                                    onArrowDown: _focusNextTextField,
                                   ),
                                   RecordSection(
                                     key: ValueKey('$date-notes'),
@@ -277,13 +224,6 @@ class _JournalScreenState extends State<JournalScreen> {
                                     recordType: 'note',
                                     onSave: _handleSaveRecord,
                                     onDelete: _handleDeleteRecord,
-                                    // Focus management callbacks
-                                    onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), 'note', index, recordId, node);
-                                    },
-                                    onFocusNodeDisposed: _unregisterFocusNode,
-                                    onArrowUp: _focusPreviousTextField,
-                                    onArrowDown: _focusNextTextField,
                                   ),
                                 ],
                               );
@@ -346,13 +286,6 @@ class _JournalScreenState extends State<JournalScreen> {
                                     recordType: 'todo',
                                     onSave: _handleSaveRecord,
                                     onDelete: _handleDeleteRecord,
-                                    // Focus management callbacks
-                                    onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), 'todo', index, recordId, node);
-                                    },
-                                    onFocusNodeDisposed: _unregisterFocusNode,
-                                    onArrowUp: _focusPreviousTextField,
-                                    onArrowDown: _focusNextTextField,
                                   ),
                                   RecordSection(
                                     key: ValueKey('$date-notes'),
@@ -362,13 +295,6 @@ class _JournalScreenState extends State<JournalScreen> {
                                     recordType: 'note',
                                     onSave: _handleSaveRecord,
                                     onDelete: _handleDeleteRecord,
-                                    // Focus management callbacks
-                                    onFocusNodeCreated: (int index, String recordId, FocusNode node) {
-                                      _registerFocusNode(DateTime.parse(date), 'note', index, recordId, node);
-                                    },
-                                    onFocusNodeDisposed: _unregisterFocusNode,
-                                    onArrowUp: _focusPreviousTextField,
-                                    onArrowDown: _focusNextTextField,
                                   ),
                                 ],
                               );
@@ -378,7 +304,9 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                     ),
                   ],
-                ),
+                ), // End CustomScrollView
+                  ), // End NotificationListener<NavigateUpNotification>
+                ), // End NotificationListener<NavigateDownNotification>
               ),
             );
           },

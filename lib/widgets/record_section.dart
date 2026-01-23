@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/record.dart';
+import '../notifications/navigation_notifications.dart';
 import 'record_widget.dart';
 
 class RecordSection extends StatefulWidget {
@@ -11,12 +12,6 @@ class RecordSection extends StatefulWidget {
   final Function(Record) onSave;
   final Function(String) onDelete;
 
-  // Focus management callbacks (optional - for custom arrow key navigation)
-  final Function(int index, String recordId, FocusNode node)? onFocusNodeCreated;
-  final Function(String recordId)? onFocusNodeDisposed;
-  final Function(FocusNode currentNode)? onArrowUp;
-  final Function(FocusNode currentNode)? onArrowDown;
-
   const RecordSection({
     super.key,
     required this.title,
@@ -25,10 +20,6 @@ class RecordSection extends StatefulWidget {
     required this.recordType,
     required this.onSave,
     required this.onDelete,
-    this.onFocusNodeCreated,
-    this.onFocusNodeDisposed,
-    this.onArrowUp,
-    this.onArrowDown,
   });
 
   @override
@@ -39,10 +30,55 @@ class _RecordSectionState extends State<RecordSection> {
   late String _placeholderId;
   String? _autoFocusRecordId;
 
+  // FOCUS NODE TRACKING: Map of recordId -> FocusNode
+  // RecordSection tracks FocusNodes so it can call requestFocus() during navigation
+  final Map<String, FocusNode> _focusNodes = {};
+
   @override
   void initState() {
     super.initState();
     _placeholderId = const Uuid().v4();
+  }
+
+  @override
+  void dispose() {
+    // Clean up focus nodes when section is disposed
+    _focusNodes.clear();
+    super.dispose();
+  }
+
+  // FOCUS NODE LIFECYCLE: Called by RecordWidget when FocusNode is created
+  void _handleFocusNodeCreated(int index, String recordId, FocusNode node) {
+    _focusNodes[recordId] = node;
+  }
+
+  // FOCUS NODE LIFECYCLE: Called by RecordWidget when FocusNode is disposed
+  void _handleFocusNodeDisposed(String recordId) {
+    _focusNodes.remove(recordId);
+  }
+
+  // NAVIGATION: Try to focus a specific record by index
+  // Returns true if successful, false if index is out of bounds
+  bool _tryFocusRecordAt(int index) {
+    // Calculate actual index (including placeholder)
+    final allRecordIds = [
+      ...widget.records.map((r) => r.id),
+      _placeholderId,
+    ];
+
+    if (index < 0 || index >= allRecordIds.length) {
+      return false; // Out of bounds
+    }
+
+    final recordId = allRecordIds[index];
+    final focusNode = _focusNodes[recordId];
+
+    if (focusNode != null) {
+      focusNode.requestFocus();
+      return true;
+    }
+
+    return false;
   }
 
   double _calculateAppendPosition() {
@@ -158,7 +194,32 @@ class _RecordSectionState extends State<RecordSection> {
             orderPosition: placeholderPosition,
           );
 
-    return Column(
+    // NOTIFICATION LISTENERS: Handle navigation events from child RecordWidgets
+    // This is where the "bubbling up" pattern happens:
+    // 1. RecordWidget dispatches NavigateDownNotification
+    // 2. This listener receives it
+    // 3. Try to handle it (focus next record in this section)
+    // 4. If we can handle it: return true (stop bubbling)
+    // 5. If we can't (at end of section): return false (bubble up to JournalScreen)
+    return NotificationListener<NavigateDownNotification>(
+      onNotification: (notification) {
+        // Try to focus the next record
+        final nextIndex = notification.recordIndex + 1;
+        final handled = _tryFocusRecordAt(nextIndex);
+
+        // Return true to stop bubbling, false to let it bubble up
+        return handled;
+      },
+      child: NotificationListener<NavigateUpNotification>(
+        onNotification: (notification) {
+          // Try to focus the previous record
+          final prevIndex = notification.recordIndex - 1;
+          final handled = _tryFocusRecordAt(prevIndex);
+
+          // Return true to stop bubbling, false to let it bubble up
+          return handled;
+        },
+        child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Existing records
@@ -173,12 +234,10 @@ class _RecordSectionState extends State<RecordSection> {
               onDelete: widget.onDelete,
               onSubmitted: _handleEnterPressed,
               autofocus: record.id == _autoFocusRecordId,
-              // Forward focus management callbacks with index
+              // Focus node lifecycle tracking
               recordIndex: index,
-              onFocusNodeCreated: widget.onFocusNodeCreated,
-              onFocusNodeDisposed: widget.onFocusNodeDisposed,
-              onArrowUp: widget.onArrowUp,
-              onArrowDown: widget.onArrowDown,
+              onFocusNodeCreated: _handleFocusNodeCreated,
+              onFocusNodeDisposed: _handleFocusNodeDisposed,
             );
           },
         ),
@@ -191,12 +250,12 @@ class _RecordSectionState extends State<RecordSection> {
           onSubmitted: _handleEnterPressed,
           // Placeholder is last in order
           recordIndex: widget.records.length,
-          onFocusNodeCreated: widget.onFocusNodeCreated,
-          onFocusNodeDisposed: widget.onFocusNodeDisposed,
-          onArrowUp: widget.onArrowUp,
-          onArrowDown: widget.onArrowDown,
+          onFocusNodeCreated: _handleFocusNodeCreated,
+          onFocusNodeDisposed: _handleFocusNodeDisposed,
         ),
       ],
-    );
+    ),
+      ), // End NotificationListener<NavigateUpNotification>
+    ); // End NotificationListener<NavigateDownNotification>
   }
 }
