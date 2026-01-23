@@ -170,7 +170,7 @@ class _RecordWidgetState extends State<RecordWidget> {
   KeyEventResult _handleArrowDown(FocusNode node) {
     // Use custom callback if provided, otherwise default to nextFocus
     if (widget.onArrowDown != null) {
-      widget.onArrowDown!(node);
+      widget.onArrowDown!(_focusNode);  // Pass TextField's FocusNode (the one we registered)
     } else {
       FocusScope.of(context).nextFocus();
     }
@@ -180,7 +180,7 @@ class _RecordWidgetState extends State<RecordWidget> {
   KeyEventResult _handleArrowUp(FocusNode node) {
     // Use custom callback if provided, otherwise default to previousFocus
     if (widget.onArrowUp != null) {
-      widget.onArrowUp!(node);
+      widget.onArrowUp!(_focusNode);  // Pass TextField's FocusNode (the one we registered)
     } else {
       FocusScope.of(context).previousFocus();
     }
