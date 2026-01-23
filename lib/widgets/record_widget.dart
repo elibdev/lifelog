@@ -107,107 +107,118 @@ class _RecordWidgetState extends State<RecordWidget> {
     final isEmpty = record.content.isEmpty;
     final isChecked = record is TodoRecord && record.checked;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // Reduced from 4.0 for compactness
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Leading widget (polymorphic!) - checkbox or bullet
-          // No top padding - aligns with first line of text
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: record is TodoRecord
-                  // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
-                  ? ExcludeFocus(
-                      child: Checkbox(
-                        value: record.checked,
-                        onChanged: isEmpty ? null : _handleCheckboxToggle,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+    // FIX: Wrap entire Row in FocusTraversalGroup to prevent wrapper widgets from being focusable
+    // This ensures only the TextField itself can receive focus, not intermediate widgets
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // Reduced from 4.0 for compactness
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Leading widget (polymorphic!) - checkbox or bullet
+            // No top padding - aligns with first line of text
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: record is TodoRecord
+                    // ExcludeFocus removes checkbox from tab order - keeps focus flow clean
+                    ? ExcludeFocus(
+                        child: Checkbox(
+                          value: record.checked,
+                          onChanged: isEmpty ? null : _handleCheckboxToggle,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                    : const Center(
+                        // Simple bullet point for notes
+                        child: Text('•'),
                       ),
-                    )
-                  : const Center(
-                      // Simple bullet point for notes
-                      child: Text('•'),
-                    ),
-            ),
-          ),
-          // Text field
-          Expanded(
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent) {
-                  // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
-                  if (event.logicalKey == LogicalKeyboardKey.enter &&
-                      (HardwareKeyboard.instance.isControlPressed ||
-                          HardwareKeyboard.instance.isMetaPressed) &&
-                      record is TodoRecord &&
-                      !isEmpty) {
-                    _handleCheckboxToggle(!record.checked);
-                    return KeyEventResult.handled;
-                  }
-                  // Delete/backspace at beginning of empty record = delete record
-                  // This allows users to delete empty records by pressing backspace/delete
-                  else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
-                          event.logicalKey == LogicalKeyboardKey.delete) &&
-                      _controller.text.trim().isEmpty &&
-                      _controller.selection.start == 0) {
-                    widget.onDelete(widget.record.id);
-                    return KeyEventResult.handled;
-                  }
-                  // Arrow down = Tab (focus next)
-                  else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    FocusScope.of(context).nextFocus();
-                    return KeyEventResult.handled;
-                  }
-                  // Arrow up = Shift+Tab (focus previous)
-                  else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                    FocusScope.of(context).previousFocus();
-                    return KeyEventResult.handled;
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                // Strikethrough for completed todos - uses default Material styling
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  decoration: isChecked ? TextDecoration.lineThrough : null,
-                ),
-                maxLines: null,
-                textInputAction: TextInputAction.done,
-                onChanged: (_) {
-                  _handleTextChange();
-                  setState(() {});
-                },
-                onSubmitted: (_) {
-                  // Save current text immediately
-                  if (_controller.text.isNotEmpty &&
-                      _controller.text != widget.record.content) {
-                    final now = DateTime.now().millisecondsSinceEpoch;
-                    final updatedRecord = widget.record.copyWith(
-                      content: _controller.text,
-                      updatedAt: now,
-                    );
-                    widget.onSave(updatedRecord);
-                  }
-                  // Notify parent which record triggered Enter
-                  widget.onSubmitted?.call(widget.record.id);
-                },
               ),
             ),
-          ),
-        ],
+            // Text field
+            Expanded(
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent) {
+                    // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
+                    if (event.logicalKey == LogicalKeyboardKey.enter &&
+                        (HardwareKeyboard.instance.isControlPressed ||
+                            HardwareKeyboard.instance.isMetaPressed) &&
+                        record is TodoRecord &&
+                        !isEmpty) {
+                      _handleCheckboxToggle(!record.checked);
+                      return KeyEventResult.handled;
+                    }
+                    // Delete/backspace at beginning of empty record = delete record
+                    // FIX: Move focus BEFORE deleting to prevent orphaned focus state
+                    else if ((event.logicalKey == LogicalKeyboardKey.backspace ||
+                            event.logicalKey == LogicalKeyboardKey.delete) &&
+                        _controller.text.trim().isEmpty &&
+                        _controller.selection.start == 0) {
+                      // Move focus to previous field first, then delete
+                      // This prevents the "focus jumping to random day" bug
+                      FocusScope.of(context).previousFocus();
+                      // Schedule deletion after focus has moved
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        widget.onDelete(widget.record.id);
+                      });
+                      return KeyEventResult.handled;
+                    }
+                    // Arrow down = Tab (focus next)
+                    else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                      FocusScope.of(context).nextFocus();
+                      return KeyEventResult.handled;
+                    }
+                    // Arrow up = Shift+Tab (focus previous)
+                    else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      FocusScope.of(context).previousFocus();
+                      return KeyEventResult.handled;
+                    }
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  // Strikethrough for completed todos - uses default Material styling
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    decoration: isChecked ? TextDecoration.lineThrough : null,
+                  ),
+                  maxLines: null,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) {
+                    _handleTextChange();
+                    setState(() {});
+                  },
+                  onSubmitted: (_) {
+                    // Save current text immediately
+                    if (_controller.text.isNotEmpty &&
+                        _controller.text != widget.record.content) {
+                      final now = DateTime.now().millisecondsSinceEpoch;
+                      final updatedRecord = widget.record.copyWith(
+                        content: _controller.text,
+                        updatedAt: now,
+                      );
+                      widget.onSave(updatedRecord);
+                    }
+                    // Notify parent which record triggered Enter
+                    widget.onSubmitted?.call(widget.record.id);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
