@@ -108,23 +108,6 @@ class _RecordSectionState extends State<RecordSection> {
     widget.onSave(newRecord);
   }
 
-  void _handleDelete(String recordId) {
-    // Find the record being deleted
-    final currentIndex = widget.records.indexWhere((r) => r.id == recordId);
-
-    // If this record exists and it's not the first one, focus the previous record
-    // This provides better UX - after deleting, you stay in the same section
-    if (currentIndex > 0) {
-      final previousRecord = widget.records[currentIndex - 1];
-      setState(() {
-        _autoFocusRecordId = previousRecord.id;
-      });
-    }
-
-    // Call the parent's delete handler
-    widget.onDelete(recordId);
-  }
-
   @override
   void didUpdateWidget(RecordSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -174,7 +157,7 @@ class _RecordSectionState extends State<RecordSection> {
             key: ValueKey(record.id),
             record: record,
             onSave: widget.onSave,
-            onDelete: _handleDelete, // Use local handler to manage focus before delete
+            onDelete: widget.onDelete,
             onSubmitted: _handleEnterPressed,
             onNavigateUp: widget.onNavigate != null ? () => widget.onNavigate!(record.id, -1) : null,
             onNavigateDown: widget.onNavigate != null ? () => widget.onNavigate!(record.id, 1) : null,
