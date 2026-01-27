@@ -148,8 +148,9 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   void initState() {
     super.initState();
-    // No pre-loading - everything is lazy!
-    // No scroll listener needed - SliverList handles lazy loading automatically
+    // Pre-load today's data so it's visible immediately on app start
+    // This is crucial for iOS where app termination clears the in-memory cache
+    _loadInitialData();
   }
 
   @override
@@ -159,6 +160,55 @@ class _JournalScreenState extends State<JournalScreen> {
       debouncer.dispose();
     }
     super.dispose();
+  }
+
+  // WHAT: Pre-loads today's data on app startup
+  // WHY: On iOS, app termination clears RAM → _recordsByDate is empty → UI blank
+  // HOW: Eagerly load today's date into cache before first build
+  // WHEN: Called once during initState, before first build() call
+  //
+  // TEACHING POINTS:
+  // - async in initState is allowed (unlike build)
+  // - We don't await in initState (widget must mount immediately)
+  // - setState triggers rebuild after data loads
+  // - This pattern: "optimistic mounting + async load + setState update"
+  //
+  // FLUTTER LIFECYCLE:
+  // 1. initState() called → _loadInitialData() starts (doesn't block)
+  // 2. Widget mounts immediately → build() runs with empty cache
+  // 3. _loadInitialData() completes → today's data loaded into cache
+  // 4. setState() called → triggers rebuild
+  // 5. build() runs again → today's DaySection shows data via cache
+  Future<void> _loadInitialData() async {
+    final today = DateService.today();
+
+    // EXPLANATION: We call _getRecordsForDate which:
+    //   1. Checks cache (_recordsByDate) - empty on app restart
+    //   2. Queries database via _repository.getRecordsForDate(today)
+    //   3. Populates cache with today's records
+    //   4. Returns the records
+    //
+    // This is the same method used by lazy loading when you scroll!
+    // We're just calling it early to "warm up" the cache.
+    await _getRecordsForDate(today);
+
+    // EXPLANATION: setState triggers a rebuild
+    // Even though _recordsByDate was updated by _getRecordsForDate,
+    // we need setState to:
+    //   - Notify Flutter that state changed
+    //   - Trigger rebuild of DaySection FutureBuilders
+    //   - Make today's data visible in the UI
+    //
+    // WHY CHECK 'mounted'?
+    // In rare cases, the widget might be disposed before the async
+    // operation completes. Calling setState on a disposed widget
+    // causes an error, so we check 'mounted' first.
+    //
+    // EXAMPLE SCENARIO:
+    // - User opens app → _loadInitialData() starts
+    // - User immediately navigates away → JournalScreen disposed
+    // - _loadInitialData() completes → if (mounted) prevents crash
+    if (mounted) setState(() {});
   }
 
   // Lazy load records for a date (only when needed)
