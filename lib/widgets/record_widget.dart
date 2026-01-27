@@ -152,8 +152,31 @@ class _RecordWidgetState extends State<RecordWidget> {
   }
 
   // NAVIGATION SHORTCUTS: Arrow keys for moving between records
+  //
+  // KEY REPEAT: Flutter emits three types of keyboard events:
+  // - KeyDownEvent: Fired ONCE when key is first pressed
+  // - KeyRepeatEvent: Fired REPEATEDLY while key is held down (OS key repeat rate)
+  // - KeyUpEvent: Fired ONCE when key is released
+  //
+  // WHY WE HANDLE BOTH KeyDownEvent AND KeyRepeatEvent:
+  // To support "hold to navigate", we need to respond to both the initial press
+  // (KeyDownEvent) and the continuous repeat events (KeyRepeatEvent) that fire
+  // while the user holds the arrow key down.
+  //
+  // EXAMPLE:
+  // User holds down arrow key for 2 seconds:
+  //   1. KeyDownEvent → navigate once
+  //   2. KeyRepeatEvent → navigate again (after OS delay, ~500ms)
+  //   3. KeyRepeatEvent → navigate again (~30ms later)
+  //   4. KeyRepeatEvent → navigate again (~30ms later)
+  //   ... continues until key is released
+  //   N. KeyUpEvent → ignored (we don't navigate on key release)
   KeyEventResult _handleNavigationKey(KeyEvent event, FocusNode node) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    // Only handle KeyDownEvent (initial press) and KeyRepeatEvent (key held)
+    // Ignore KeyUpEvent (we don't want to navigate when key is released)
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       return _handleArrowDown(node);
@@ -175,6 +198,32 @@ class _RecordWidgetState extends State<RecordWidget> {
       sectionType: widget.record.type,
     ).dispatch(context);
 
+    // ⚠️ IMPORTANT: TWO SEPARATE EVENT SYSTEMS AT WORK HERE!
+    //
+    // SYSTEM 1: Key Event Handling (what we're doing right here)
+    // - Managed by Focus widget's onKeyEvent callback
+    // - KeyEventResult.handled = "I consumed this key, don't pass it to other Focus widgets"
+    // - KeyEventResult.ignored = "I don't care about this key, let it bubble to other Focus widgets"
+    //
+    // SYSTEM 2: Notification System (what happens above in dispatch())
+    // - Managed by NotificationListener widgets up the tree
+    // - Listener returns true = "Stop bubbling this notification"
+    // - Listener returns false = "Continue bubbling this notification to parent"
+    //
+    // WHY WE RETURN "HANDLED" EVEN THOUGH THE NOTIFICATION MIGHT BUBBLE:
+    // We're saying "I handled the KEY PRESS" (don't let other widgets respond to arrow down),
+    // NOT "I handled the navigation" (that's decided by the NotificationListener chain).
+    //
+    // EXAMPLE: Arrow down pressed on this TextField
+    //   1. Focus widget catches the key event
+    //   2. We dispatch NavigateDownNotification (Notification System)
+    //   3. We return KeyEventResult.handled (Key Event System)
+    //   4. Notification bubbles: RecordSection → JournalScreen (separate from key event)
+    //   5. Key event stops here (because we said "handled")
+    //
+    // If we returned KeyEventResult.ignored, the arrow key would ALSO bubble through
+    // the Focus tree, potentially causing other widgets (like scroll containers) to
+    // respond to the arrow key, creating double behavior!
     return KeyEventResult.handled;
   }
 
