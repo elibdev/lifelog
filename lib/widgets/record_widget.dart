@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/record.dart';
 import '../services/keyboard_service.dart';
 
@@ -118,8 +117,8 @@ class _RecordWidgetState extends State<RecordWidget> {
     }
   }
 
-  void _handleCheckboxToggle(bool value) {
-    if (widget.record is! TodoRecord) return;
+  void _handleCheckboxToggle(bool? value) {
+    if (value == null || widget.record is! TodoRecord) return;
     final todo = widget.record as TodoRecord;
     final now = DateTime.now().millisecondsSinceEpoch;
     final updated = todo.copyWithChecked(
