@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/record.dart';
+import '../services/date_service.dart';
 import 'record_section.dart';
 
 // WHAT IS THIS WIDGET?
@@ -56,25 +56,9 @@ class DaySection extends StatelessWidget {
     required this.onDelete,
   });
 
-  // Format date for display in header (e.g., "Mon, Jan 27, 2026")
-  String _formatDateHeader(String isoDate) {
-    final dateTime = DateTime.parse(isoDate);
-    // Always show year for clarity
-    return DateFormat('EEE, MMM d, y').format(dateTime);
-  }
-
-  // Check if this date is today
-  bool _isToday(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isToday = _isToday(date);
+    final isToday = DateService.isToday(date);
 
     // FUTUREBUILDER: Lazy loading pattern
     // Only loads records when this day is scrolled into view
@@ -110,8 +94,8 @@ class DaySection extends StatelessWidget {
               child: Text(
                 // Show "Today • " prefix if this is today's date
                 isToday
-                    ? 'Today • ${_formatDateHeader(date)}'
-                    : _formatDateHeader(date),
+                    ? 'Today • ${DateService.formatForDisplay(date)}'
+                    : DateService.formatForDisplay(date),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),

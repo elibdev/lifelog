@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
 import '../notifications/navigation_notifications.dart';
+import '../services/date_service.dart';
 import '../utils/debouncer.dart';
 import 'record_section.dart';
 import 'day_section.dart';
@@ -93,7 +94,7 @@ class _JournalScreenState extends State<JournalScreen> {
       _focusFirstRecordOfSection(date, 'note');
     } else {
       // From last note → first todo of next day
-      final nextDate = _getNextDate(date);
+      final nextDate = DateService.getNextDate(date);
       _focusFirstRecordOfSection(nextDate, 'todo');
     }
   }
@@ -108,7 +109,7 @@ class _JournalScreenState extends State<JournalScreen> {
       _focusLastRecordOfSection(date, 'todo');
     } else {
       // From first todo → last note of previous day
-      final prevDate = _getPreviousDate(date);
+      final prevDate = DateService.getPreviousDate(date);
       _focusLastRecordOfSection(prevDate, 'note');
     }
   }
@@ -144,20 +145,6 @@ class _JournalScreenState extends State<JournalScreen> {
     key.currentState?.focusLastRecord();
   }
 
-  // Get the next day's date string
-  String _getNextDate(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final nextDay = date.add(const Duration(days: 1));
-    return _formatDateForDb(nextDay);
-  }
-
-  // Get the previous day's date string
-  String _getPreviousDate(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final prevDay = date.subtract(const Duration(days: 1));
-    return _formatDateForDb(prevDay);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -172,15 +159,6 @@ class _JournalScreenState extends State<JournalScreen> {
       debouncer.dispose();
     }
     super.dispose();
-  }
-
-  String _formatDateForDb(DateTime date) {
-    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  String _getDateForOffset(int offsetFromToday) {
-    final date = DateTime.now().add(Duration(days: offsetFromToday));
-    return _formatDateForDb(date);
   }
 
   // Lazy load records for a date (only when needed)
@@ -290,7 +268,7 @@ class _JournalScreenState extends State<JournalScreen> {
                         (context, index) {
                           // index 0 is yesterday, index 1 is 2 days ago, etc.
                           final daysAgo = index + 1;
-                          final date = _getDateForOffset(-daysAgo);
+                          final date = DateService.getDateForOffset(-daysAgo);
 
                           // REFACTORED: All day rendering logic moved to DaySection widget
                           // This eliminates 74 lines of duplicated code between past/future lists
@@ -315,7 +293,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           // index 0 is today, index 1 is tomorrow, etc.
-                          final date = _getDateForOffset(index);
+                          final date = DateService.getDateForOffset(index);
 
                           // REFACTORED: All day rendering logic moved to DaySection widget
                           // This eliminates 74 lines of duplicated code between past/future lists
