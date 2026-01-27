@@ -9,7 +9,6 @@ class RecordWidget extends StatefulWidget {
   final Function(String) onDelete;
   final Function(String)?
       onSubmitted; // Called when user presses Enter, passes record ID
-  final bool autofocus; // Auto-focus this field
 
   // FOCUS NODE LIFECYCLE CALLBACKS
   // RecordSection needs to track FocusNodes so it can call requestFocus() during navigation
@@ -24,7 +23,6 @@ class RecordWidget extends StatefulWidget {
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.autofocus = false,
     // Focus node lifecycle callbacks - optional
     this.recordIndex,
     this.onFocusNodeCreated,
@@ -58,20 +56,13 @@ class _RecordWidgetState extends State<RecordWidget> {
       _focusNode,
     );
 
-    // Attach focus change listener (rebuilds on focus + deletes empty on blur)
+    // Attach focus change listener (deletes empty records on blur)
     _focusNode.addListener(_handleFocusChange);
-
-    // Request autofocus if needed
-    if (widget.autofocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
-      });
-    }
   }
 
   void _handleFocusChange() {
-    // Rebuild widget on focus change
-    if (mounted) setState(() {});
+    // No rebuild needed - TextField handles its own focus styling
+    // Removing setState prevents interference with keyboard dismiss animation
 
     // When focus is lost, delete if content is empty/whitespace
     if (!_focusNode.hasFocus && _controller.text.trim().isEmpty) {
@@ -320,10 +311,9 @@ class _RecordWidgetState extends State<RecordWidget> {
                   decoration: isChecked ? TextDecoration.lineThrough : null,
                 ),
                 maxLines: null,
-                textInputAction: TextInputAction.done,
+                textInputAction: TextInputAction.next,
                 onChanged: (_) {
                   _handleTextChange();
-                  setState(() {});
                 },
                 onSubmitted: (_) {
                   // Save current text immediately

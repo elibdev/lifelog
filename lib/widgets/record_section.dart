@@ -29,7 +29,6 @@ class RecordSection extends StatefulWidget {
 // Made public so JournalScreen can access it via GlobalKey for cross-section navigation
 class RecordSectionState extends State<RecordSection> {
   late String _placeholderId;
-  String? _autoFocusRecordId;
 
   // FOCUS NODE TRACKING: Map of recordId -> FocusNode
   // RecordSection tracks FocusNodes so it can call requestFocus() during navigation
@@ -49,10 +48,7 @@ class RecordSectionState extends State<RecordSection> {
   // PUBLIC API: Focus the last record in this section (or placeholder)
   // Called by JournalScreen via GlobalKey for cross-section navigation
   void focusLastRecord() {
-    final allRecordIds = [
-      ...widget.records.map((r) => r.id),
-      _placeholderId,
-    ];
+    final allRecordIds = [...widget.records.map((r) => r.id), _placeholderId];
     _tryFocusRecordAt(allRecordIds.length - 1);
   }
 
@@ -83,10 +79,7 @@ class RecordSectionState extends State<RecordSection> {
   // Returns true if successful, false if index is out of bounds
   bool _tryFocusRecordAt(int index) {
     // Calculate actual index (including placeholder)
-    final allRecordIds = [
-      ...widget.records.map((r) => r.id),
-      _placeholderId,
-    ];
+    final allRecordIds = [...widget.records.map((r) => r.id), _placeholderId];
 
     if (index < 0 || index >= allRecordIds.length) {
       return false; // Out of bounds
@@ -167,29 +160,16 @@ class RecordSectionState extends State<RecordSection> {
             orderPosition: newPosition,
           );
 
-    // Mark the new record for autofocus
-    setState(() {
-      _autoFocusRecordId = newId;
-    });
-
-    // Save the new record
+    // Save the new record (triggers parent setState which rebuilds us)
     widget.onSave(newRecord);
-  }
 
-  @override
-  void didUpdateWidget(RecordSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Clear autofocus after one build cycle
-    if (_autoFocusRecordId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _autoFocusRecordId = null;
-          });
-        }
-      });
-    }
+    // After the rebuild, request focus on the new record's FocusNode directly
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // FocusNode has been registered by now, request focus directly
+        _focusNodes[newId]?.requestFocus();
+      }
+    });
   }
 
   @override
@@ -242,41 +222,38 @@ class RecordSectionState extends State<RecordSection> {
           return handled;
         },
         child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Existing records
-        ...widget.records.asMap().entries.map(
-          (entry) {
-            final index = entry.key;
-            final record = entry.value;
-            return RecordWidget(
-              key: ValueKey(record.id),
-              record: record,
-              onSave: widget.onSave,
-              onDelete: widget.onDelete,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Existing records
+            ...widget.records.asMap().entries.map((entry) {
+              final index = entry.key;
+              final record = entry.value;
+              return RecordWidget(
+                key: ValueKey(record.id),
+                record: record,
+                onSave: widget.onSave,
+                onDelete: widget.onDelete,
+                onSubmitted: _handleEnterPressed,
+                // Focus node lifecycle tracking
+                recordIndex: index,
+                onFocusNodeCreated: _handleFocusNodeCreated,
+                onFocusNodeDisposed: _handleFocusNodeDisposed,
+              );
+            }),
+            // Placeholder
+            RecordWidget(
+              key: ValueKey(_placeholderId),
+              record: placeholder,
+              onSave: _handlePlaceholderSave,
+              onDelete: (_) {}, // Can't delete placeholder
               onSubmitted: _handleEnterPressed,
-              autofocus: record.id == _autoFocusRecordId,
-              // Focus node lifecycle tracking
-              recordIndex: index,
+              // Placeholder is last in order
+              recordIndex: widget.records.length,
               onFocusNodeCreated: _handleFocusNodeCreated,
               onFocusNodeDisposed: _handleFocusNodeDisposed,
-            );
-          },
+            ),
+          ],
         ),
-        // Placeholder
-        RecordWidget(
-          key: ValueKey(_placeholderId),
-          record: placeholder,
-          onSave: _handlePlaceholderSave,
-          onDelete: (_) {}, // Can't delete placeholder
-          onSubmitted: _handleEnterPressed,
-          // Placeholder is last in order
-          recordIndex: widget.records.length,
-          onFocusNodeCreated: _handleFocusNodeCreated,
-          onFocusNodeDisposed: _handleFocusNodeDisposed,
-        ),
-      ],
-    ),
       ), // End NotificationListener<NavigateUpNotification>
     ); // End NotificationListener<NavigateDownNotification>
   }

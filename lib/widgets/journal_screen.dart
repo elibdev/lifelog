@@ -296,6 +296,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     },
                     child: CustomScrollView(
                   center: _todayKey,
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   slivers: [
                     // Past days (before today) - lazy loaded
                     SliverList(
