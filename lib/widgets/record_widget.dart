@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/record.dart';
-import '../notifications/navigation_notifications.dart';
+import '../services/keyboard_service.dart';
 
 class RecordWidget extends StatefulWidget {
   final Record record;
@@ -118,147 +118,15 @@ class _RecordWidgetState extends State<RecordWidget> {
     }
   }
 
-  void _handleCheckboxToggle(bool? value) {
+  void _handleCheckboxToggle(bool value) {
     if (widget.record is! TodoRecord) return;
     final todo = widget.record as TodoRecord;
     final now = DateTime.now().millisecondsSinceEpoch;
     final updated = todo.copyWithChecked(
-      checked: value ?? false,
+      checked: value,
       updatedAt: now,
     );
     widget.onSave(updated);
-  }
-
-  // KEYBOARD SHORTCUTS: Main handler delegates to specialized handlers
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    // Try navigation shortcuts first (arrow keys)
-    final navResult = _handleNavigationKey(event, node);
-    if (navResult == KeyEventResult.handled) return navResult;
-
-    // Then try action shortcuts (Ctrl+Enter, Delete)
-    final actionResult = _handleActionKey(event);
-    if (actionResult == KeyEventResult.handled) return actionResult;
-
-    return KeyEventResult.ignored;
-  }
-
-  // NAVIGATION SHORTCUTS: Arrow keys for moving between records
-  //
-  // KEY REPEAT: Flutter emits three types of keyboard events:
-  // - KeyDownEvent: Fired ONCE when key is first pressed
-  // - KeyRepeatEvent: Fired REPEATEDLY while key is held down (OS key repeat rate)
-  // - KeyUpEvent: Fired ONCE when key is released
-  //
-  // WHY WE HANDLE BOTH KeyDownEvent AND KeyRepeatEvent:
-  // To support "hold to navigate", we need to respond to both the initial press
-  // (KeyDownEvent) and the continuous repeat events (KeyRepeatEvent) that fire
-  // while the user holds the arrow key down.
-  //
-  // EXAMPLE:
-  // User holds down arrow key for 2 seconds:
-  //   1. KeyDownEvent → navigate once
-  //   2. KeyRepeatEvent → navigate again (after OS delay, ~500ms)
-  //   3. KeyRepeatEvent → navigate again (~30ms later)
-  //   4. KeyRepeatEvent → navigate again (~30ms later)
-  //   ... continues until key is released
-  //   N. KeyUpEvent → ignored (we don't navigate on key release)
-  KeyEventResult _handleNavigationKey(KeyEvent event, FocusNode node) {
-    // Only handle KeyDownEvent (initial press) and KeyRepeatEvent (key held)
-    // Ignore KeyUpEvent (we don't want to navigate when key is released)
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      return _handleArrowDown(node);
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      return _handleArrowUp(node);
-    }
-
-    return KeyEventResult.ignored;
-  }
-
-  KeyEventResult _handleArrowDown(FocusNode node) {
-    // DISPATCH NOTIFICATION: This bubbles up the widget tree
-    // RecordSection will try to handle it first (focus next record in section)
-    // If RecordSection can't handle it (at end), it bubbles to JournalScreen
-    NavigateDownNotification(
-      recordId: widget.record.id,
-      recordIndex: widget.recordIndex ?? -1,
-      date: widget.record.date,
-      sectionType: widget.record.type,
-    ).dispatch(context);
-
-    // ⚠️ IMPORTANT: TWO SEPARATE EVENT SYSTEMS AT WORK HERE!
-    //
-    // SYSTEM 1: Key Event Handling (what we're doing right here)
-    // - Managed by Focus widget's onKeyEvent callback
-    // - KeyEventResult.handled = "I consumed this key, don't pass it to other Focus widgets"
-    // - KeyEventResult.ignored = "I don't care about this key, let it bubble to other Focus widgets"
-    //
-    // SYSTEM 2: Notification System (what happens above in dispatch())
-    // - Managed by NotificationListener widgets up the tree
-    // - Listener returns true = "Stop bubbling this notification"
-    // - Listener returns false = "Continue bubbling this notification to parent"
-    //
-    // WHY WE RETURN "HANDLED" EVEN THOUGH THE NOTIFICATION MIGHT BUBBLE:
-    // We're saying "I handled the KEY PRESS" (don't let other widgets respond to arrow down),
-    // NOT "I handled the navigation" (that's decided by the NotificationListener chain).
-    //
-    // EXAMPLE: Arrow down pressed on this TextField
-    //   1. Focus widget catches the key event
-    //   2. We dispatch NavigateDownNotification (Notification System)
-    //   3. We return KeyEventResult.handled (Key Event System)
-    //   4. Notification bubbles: RecordSection → JournalScreen (separate from key event)
-    //   5. Key event stops here (because we said "handled")
-    //
-    // If we returned KeyEventResult.ignored, the arrow key would ALSO bubble through
-    // the Focus tree, potentially causing other widgets (like scroll containers) to
-    // respond to the arrow key, creating double behavior!
-    return KeyEventResult.handled;
-  }
-
-  KeyEventResult _handleArrowUp(FocusNode node) {
-    // DISPATCH NOTIFICATION: This bubbles up the widget tree
-    // RecordSection will try to handle it first (focus previous record in section)
-    // If RecordSection can't handle it (at start), it bubbles to JournalScreen
-    NavigateUpNotification(
-      recordId: widget.record.id,
-      recordIndex: widget.recordIndex ?? -1,
-      date: widget.record.date,
-      sectionType: widget.record.type,
-    ).dispatch(context);
-
-    return KeyEventResult.handled;
-  }
-
-  // ACTION SHORTCUTS: Ctrl+Enter toggles checkbox, Delete removes empty
-  KeyEventResult _handleActionKey(KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
-    final record = widget.record;
-    final isEmpty = _controller.text.trim().isEmpty;
-
-    // Ctrl/Cmd+Enter = Toggle checkbox (for todos)
-    if (event.logicalKey == LogicalKeyboardKey.enter &&
-        (HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed) &&
-        record is TodoRecord &&
-        !isEmpty) {
-      _handleCheckboxToggle(!record.checked);
-      return KeyEventResult.handled;
-    }
-
-    // Delete/backspace at beginning of empty record = delete record
-    if ((event.logicalKey == LogicalKeyboardKey.backspace ||
-            event.logicalKey == LogicalKeyboardKey.delete) &&
-        isEmpty &&
-        _controller.selection.start == 0) {
-      widget.onDelete(widget.record.id);
-      return KeyEventResult.handled;
-    }
-
-    return KeyEventResult.ignored;
   }
 
   @override
@@ -296,8 +164,28 @@ class _RecordWidgetState extends State<RecordWidget> {
           ),
           // Text field
           Expanded(
+            // KEYBOARD SHORTCUTS: Delegated to KeyboardService
+            // This keeps RecordWidget focused on UI rendering, while
+            // KeyboardService handles all input logic (arrow keys, Ctrl+Enter, Delete)
+            //
+            // SEPARATION OF CONCERNS:
+            // - RecordWidget (this file): UI rendering, focus lifecycle
+            // - KeyboardService: Input handling logic
+            //
+            // See lib/services/keyboard_service.dart for keyboard handling details
             child: Focus(
-              onKeyEvent: _handleKeyEvent,
+              onKeyEvent: (node, event) {
+                return KeyboardService.handleRecordKeyEvent(
+                  event: event,
+                  node: node,
+                  record: widget.record,
+                  recordIndex: widget.recordIndex ?? -1,
+                  textController: _controller,
+                  context: context,
+                  onDelete: widget.onDelete,
+                  onToggleCheckbox: _handleCheckboxToggle,
+                );
+              },
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,

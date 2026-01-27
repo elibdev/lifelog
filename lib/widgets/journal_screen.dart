@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
 import '../notifications/navigation_notifications.dart';
+import '../services/date_service.dart';
 import '../utils/debouncer.dart';
 import 'record_section.dart';
+import 'day_section.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -93,7 +94,7 @@ class _JournalScreenState extends State<JournalScreen> {
       _focusFirstRecordOfSection(date, 'note');
     } else {
       // From last note → first todo of next day
-      final nextDate = _getNextDate(date);
+      final nextDate = DateService.getNextDate(date);
       _focusFirstRecordOfSection(nextDate, 'todo');
     }
   }
@@ -108,7 +109,7 @@ class _JournalScreenState extends State<JournalScreen> {
       _focusLastRecordOfSection(date, 'todo');
     } else {
       // From first todo → last note of previous day
-      final prevDate = _getPreviousDate(date);
+      final prevDate = DateService.getPreviousDate(date);
       _focusLastRecordOfSection(prevDate, 'note');
     }
   }
@@ -144,20 +145,6 @@ class _JournalScreenState extends State<JournalScreen> {
     key.currentState?.focusLastRecord();
   }
 
-  // Get the next day's date string
-  String _getNextDate(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final nextDay = date.add(const Duration(days: 1));
-    return _formatDateForDb(nextDay);
-  }
-
-  // Get the previous day's date string
-  String _getPreviousDate(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final prevDay = date.subtract(const Duration(days: 1));
-    return _formatDateForDb(prevDay);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -172,29 +159,6 @@ class _JournalScreenState extends State<JournalScreen> {
       debouncer.dispose();
     }
     super.dispose();
-  }
-
-  String _formatDateHeader(String isoDate) {
-    final dateTime = DateTime.parse(isoDate);
-    // Always show year for clarity (e.g., "Mon, Jan 23, 2025")
-    return DateFormat('EEE, MMM d, y').format(dateTime);
-  }
-
-  bool _isToday(String isoDate) {
-    final date = DateTime.parse(isoDate);
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-  }
-
-  String _formatDateForDb(DateTime date) {
-    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  String _getDateForOffset(int offsetFromToday) {
-    final date = DateTime.now().add(Duration(days: offsetFromToday));
-    return _formatDateForDb(date);
   }
 
   // Lazy load records for a date (only when needed)
@@ -299,76 +263,22 @@ class _JournalScreenState extends State<JournalScreen> {
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   slivers: [
                     // Past days (before today) - lazy loaded
+                    // Each day is rendered by DaySection widget (eliminates duplication)
                     SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           // index 0 is yesterday, index 1 is 2 days ago, etc.
                           final daysAgo = index + 1;
-                          final date = _getDateForOffset(-daysAgo);
+                          final date = DateService.getDateForOffset(-daysAgo);
 
-                          return FutureBuilder<List<Record>>(
-                            future: _getRecordsForDate(date),
-                            builder: (context, snapshot) {
-                              final records = snapshot.data ?? [];
-                              final todos = records
-                                  .whereType<TodoRecord>()
-                                  .toList();
-                              final notes = records
-                                  .whereType<NoteRecord>()
-                                  .toList();
-
-                              final isToday = _isToday(date);
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Date header - compact spacing for information density
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16.0,
-                                      16.0, // Reduced from 24.0
-                                      16.0,
-                                      8.0, // Reduced from 12.0
-                                    ),
-                                    child: Text(
-                                      isToday
-                                          ? 'Today • ${_formatDateHeader(date)}'
-                                          : _formatDateHeader(date),
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                  ),
-                                  // Records
-                                  //
-                                  // ATTACHING THE GLOBALKEY:
-                                  // We pass the GlobalKey to RecordSection via the 'key' parameter.
-                                  // This creates the connection: key.currentState → RecordSectionState
-                                  //
-                                  // WHY: Later when a navigation notification arrives, we can call
-                                  // _getSectionKey(date, 'todo').currentState?.focusFirstRecord()
-                                  // to directly tell THIS specific RecordSection to focus a record.
-                                  RecordSection(
-                                    key: _getSectionKey(date, 'todo'), // "Remote control" attached here
-                                    title: 'TODOS',
-                                    records: todos,
-                                    date: date,
-                                    recordType: 'todo',
-                                    onSave: _handleSaveRecord,
-                                    onDelete: _handleDeleteRecord,
-                                  ),
-                                  RecordSection(
-                                    key: _getSectionKey(date, 'note'),
-                                    title: 'NOTES',
-                                    records: notes,
-                                    date: date,
-                                    recordType: 'note',
-                                    onSave: _handleSaveRecord,
-                                    onDelete: _handleDeleteRecord,
-                                  ),
-                                ],
-                              );
-                            },
+                          // REFACTORED: All day rendering logic moved to DaySection widget
+                          // This eliminates 74 lines of duplicated code between past/future lists
+                          return DaySection(
+                            date: date,
+                            recordsFuture: _getRecordsForDate(date),
+                            getSectionKey: _getSectionKey,
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
                           );
                         }, // No childCount = infinite scrolling!
                       ),
@@ -379,75 +289,21 @@ class _JournalScreenState extends State<JournalScreen> {
                       child: const SizedBox.shrink(),
                     ),
                     // Today and future days - lazy loaded
+                    // Each day is rendered by DaySection widget (eliminates duplication)
                     SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           // index 0 is today, index 1 is tomorrow, etc.
-                          final date = _getDateForOffset(index);
+                          final date = DateService.getDateForOffset(index);
 
-                          return FutureBuilder<List<Record>>(
-                            future: _getRecordsForDate(date),
-                            builder: (context, snapshot) {
-                              final records = snapshot.data ?? [];
-                              final todos = records
-                                  .whereType<TodoRecord>()
-                                  .toList();
-                              final notes = records
-                                  .whereType<NoteRecord>()
-                                  .toList();
-
-                              final isToday = _isToday(date);
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Date header - compact spacing for information density
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16.0,
-                                      16.0, // Reduced from 24.0
-                                      16.0,
-                                      8.0, // Reduced from 12.0
-                                    ),
-                                    child: Text(
-                                      isToday
-                                          ? 'Today • ${_formatDateHeader(date)}'
-                                          : _formatDateHeader(date),
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                  ),
-                                  // Records
-                                  //
-                                  // ATTACHING THE GLOBALKEY:
-                                  // We pass the GlobalKey to RecordSection via the 'key' parameter.
-                                  // This creates the connection: key.currentState → RecordSectionState
-                                  //
-                                  // WHY: Later when a navigation notification arrives, we can call
-                                  // _getSectionKey(date, 'todo').currentState?.focusFirstRecord()
-                                  // to directly tell THIS specific RecordSection to focus a record.
-                                  RecordSection(
-                                    key: _getSectionKey(date, 'todo'), // "Remote control" attached here
-                                    title: 'TODOS',
-                                    records: todos,
-                                    date: date,
-                                    recordType: 'todo',
-                                    onSave: _handleSaveRecord,
-                                    onDelete: _handleDeleteRecord,
-                                  ),
-                                  RecordSection(
-                                    key: _getSectionKey(date, 'note'),
-                                    title: 'NOTES',
-                                    records: notes,
-                                    date: date,
-                                    recordType: 'note',
-                                    onSave: _handleSaveRecord,
-                                    onDelete: _handleDeleteRecord,
-                                  ),
-                                ],
-                              );
-                            },
+                          // REFACTORED: All day rendering logic moved to DaySection widget
+                          // This eliminates 74 lines of duplicated code between past/future lists
+                          return DaySection(
+                            date: date,
+                            recordsFuture: _getRecordsForDate(date),
+                            getSectionKey: _getSectionKey,
+                            onSave: _handleSaveRecord,
+                            onDelete: _handleDeleteRecord,
                           );
                         }, // No childCount = infinite scrolling!
                       ),
