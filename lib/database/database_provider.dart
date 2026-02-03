@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io'; // For Directory.create() to ensure Application Support directory exists
 
 class DatabaseProvider {
   static final DatabaseProvider instance = DatabaseProvider._internal();
@@ -20,9 +21,31 @@ class DatabaseProvider {
   DatabaseProvider._internal();
 
   // Initialize database path (async) - call from main() before runApp()
+  //
+  // CRITICAL iOS FIX: Use getApplicationSupportDirectory() NOT getApplicationDocumentsDirectory()
+  //
+  // Why this matters on iOS:
+  // - Documents directory: Visible in Files app, user-accessible, can cause permission issues
+  // - Application Support directory: Hidden from user, backed up to iCloud, recommended by Apple for databases
+  //
+  // Using Documents directory can cause:
+  // - Data not saving properly due to access restrictions
+  // - Users accidentally modifying/deleting database files
+  // - App Store rejection (Documents should only contain user-created content)
+  //
+  // Android note: Both directories work the same way on Android, but Application Support
+  // is still the better choice for consistency across platforms
   Future<void> initialize() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    _dbPath = join(docDir.path, 'lifelog.db');
+    final appSupportDir = await getApplicationSupportDirectory();
+
+    // IMPORTANT: Ensure the directory exists before using it
+    // On iOS, Application Support directory may not exist yet on first launch
+    // recursive: true creates parent directories if needed (safe on all platforms)
+    if (!await appSupportDir.exists()) {
+      await appSupportDir.create(recursive: true);
+    }
+
+    _dbPath = join(appSupportDir.path, 'lifelog.db');
   }
 
   // Synchronous database getter (sqlite3 is synchronous)
