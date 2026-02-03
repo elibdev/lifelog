@@ -20,9 +20,23 @@ class DatabaseProvider {
   DatabaseProvider._internal();
 
   // Initialize database path (async) - call from main() before runApp()
+  //
+  // CRITICAL iOS FIX: Use getApplicationSupportDirectory() NOT getApplicationDocumentsDirectory()
+  //
+  // Why this matters on iOS:
+  // - Documents directory: Visible in Files app, user-accessible, can cause permission issues
+  // - Application Support directory: Hidden from user, backed up to iCloud, recommended by Apple for databases
+  //
+  // Using Documents directory can cause:
+  // - Data not saving properly due to access restrictions
+  // - Users accidentally modifying/deleting database files
+  // - App Store rejection (Documents should only contain user-created content)
+  //
+  // Android note: Both directories work the same way on Android, but Application Support
+  // is still the better choice for consistency across platforms
   Future<void> initialize() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    _dbPath = join(docDir.path, 'lifelog.db');
+    final appSupportDir = await getApplicationSupportDirectory();
+    _dbPath = join(appSupportDir.path, 'lifelog.db');
   }
 
   // Synchronous database getter (sqlite3 is synchronous)
