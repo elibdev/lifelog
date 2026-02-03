@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io'; // For Directory.create() to ensure Application Support directory exists
 
 class DatabaseProvider {
   static final DatabaseProvider instance = DatabaseProvider._internal();
@@ -36,6 +37,14 @@ class DatabaseProvider {
   // is still the better choice for consistency across platforms
   Future<void> initialize() async {
     final appSupportDir = await getApplicationSupportDirectory();
+
+    // IMPORTANT: Ensure the directory exists before using it
+    // On iOS, Application Support directory may not exist yet on first launch
+    // recursive: true creates parent directories if needed (safe on all platforms)
+    if (!await appSupportDir.exists()) {
+      await appSupportDir.create(recursive: true);
+    }
+
     _dbPath = join(appSupportDir.path, 'lifelog.db');
   }
 
