@@ -24,10 +24,10 @@ class GridConstants {
   static const double dotRadius = 1.0;
 
   /// Dot color for light theme
-  static const ui.Color dotColorLight = ui.Color(0xFFD0D0D0);
+  static const ui.Color dotColorLight = ui.Color.fromARGB(255, 175, 171, 163);
 
   /// Dot color for dark theme
-  static const ui.Color dotColorDark = ui.Color(0xFF404040);
+  static const ui.Color dotColorDark = ui.Color.fromARGB(255, 37, 36, 36);
 
   // ============================================================================
   // HORIZONTAL LAYOUT CALCULATIONS
