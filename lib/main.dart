@@ -13,6 +13,8 @@ void main() async {
 
 class LifelogApp extends StatelessWidget {
   const LifelogApp({super.key});
+  static const surfaceLight = Color.fromARGB(255, 188, 183, 173);
+  static const surfaceDark = Color.fromARGB(255, 30, 29, 29);
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,6 @@ class LifelogApp extends StatelessWidget {
       // and automatically switches based on themeMode setting. Material 3 uses
       // ColorScheme to define all app colors consistently.
       // See: https://docs.flutter.dev/ui/design/material/material-3
-
       theme: ThemeData(
         useMaterial3: true,
         // ColorScheme.fromSeed() generates a complete color palette from one color,
@@ -34,11 +35,11 @@ class LifelogApp extends StatelessWidget {
           brightness: Brightness.light,
           // surface: used by Cards, Dialogs, BottomSheets, etc.
           // Using warm off-white (#FAF9F7) instead of pure white
-          surface: const Color(0xFFFAF9F7),
+          surface: surfaceLight,
         ),
         // scaffoldBackgroundColor: The main app background color
         // Slightly different from surface to create subtle depth
-        scaffoldBackgroundColor: const Color(0xFFF5F4F2),
+        scaffoldBackgroundColor: surfaceLight,
       ),
 
       darkTheme: ThemeData(
@@ -48,15 +49,16 @@ class LifelogApp extends StatelessWidget {
           brightness: Brightness.dark,
           // Using warm dark gray (#1E1E1E) instead of pure black (#000000)
           // This reduces eye strain and feels less cold
-          surface: const Color(0xFF1E1E1E),
+          surface: surfaceDark,
         ),
         // Slightly darker than surface for background depth
-        scaffoldBackgroundColor: const Color(0xFF181818),
+        scaffoldBackgroundColor: surfaceDark,
       ),
 
       // ThemeMode.system: Flutter checks MediaQuery.platformBrightnessOf(context)
       // to automatically switch between theme and darkTheme
-      themeMode: ThemeMode.system,
+      // themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       home: const JournalScreen(),
     );
   }
