@@ -4,7 +4,6 @@ import 'package:path/path.dart';
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io'; // For Directory.create() to ensure Application Support directory exists
 
 class DatabaseProvider {
   static final DatabaseProvider instance = DatabaseProvider._internal();

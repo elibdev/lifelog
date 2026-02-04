@@ -21,7 +21,7 @@ class GridConstants {
   static const double spacing = 24.0;
 
   /// Dot radius for the visual grid
-  static const double dotRadius = 1.5;
+  static const double dotRadius = 1.0;
 
   /// Dot color for light theme
   static const ui.Color dotColorLight = ui.Color(0xFFD0D0D0);
