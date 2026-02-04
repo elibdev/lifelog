@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../services/date_service.dart';
 import '../constants/grid_constants.dart';
+import 'dotted_grid_decoration.dart';
 import 'record_section.dart';
 
 // WHAT IS THIS WIDGET?
@@ -89,9 +90,28 @@ class DaySection extends StatelessWidget {
               constraints.maxWidth,
             );
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            // Calculate grid offset for the dotted background
+            final horizontalOffset = GridConstants.calculateGridOffset(
+              constraints.maxWidth,
+            );
+
+            // Get theme brightness for dot color
+            final brightness = Theme.of(context).brightness;
+            final dotColor = brightness == Brightness.light
+                ? GridConstants.dotColorLight
+                : GridConstants.dotColorDark;
+
+            // DECORATEDBOX: Applies dotted grid background to this DaySection
+            // Since DaySection is inside the CustomScrollView, this decoration
+            // scrolls naturally as the sliver scrolls
+            return DecoratedBox(
+              decoration: DottedGridDecoration(
+                horizontalOffset: horizontalOffset,
+                color: dotColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // DATE HEADER
                 // Aligns with grid columns for visual consistency
                 Padding(
@@ -150,7 +170,8 @@ class DaySection extends StatelessWidget {
               onDelete: onDelete,
             ),
           ],
-            );
+              ), // End Column
+            ); // End DecoratedBox
           },
         );
       },
