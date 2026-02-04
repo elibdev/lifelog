@@ -58,7 +58,7 @@ class LifelogApp extends StatelessWidget {
       // ThemeMode.system: Flutter checks MediaQuery.platformBrightnessOf(context)
       // to automatically switch between theme and darkTheme
       // themeMode: ThemeMode.system,
-      themeMode: ThemeMode.light,
+      themeMode: ThemeMode.system,
       home: const JournalScreen(),
     );
   }
