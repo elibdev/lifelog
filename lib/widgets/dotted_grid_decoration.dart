@@ -69,24 +69,35 @@ class _DottedGridPainter extends BoxPainter {
     final double spacing = GridConstants.spacing;
     final double dotRadius = GridConstants.dotRadius;
 
-    // Calculate grid coverage area
-    // Add offset.dy to account for scrolling position
+    // GLOBAL GRID ALIGNMENT:
+    // Each DaySection is painted at offset.dy in the viewport. To make dots
+    // align across all sections (not reset at each section boundary), we need
+    // to calculate where dots should appear relative to a global grid.
+    //
+    // Global grid has dots at y = 0, 24, 48, 72...
+    // This section starts at offset.dy in global coordinates.
+    // First dot within this section should align with the global grid:
+    final double verticalOffset = -(offset.dy % spacing);
+
+    // Calculate how many columns and rows we need to cover the widget
     final int columns = ((size.width - horizontalOffset) / spacing).ceil() + 1;
-    final int rows = (size.height / spacing).ceil() + 1;
 
-    // Draw dots at each grid intersection
-    // offset parameter accounts for the widget's position in the parent
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < columns; col++) {
-        final double x = offset.dx + horizontalOffset + (col * spacing);
-        final double y = offset.dy + (row * spacing);
+    // Start from verticalOffset (might be negative) and paint until past the bottom
+    double y = verticalOffset;
+    while (y < size.height) {
+      // Only draw dots if they're within the widget's bounds
+      if (y >= 0) {
+        for (int col = 0; col < columns; col++) {
+          final double x = offset.dx + horizontalOffset + (col * spacing);
 
-        canvas.drawCircle(
-          Offset(x, y),
-          dotRadius,
-          _paint,
-        );
+          canvas.drawCircle(
+            Offset(x, offset.dy + y),
+            dotRadius,
+            _paint,
+          );
+        }
       }
+      y += spacing;
     }
   }
 }
