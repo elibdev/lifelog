@@ -99,7 +99,9 @@ class GridConstants {
   static const double sectionTopPadding = spacing; // 24px
 
   /// Bottom padding for day section headers
-  static const double sectionHeaderBottomPadding = spacing / 3; // 8px
+  /// GRID ALIGNMENT: Changed from 8px to 12px (spacing/2) to maintain grid alignment
+  /// All vertical spacing should be multiples of spacing or half-spacing
+  static const double sectionHeaderBottomPadding = spacing / 2; // 12px
 
   /// Right padding (matches left for symmetry when centered)
   static double calculateContentRightPadding(double containerWidth) {
