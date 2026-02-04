@@ -4,8 +4,10 @@ import '../database/record_repository.dart';
 import '../notifications/navigation_notifications.dart';
 import '../services/date_service.dart';
 import '../utils/debouncer.dart';
+import '../constants/grid_constants.dart';
 import 'record_section.dart';
 import 'day_section.dart';
+import 'sliver_grid_background.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -286,6 +288,16 @@ class _JournalScreenState extends State<JournalScreen> {
                 ? 700
                 : (isTablet ? 600 : double.infinity);
 
+            // Calculate actual width that will be available to content
+            final double contentWidth = screenWidth < maxWidth ? screenWidth : maxWidth;
+
+            // Calculate grid positioning
+            final horizontalOffset = GridConstants.calculateGridOffset(contentWidth);
+            final brightness = Theme.of(context).brightness;
+            final dotColor = brightness == Brightness.light
+                ? GridConstants.dotColorLight
+                : GridConstants.dotColorDark;
+
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
@@ -311,6 +323,13 @@ class _JournalScreenState extends State<JournalScreen> {
                   center: _todayKey,
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   slivers: [
+                    // GRID BACKGROUND: Continuous dotted grid behind all content
+                    // This sliver takes no space but paints the grid across the entire
+                    // viewport, ensuring perfect alignment regardless of section heights
+                    SliverGridBackground(
+                      color: dotColor,
+                      horizontalOffset: horizontalOffset,
+                    ),
                     // Past days (before today) - lazy loaded
                     // Each day is rendered by DaySection widget (eliminates duplication)
                     SliverList(
