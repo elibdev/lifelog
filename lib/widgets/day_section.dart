@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../services/date_service.dart';
+import '../constants/grid_constants.dart';
+import 'dotted_grid_decoration.dart';
 import 'record_section.dart';
 
 // WHAT IS THIS WIDGET?
@@ -78,27 +80,64 @@ class DaySection extends StatelessWidget {
         final notes = records.whereType<NoteRecord>().toList();
 
         // Build the day's UI: header + todos + notes
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // DATE HEADER
-            // Compact spacing for information density
-            // (More content visible without scrolling)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                16.0, // left
-                16.0, // top - reduced from 24.0 for compactness
-                16.0, // right
-                8.0, // bottom - reduced from 12.0 for compactness
+        // LAYOUTBUILDER: Get container width to calculate grid-aligned padding
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final leftPadding = GridConstants.calculateContentLeftPadding(
+              constraints.maxWidth,
+            );
+            final rightPadding = GridConstants.calculateContentRightPadding(
+              constraints.maxWidth,
+            );
+
+            // Calculate grid offset for the dotted background
+            final horizontalOffset = GridConstants.calculateGridOffset(
+              constraints.maxWidth,
+            );
+
+            // Get theme brightness for dot color
+            final brightness = Theme.of(context).brightness;
+            final dotColor = brightness == Brightness.light
+                ? GridConstants.dotColorLight
+                : GridConstants.dotColorDark;
+
+            // DECORATEDBOX: Applies dotted grid background to this DaySection
+            // Grid alignment: All vertical spacing must be multiples of 24px
+            // to ensure dots align across section boundaries
+            return DecoratedBox(
+              decoration: DottedGridDecoration(
+                horizontalOffset: horizontalOffset,
+                color: dotColor,
               ),
-              child: Text(
-                // Show "Today • " prefix if this is today's date
-                isToday
-                    ? 'Today • ${DateService.formatForDisplay(date)}'
-                    : DateService.formatForDisplay(date),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // DATE HEADER
+                // Aligns with grid columns for visual consistency
+                // GRID ALIGNMENT: Header height fixed to 24px to align with grid
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    leftPadding,
+                    GridConstants.sectionTopPadding,
+                    rightPadding,
+                    GridConstants.sectionHeaderBottomPadding,
+                  ),
+                  child: SizedBox(
+                    height: GridConstants.spacing, // Force 24px height
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        // Show "Today • " prefix if this is today's date
+                        isToday
+                            ? 'Today • ${DateService.formatForDisplay(date)}'
+                            : DateService.formatForDisplay(date),
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
 
             // TODOS SECTION
             //
@@ -140,6 +179,9 @@ class DaySection extends StatelessWidget {
               onDelete: onDelete,
             ),
           ],
+              ), // End Column
+            ); // End DecoratedBox
+          },
         );
       },
     );

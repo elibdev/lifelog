@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../services/keyboard_service.dart';
+import '../constants/grid_constants.dart';
 
 class RecordWidget extends StatefulWidget {
   final Record record;
@@ -134,18 +135,40 @@ class _RecordWidgetState extends State<RecordWidget> {
     final isEmpty = record.content.isEmpty;
     final isChecked = record is TodoRecord && record.checked;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // Reduced from 4.0 for compactness
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Leading widget (polymorphic!) - checkbox or bullet
-          // No top padding - aligns with first line of text
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: SizedBox(
-              width: 20,
-              height: 20,
+    // LAYOUTBUILDER: Get container width to calculate grid-aligned padding
+    // This ensures checkboxes align with column 2 of the dotted grid
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final leftPadding = GridConstants.calculateContentLeftPadding(
+          constraints.maxWidth,
+        );
+        final rightPadding = GridConstants.calculateContentRightPadding(
+          constraints.maxWidth,
+        );
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: leftPadding,
+            right: rightPadding,
+            top: GridConstants.itemVerticalSpacing,
+            bottom: GridConstants.itemVerticalSpacing,
+          ),
+          // GRID ALIGNMENT: Force exact 24px height
+          // This ensures each record aligns perfectly with the grid
+          child: SizedBox(
+            height: GridConstants.spacing,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              // Leading widget (polymorphic!) - checkbox or bullet
+              // Aligns with column 2 of the grid
+              Padding(
+                padding: const EdgeInsets.only(
+                  right: GridConstants.checkboxToTextGap,
+                ),
+                child: SizedBox(
+                  width: GridConstants.checkboxSize,
+                  height: GridConstants.checkboxSize,
               child: record is TodoRecord
                   // Checkbox is now focusable (Tab includes it, arrow keys skip it)
                   ? Checkbox(
@@ -194,8 +217,11 @@ class _RecordWidgetState extends State<RecordWidget> {
                   contentPadding: EdgeInsets.zero,
                 ),
                 // Strikethrough for completed todos - uses default Material styling
+                // LINE HEIGHT: Set to match grid spacing for vertical alignment
+                // See: https://api.flutter.dev/flutter/painting/TextStyle/height.html
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   decoration: isChecked ? TextDecoration.lineThrough : null,
+                  height: GridConstants.textLineHeightMultiplier,
                 ),
                 maxLines: null,
                 textInputAction: TextInputAction.next,
@@ -220,7 +246,10 @@ class _RecordWidgetState extends State<RecordWidget> {
             ),
           ),
         ],
-      ),
+            ), // End Row
+          ), // End SizedBox
+        ); // End Padding
+      },
     );
   }
 }

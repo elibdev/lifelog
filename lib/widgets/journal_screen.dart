@@ -289,7 +289,6 @@ class _JournalScreenState extends State<JournalScreen> {
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
-                // No decorations - just responsive width constraints
                 // NOTIFICATION LISTENERS: Handle cross-section navigation
                 // When RecordSection can't handle navigation (at end/start of section),
                 // the notification bubbles up here and we intelligently navigate
