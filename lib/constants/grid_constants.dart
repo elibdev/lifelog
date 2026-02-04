@@ -92,16 +92,18 @@ class GridConstants {
   // VERTICAL SPACING
   // ============================================================================
 
-  /// Small vertical spacing between text lines (keeps items compact)
-  static const double itemVerticalSpacing = 2.0;
+  /// Vertical spacing between text lines
+  /// GRID ALIGNMENT: Set to 0 so each record is exactly 24px tall
+  /// (24px line height from textLineHeightMultiplier + 0px padding = 24px)
+  static const double itemVerticalSpacing = 0.0;
 
   /// Top padding for day sections (aligns to grid row)
   static const double sectionTopPadding = spacing; // 24px
 
   /// Bottom padding for day section headers
-  /// GRID ALIGNMENT: Changed from 8px to 12px (spacing/2) to maintain grid alignment
-  /// All vertical spacing should be multiples of spacing or half-spacing
-  static const double sectionHeaderBottomPadding = spacing / 2; // 12px
+  /// GRID ALIGNMENT: Must be 0px or 24px to keep total header block as multiple of 24px
+  /// Header block = 24px top + 24px header + 0px bottom = 48px total ✓
+  static const double sectionHeaderBottomPadding = 0.0;
 
   /// Right padding (matches left for symmetry when centered)
   static double calculateContentRightPadding(double containerWidth) {
