@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../services/date_service.dart';
 import '../constants/grid_constants.dart';
+import 'dotted_grid_decoration.dart';
 import 'record_section.dart';
 
 // WHAT IS THIS WIDGET?
@@ -89,11 +90,31 @@ class DaySection extends StatelessWidget {
               constraints.maxWidth,
             );
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            // Calculate grid offset for the dotted background
+            final horizontalOffset = GridConstants.calculateGridOffset(
+              constraints.maxWidth,
+            );
+
+            // Get theme brightness for dot color
+            final brightness = Theme.of(context).brightness;
+            final dotColor = brightness == Brightness.light
+                ? GridConstants.dotColorLight
+                : GridConstants.dotColorDark;
+
+            // DECORATEDBOX: Applies dotted grid background to this DaySection
+            // Grid alignment: All vertical spacing must be multiples of 24px
+            // to ensure dots align across section boundaries
+            return DecoratedBox(
+              decoration: DottedGridDecoration(
+                horizontalOffset: horizontalOffset,
+                color: dotColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // DATE HEADER
                 // Aligns with grid columns for visual consistency
+                // GRID ALIGNMENT: Header height fixed to 24px to align with grid
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     leftPadding,
@@ -101,14 +122,22 @@ class DaySection extends StatelessWidget {
                     rightPadding,
                     GridConstants.sectionHeaderBottomPadding,
                   ),
-              child: Text(
-                // Show "Today • " prefix if this is today's date
-                isToday
-                    ? 'Today • ${DateService.formatForDisplay(date)}'
-                    : DateService.formatForDisplay(date),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
+                  child: SizedBox(
+                    height: GridConstants.spacing, // Force 24px height
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        // Show "Today • " prefix if this is today's date
+                        isToday
+                            ? 'Today • ${DateService.formatForDisplay(date)}'
+                            : DateService.formatForDisplay(date),
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
 
             // TODOS SECTION
             //
@@ -150,7 +179,8 @@ class DaySection extends StatelessWidget {
               onDelete: onDelete,
             ),
           ],
-            ); // End Column
+              ), // End Column
+            ); // End DecoratedBox
           },
         );
       },
