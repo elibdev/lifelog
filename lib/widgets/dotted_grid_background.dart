@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/grid_constants.dart';
-import 'dotted_grid_painter.dart';
+import 'dotted_grid_decoration.dart';
 
 /// Wrapper widget that renders a dotted grid background behind its child.
 ///
@@ -9,7 +9,7 @@ import 'dotted_grid_painter.dart';
 /// preferred over inheritance in Flutter.
 ///
 /// The grid:
-/// - Scrolls with the content (not stationary)
+/// - Scrolls with the content (part of the decoration, not a separate layer)
 /// - Is horizontally centered with symmetric padding
 /// - Adapts to theme (light/dark mode)
 /// - All content should align to this grid's columns
@@ -17,9 +17,14 @@ import 'dotted_grid_painter.dart';
 /// WIDGET TREE:
 /// DottedGridBackground
 /// └── LayoutBuilder (gets available width)
-///     └── Stack (layers child on top of grid)
-///         ├── CustomPaint (grid dots - background layer)
-///         └── child (content - foreground layer)
+///     └── DecoratedBox (applies grid decoration)
+///         └── child (content rendered on top)
+///
+/// DECORATION VS STACK:
+/// Previously used Stack + CustomPaint, but that created a static background.
+/// DecoratedBox with custom Decoration integrates with Flutter's paint pipeline,
+/// so the grid automatically scrolls with scrollable content inside.
+/// See: https://api.flutter.dev/flutter/widgets/DecoratedBox-class.html
 class DottedGridBackground extends StatelessWidget {
   /// The content to render on top of the grid
   final Widget child;
@@ -49,24 +54,16 @@ class DottedGridBackground extends StatelessWidget {
           constraints.maxWidth,
         );
 
-        // STACK: Layers widgets on top of each other (z-axis)
-        // Unlike Column/Row (which lay out on x/y axes), Stack uses absolute
-        // positioning. First child is at the bottom, last child on top.
-        // See: https://api.flutter.dev/flutter/widgets/Stack-class.html
-        return Stack(
-          children: [
-            // Background layer: Grid dots
-            // CustomPaint draws custom graphics using our DottedGridPainter
-            CustomPaint(
-              size: Size.infinite, // Fill the entire available space
-              painter: DottedGridPainter(
-                horizontalOffset: horizontalOffset,
-                color: dotColor,
-              ),
-            ),
-            // Foreground layer: Content
-            child,
-          ],
+        // DECORATEDBOX: Paints a Decoration before drawing child
+        // The decoration (grid dots) is painted as part of this widget's
+        // paint phase, so if the child contains scrollable content, the
+        // decoration scrolls with it naturally.
+        return DecoratedBox(
+          decoration: DottedGridDecoration(
+            horizontalOffset: horizontalOffset,
+            color: dotColor,
+          ),
+          child: child,
         );
       },
     );
