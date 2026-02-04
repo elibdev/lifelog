@@ -1,14 +1,24 @@
+// Base class holds all common fields - subclasses only add type-specific fields
 abstract class Record {
-  String get id;
-  String get date; // ISO8601: '2026-01-21'
-  String get type; // 'note', 'todo'
-  String get content;
-  int get createdAt;
-  int get updatedAt;
-  double get orderPosition;
+  final String id;
+  final String date; // ISO8601: '2026-01-21'
+  final String content;
+  final int createdAt;
+  final int updatedAt;
+  final double orderPosition;
 
-  // Constructor for subclasses
-  Record();
+  // Type is computed by subclasses
+  String get type;
+
+  // Base constructor used by subclasses
+  Record({
+    required this.id,
+    required this.date,
+    required this.content,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.orderPosition,
+  });
 
   // Immutable update pattern
   Record copyWith({String? content, int? updatedAt});
@@ -29,29 +39,16 @@ abstract class Record {
   }
 }
 
-// Forward declarations so factory can reference them
+// NoteRecord has no additional fields beyond the base Record
 class NoteRecord extends Record {
-  @override
-  final String id;
-  @override
-  final String date;
-  @override
-  final String content;
-  @override
-  final int createdAt;
-  @override
-  final int updatedAt;
-  @override
-  final double orderPosition;
-
   NoteRecord({
-    required this.id,
-    required this.date,
-    required this.content,
-    required this.createdAt,
-    required this.updatedAt,
-    required this.orderPosition,
-  }) : super();
+    required super.id,
+    required super.date,
+    required super.content,
+    required super.createdAt,
+    required super.updatedAt,
+    required super.orderPosition,
+  });
 
   @override
   String get type => 'note';
@@ -94,30 +91,19 @@ class NoteRecord extends Record {
   }
 }
 
+// TodoRecord adds only the todo-specific 'checked' field
 class TodoRecord extends Record {
-  @override
-  final String id;
-  @override
-  final String date;
-  @override
-  final String content;
-  @override
-  final int createdAt;
-  @override
-  final int updatedAt;
-  @override
-  final double orderPosition;
   final bool checked;
 
   TodoRecord({
-    required this.id,
-    required this.date,
-    required this.content,
-    required this.createdAt,
-    required this.updatedAt,
-    required this.orderPosition,
+    required super.id,
+    required super.date,
+    required super.content,
+    required super.createdAt,
+    required super.updatedAt,
+    required super.orderPosition,
     this.checked = false,
-  }) : super();
+  });
 
   @override
   String get type => 'todo';
@@ -135,7 +121,7 @@ class TodoRecord extends Record {
     );
   }
 
-  // Need a todo-specific copyWith for toggling checked state
+  // Todo-specific copyWith for toggling checked state
   TodoRecord copyWithChecked({bool? checked, int? updatedAt}) {
     return TodoRecord(
       id: id,
