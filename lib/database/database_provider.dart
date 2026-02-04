@@ -46,6 +46,12 @@ class DatabaseProvider {
     }
 
     _dbPath = join(appSupportDir.path, 'lifelog.db');
+
+    // CRITICAL FIX: Initialize the database and create tables
+    // The database getter lazily initializes, but if we only use async methods
+    // (queryAsync, executeAsync, transactionAsync), the getter is never called.
+    // We must ensure tables are created before any queries run.
+    _database = _initDatabase();
   }
 
   // Synchronous database getter (sqlite3 is synchronous)
