@@ -153,9 +153,13 @@ class _RecordWidgetState extends State<RecordWidget> {
             top: GridConstants.itemVerticalSpacing,
             bottom: GridConstants.itemVerticalSpacing,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          // GRID ALIGNMENT: Force exact 24px height
+          // This ensures each record aligns perfectly with the grid
+          child: SizedBox(
+            height: GridConstants.spacing,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Leading widget (polymorphic!) - checkbox or bullet
               // Aligns with column 2 of the grid
               Padding(
@@ -242,8 +246,9 @@ class _RecordWidgetState extends State<RecordWidget> {
             ),
           ),
         ],
-      ),
-        );
+            ), // End Row
+          ), // End SizedBox
+        ); // End Padding
       },
     );
   }
