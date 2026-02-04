@@ -6,6 +6,7 @@ import '../services/date_service.dart';
 import '../utils/debouncer.dart';
 import 'record_section.dart';
 import 'day_section.dart';
+import 'dotted_grid_background.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -289,12 +290,12 @@ class _JournalScreenState extends State<JournalScreen> {
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
-                // No decorations - just responsive width constraints
-                // NOTIFICATION LISTENERS: Handle cross-section navigation
-                // When RecordSection can't handle navigation (at end/start of section),
-                // the notification bubbles up here and we intelligently navigate
-                // to the next/previous section using the metadata in the notification
-                child: NotificationListener<NavigateDownNotification>(
+                // Dotted grid background wraps all content for visual structure
+                // WIDGET COMPOSITION: DottedGridBackground is a wrapper that adds
+                // a scrollable grid behind the content, ensuring all UI elements
+                // can align to a consistent visual grid system
+                child: DottedGridBackground(
+                  child: NotificationListener<NavigateDownNotification>(
                   onNotification: (notification) {
                     // RecordSection couldn't handle it (at end of section)
                     // Navigate to next logical section (todos→notes, notes→next day's todos)
@@ -362,6 +363,7 @@ class _JournalScreenState extends State<JournalScreen> {
                 ), // End CustomScrollView
                   ), // End NotificationListener<NavigateUpNotification>
                 ), // End NotificationListener<NavigateDownNotification>
+                ), // End DottedGridBackground
               ),
             );
           },
