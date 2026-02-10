@@ -1,45 +1,44 @@
 import 'package:flutter/material.dart';
-import '../../models/block.dart';
-import '../../constants/grid_constants.dart';
-import 'block_text_field.dart';
+import '../../models/record.dart';
+import 'package:lifelog/constants/grid_constants.dart';
+import 'record_text_field.dart';
 
-/// Renders a todo block with a checkbox and optional strikethrough text.
-/// Equivalent to the old TodoRecord rendering.
-class TodoBlockWidget extends StatelessWidget {
-  final Block block;
-  final Function(Block) onSave;
+/// Renders a todo record with a checkbox and optional strikethrough text.
+class TodoRecordWidget extends StatelessWidget {
+  final Record record;
+  final Function(Record) onSave;
   final Function(String) onDelete;
   final Function(String)? onSubmitted;
-  final int? blockIndex;
+  final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
 
-  const TodoBlockWidget({
+  const TodoRecordWidget({
     super.key,
-    required this.block,
+    required this.record,
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.blockIndex,
+    this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
   });
 
   void _handleCheckboxToggle(bool? value) {
     if (value == null) return;
-    final updated = block.copyWithMetadata({'checked': value});
+    // Namespaced metadata key: "todo.checked"
+    final updated = record.copyWithMetadata({'todo.checked': value});
     onSave(updated);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isChecked = block.isChecked;
-    final isEmpty = block.content.isEmpty;
+    final isChecked = record.isChecked;
+    final isEmpty = record.content.isEmpty;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Checkbox leading widget
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
@@ -53,14 +52,13 @@ class TodoBlockWidget extends StatelessWidget {
             ),
           ),
         ),
-        // Text field with strikethrough when checked
         Expanded(
-          child: BlockTextField(
-            block: block,
+          child: RecordTextField(
+            record: record,
             onSave: onSave,
             onDelete: onDelete,
             onSubmitted: onSubmitted,
-            blockIndex: blockIndex,
+            recordIndex: recordIndex,
             onFocusNodeCreated: onFocusNodeCreated,
             onFocusNodeDisposed: onFocusNodeDisposed,
             textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(

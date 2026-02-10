@@ -1,56 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../models/block.dart';
-import '../notifications/navigation_notifications.dart';
-import 'blocks/adaptive_block_widget.dart';
+import '../models/record.dart';
+import 'package:lifelog/notifications/navigation_notifications.dart';
+import 'records/adaptive_record_widget.dart';
 
-/// Manages a flat list of mixed-type blocks for a single day.
+/// Manages a flat list of mixed-type records for a single day.
 ///
-/// Replaces the old two-RecordSection-per-day pattern (one for todos, one for notes)
-/// with a single section that can contain blocks of any type interleaved.
+/// Replaces the old two-section-per-day pattern (one for todos, one for notes)
+/// with a single section that can contain records of any type interleaved.
 /// This simplifies navigation (one section per day instead of two) and allows
-/// flexible block ordering.
-///
-/// Key behaviors:
-/// - Maintains a focus node registry for keyboard navigation
-/// - Provides a placeholder block at the end (default: text)
-/// - Handles Enter key to insert new blocks
-/// - Dispatches navigation notifications at section boundaries
-class BlockSection extends StatefulWidget {
-  final List<Block> blocks;
+/// flexible record ordering.
+class RecordSection extends StatefulWidget {
+  final List<Record> records;
   final String date;
-  final Function(Block) onSave;
+  final Function(Record) onSave;
   final Function(String) onDelete;
 
-  const BlockSection({
+  const RecordSection({
     super.key,
-    required this.blocks,
+    required this.records,
     required this.date,
     required this.onSave,
     required this.onDelete,
   });
 
   @override
-  State<BlockSection> createState() => BlockSectionState();
+  State<RecordSection> createState() => RecordSectionState();
 }
 
-/// Public state class so JournalScreen can call focusFirstBlock/focusLastBlock
+/// Public state class so JournalScreen can call focusFirstRecord/focusLastRecord
 /// via GlobalKey for cross-day navigation.
-class BlockSectionState extends State<BlockSection> {
+class RecordSectionState extends State<RecordSection> {
   late String _placeholderId;
 
-  // Focus node tracking: blockId -> FocusNode
   final Map<String, FocusNode> _focusNodes = {};
 
-  /// Focus the first block in this section (called by JournalScreen via GlobalKey)
-  void focusFirstBlock() {
-    _tryFocusBlockAt(0);
+  void focusFirstRecord() {
+    _tryFocusRecordAt(0);
   }
 
-  /// Focus the last block (or placeholder) in this section
-  void focusLastBlock() {
-    final allIds = [...widget.blocks.map((b) => b.id), _placeholderId];
-    _tryFocusBlockAt(allIds.length - 1);
+  void focusLastRecord() {
+    final allIds = [...widget.records.map((r) => r.id), _placeholderId];
+    _tryFocusRecordAt(allIds.length - 1);
   }
 
   @override
@@ -65,20 +56,20 @@ class BlockSectionState extends State<BlockSection> {
     super.dispose();
   }
 
-  void _handleFocusNodeCreated(int index, String blockId, FocusNode node) {
-    _focusNodes[blockId] = node;
+  void _handleFocusNodeCreated(int index, String recordId, FocusNode node) {
+    _focusNodes[recordId] = node;
   }
 
-  void _handleFocusNodeDisposed(String blockId) {
-    _focusNodes.remove(blockId);
+  void _handleFocusNodeDisposed(String recordId) {
+    _focusNodes.remove(recordId);
   }
 
-  bool _tryFocusBlockAt(int index) {
-    final allIds = [...widget.blocks.map((b) => b.id), _placeholderId];
+  bool _tryFocusRecordAt(int index) {
+    final allIds = [...widget.records.map((r) => r.id), _placeholderId];
     if (index < 0 || index >= allIds.length) return false;
 
-    final blockId = allIds[index];
-    final focusNode = _focusNodes[blockId];
+    final recordId = allIds[index];
+    final focusNode = _focusNodes[recordId];
     if (focusNode != null) {
       focusNode.requestFocus();
       return true;
@@ -87,33 +78,34 @@ class BlockSectionState extends State<BlockSection> {
   }
 
   double _calculateAppendPosition() {
-    if (widget.blocks.isEmpty) return 1.0;
-    final maxPosition = widget.blocks
-        .map((b) => b.orderPosition)
+    if (widget.records.isEmpty) return 1.0;
+    final maxPosition = widget.records
+        .map((r) => r.orderPosition)
         .reduce((a, b) => a > b ? a : b);
     return maxPosition + 1.0;
   }
 
-  void _handlePlaceholderSave(Block placeholder) {
+  void _handlePlaceholderSave(Record placeholder) {
     widget.onSave(placeholder);
     setState(() {
       _placeholderId = const Uuid().v4();
     });
   }
 
-  void _handleEnterPressed(String fromBlockId) {
-    final currentIndex = widget.blocks.indexWhere((b) => b.id == fromBlockId);
+  void _handleEnterPressed(String fromRecordId) {
+    final currentIndex =
+        widget.records.indexWhere((r) => r.id == fromRecordId);
 
     final double newPosition;
     if (currentIndex == -1) {
       newPosition = _calculateAppendPosition();
-    } else if (currentIndex == widget.blocks.length - 1) {
-      final currentPos = widget.blocks[currentIndex].orderPosition;
+    } else if (currentIndex == widget.records.length - 1) {
+      final currentPos = widget.records[currentIndex].orderPosition;
       final placeholderPos = _calculateAppendPosition();
       newPosition = (currentPos + placeholderPos) / 2;
     } else {
-      final currentPos = widget.blocks[currentIndex].orderPosition;
-      final nextPos = widget.blocks[currentIndex + 1].orderPosition;
+      final currentPos = widget.records[currentIndex].orderPosition;
+      final nextPos = widget.records[currentIndex + 1].orderPosition;
       newPosition = (currentPos + nextPos) / 2;
     }
 
@@ -121,11 +113,11 @@ class BlockSectionState extends State<BlockSection> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final newId = uuid.v4();
 
-    // New blocks default to text type
-    final newBlock = Block(
+    // New records default to text type
+    final newRecord = Record(
       id: newId,
       date: widget.date,
-      type: BlockType.text,
+      type: RecordType.text,
       content: '',
       metadata: {},
       orderPosition: newPosition,
@@ -133,7 +125,7 @@ class BlockSectionState extends State<BlockSection> {
       updatedAt: now,
     );
 
-    widget.onSave(newBlock);
+    widget.onSave(newRecord);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -147,10 +139,10 @@ class BlockSectionState extends State<BlockSection> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final placeholderPosition = _calculateAppendPosition();
 
-    final placeholder = Block(
+    final placeholder = Record(
       id: _placeholderId,
       date: widget.date,
-      type: BlockType.text,
+      type: RecordType.text,
       content: '',
       metadata: {},
       orderPosition: placeholderPosition,
@@ -158,43 +150,40 @@ class BlockSectionState extends State<BlockSection> {
       updatedAt: now,
     );
 
-    // Notification listeners for keyboard navigation bubbling
     return NotificationListener<NavigateDownNotification>(
       onNotification: (notification) {
         final nextIndex = notification.recordIndex + 1;
-        return _tryFocusBlockAt(nextIndex);
+        return _tryFocusRecordAt(nextIndex);
       },
       child: NotificationListener<NavigateUpNotification>(
         onNotification: (notification) {
           final prevIndex = notification.recordIndex - 1;
-          return _tryFocusBlockAt(prevIndex);
+          return _tryFocusRecordAt(prevIndex);
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Existing blocks
-            ...widget.blocks.asMap().entries.map((entry) {
+            ...widget.records.asMap().entries.map((entry) {
               final index = entry.key;
-              final block = entry.value;
-              return AdaptiveBlockWidget(
-                key: ValueKey(block.id),
-                block: block,
+              final record = entry.value;
+              return AdaptiveRecordWidget(
+                key: ValueKey(record.id),
+                record: record,
                 onSave: widget.onSave,
                 onDelete: widget.onDelete,
                 onSubmitted: _handleEnterPressed,
-                blockIndex: index,
+                recordIndex: index,
                 onFocusNodeCreated: _handleFocusNodeCreated,
                 onFocusNodeDisposed: _handleFocusNodeDisposed,
               );
             }),
-            // Placeholder
-            AdaptiveBlockWidget(
+            AdaptiveRecordWidget(
               key: ValueKey(_placeholderId),
-              block: placeholder,
+              record: placeholder,
               onSave: _handlePlaceholderSave,
               onDelete: (_) {},
               onSubmitted: _handleEnterPressed,
-              blockIndex: widget.blocks.length,
+              recordIndex: widget.records.length,
               onFocusNodeCreated: _handleFocusNodeCreated,
               onFocusNodeDisposed: _handleFocusNodeDisposed,
             ),

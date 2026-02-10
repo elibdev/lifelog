@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
-import '../../models/block.dart';
-import '../../constants/grid_constants.dart';
-import 'text_block_widget.dart';
-import 'heading_block_widget.dart';
-import 'todo_block_widget.dart';
-import 'bullet_list_block_widget.dart';
-import 'habit_block_widget.dart';
+import '../../models/record.dart';
+import 'package:lifelog/constants/grid_constants.dart';
+import 'text_record_widget.dart';
+import 'heading_record_widget.dart';
+import 'todo_record_widget.dart';
+import 'bullet_list_record_widget.dart';
+import 'habit_record_widget.dart';
 
-/// Routes a Block to the appropriate sub-widget based on its type.
+/// Routes a Record to the appropriate sub-widget based on its type.
 ///
-/// This is the main entry point for rendering any block in the journal.
+/// This is the main entry point for rendering any record in the journal.
 /// It handles the shared layout (padding, grid alignment) and delegates
 /// type-specific rendering to sub-widgets.
 ///
 /// Dart's exhaustive switch expression ensures a compile-time error if
-/// a new BlockType is added without a corresponding widget.
+/// a new RecordType is added without a corresponding widget.
 /// See: https://dart.dev/language/branches#switch-expressions
-class AdaptiveBlockWidget extends StatelessWidget {
-  final Block block;
-  final Function(Block) onSave;
+class AdaptiveRecordWidget extends StatelessWidget {
+  final Record record;
+  final Function(Record) onSave;
   final Function(String) onDelete;
   final Function(String)? onSubmitted;
-  final int? blockIndex;
+  final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
 
-  const AdaptiveBlockWidget({
+  const AdaptiveRecordWidget({
     super.key,
-    required this.block,
+    required this.record,
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.blockIndex,
+    this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
   });
@@ -46,13 +46,13 @@ class AdaptiveBlockWidget extends StatelessWidget {
             GridConstants.calculateContentRightPadding(constraints.maxWidth);
 
         // Minimum height: H1 headings get 2 grid rows (48px), everything else 1 (24px).
-        // Blocks grow taller as content wraps to multiple lines.
+        // Records grow taller as content wraps to multiple lines.
         // ConstrainedBox vs SizedBox: SizedBox clips multi-line text; ConstrainedBox
         // sets a floor while allowing the widget to expand.
-        // See: https://api.flutter.dev/flutter/widgets/ConstrainedBox-class.html
-        final minHeight = (block.type == BlockType.heading && block.headingLevel == 1)
-            ? GridConstants.spacing * 2
-            : GridConstants.spacing;
+        final minHeight =
+            (record.type == RecordType.heading && record.headingLevel == 1)
+                ? GridConstants.spacing * 2
+                : GridConstants.spacing;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -63,55 +63,55 @@ class AdaptiveBlockWidget extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: minHeight),
-            // Exhaustive switch: compiler enforces all BlockType cases are handled
-            child: switch (block.type) {
-              BlockType.text => TextBlockWidget(
-                  block: block,
+            // Exhaustive switch: compiler enforces all RecordType cases are handled
+            child: switch (record.type) {
+              RecordType.text => TextRecordWidget(
+                  record: record,
                   onSave: onSave,
                   onDelete: onDelete,
                   onSubmitted: onSubmitted,
-                  blockIndex: blockIndex,
+                  recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
-              BlockType.heading => HeadingBlockWidget(
-                  block: block,
+              RecordType.heading => HeadingRecordWidget(
+                  record: record,
                   onSave: onSave,
                   onDelete: onDelete,
                   onSubmitted: onSubmitted,
-                  blockIndex: blockIndex,
+                  recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
-              BlockType.todo => TodoBlockWidget(
-                  block: block,
+              RecordType.todo => TodoRecordWidget(
+                  record: record,
                   onSave: onSave,
                   onDelete: onDelete,
                   onSubmitted: onSubmitted,
-                  blockIndex: blockIndex,
+                  recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
-              BlockType.bulletList => BulletListBlockWidget(
-                  block: block,
+              RecordType.bulletList => BulletListRecordWidget(
+                  record: record,
                   onSave: onSave,
                   onDelete: onDelete,
                   onSubmitted: onSubmitted,
-                  blockIndex: blockIndex,
+                  recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
-              BlockType.habit => HabitBlockWidget(
-                  block: block,
+              RecordType.habit => HabitRecordWidget(
+                  record: record,
                   onSave: onSave,
                   onDelete: onDelete,
                   onSubmitted: onSubmitted,
-                  blockIndex: blockIndex,
+                  recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
             },
-          ), // ConstrainedBox
+          ),
         );
       },
     );

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
-import 'package:lifelog/models/block.dart';
-import 'package:lifelog/widgets/blocks/adaptive_block_widget.dart';
+import '../lib/models/record.dart';
+import '../lib/widgets/records/adaptive_record_widget.dart';
 
 /// Widgetbook entry point: an isolated environment for developing and
 /// previewing widgets with configurable knobs.
 ///
-/// Run with: flutter run -t widgetbook/main.dart
+/// Run with: flutter run -t reference/widgetbook/main.dart
+/// Requires `widgetbook: ^3.10.0` in dev_dependencies.
 /// See: https://docs.widgetbook.io/
 class WidgetbookApp extends StatelessWidget {
   const WidgetbookApp({super.key});
@@ -15,14 +16,12 @@ class WidgetbookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Widgetbook.material(
       addons: [
-        // Theme addon: toggle between light and dark mode
         MaterialThemeAddon(
           themes: [
             WidgetbookTheme(name: 'Light', data: _lightTheme()),
             WidgetbookTheme(name: 'Dark', data: _darkTheme()),
           ],
         ),
-        // Device frame addon: preview on different screen sizes
         DeviceFrameAddon(
           devices: [
             Devices.ios.iPhone13,
@@ -33,16 +32,16 @@ class WidgetbookApp extends StatelessWidget {
       ],
       directories: [
         WidgetbookFolder(
-          name: 'Blocks',
+          name: 'Records',
           children: [
             WidgetbookComponent(
-              name: 'AdaptiveBlockWidget',
+              name: 'AdaptiveRecordWidget',
               useCases: [
-                _textBlockUseCase(),
-                _headingBlockUseCase(),
-                _todoBlockUseCase(),
-                _bulletListBlockUseCase(),
-                _habitBlockUseCase(),
+                _textRecordUseCase(),
+                _headingRecordUseCase(),
+                _todoRecordUseCase(),
+                _bulletListRecordUseCase(),
+                _habitRecordUseCase(),
               ],
             ),
           ],
@@ -78,24 +77,22 @@ class WidgetbookApp extends StatelessWidget {
   }
 
   // ===========================================================================
-  // USE CASES
-  // Each use case creates a mock Block and renders AdaptiveBlockWidget.
-  // Knobs let you tweak properties interactively in the Widgetbook sidebar.
+  // USE CASES — all metadata keys are namespaced by record type
   // ===========================================================================
 
-  static WidgetbookUseCase _textBlockUseCase() {
+  static WidgetbookUseCase _textRecordUseCase() {
     return WidgetbookUseCase(
-      name: 'Text Block',
+      name: 'Text Record',
       builder: (context) {
         final content = context.knobs.string(
           label: 'Content',
-          initialValue: 'A simple text block',
+          initialValue: 'A simple text record',
         );
-        return _wrapBlock(
-          Block(
+        return _wrapRecord(
+          Record(
             id: 'wb-text-1',
             date: '2026-02-10',
-            type: BlockType.text,
+            type: RecordType.text,
             content: content,
             metadata: {},
             orderPosition: 1.0,
@@ -107,9 +104,9 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _headingBlockUseCase() {
+  static WidgetbookUseCase _headingRecordUseCase() {
     return WidgetbookUseCase(
-      name: 'Heading Block',
+      name: 'Heading Record',
       builder: (context) {
         final content = context.knobs.string(
           label: 'Content',
@@ -119,13 +116,13 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Heading Level (1-3)',
           initialValue: 1,
         );
-        return _wrapBlock(
-          Block(
+        return _wrapRecord(
+          Record(
             id: 'wb-heading-1',
             date: '2026-02-10',
-            type: BlockType.heading,
+            type: RecordType.heading,
             content: content,
-            metadata: {'level': level},
+            metadata: {'heading.level': level},
             orderPosition: 1.0,
             createdAt: 0,
             updatedAt: 0,
@@ -135,9 +132,9 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _todoBlockUseCase() {
+  static WidgetbookUseCase _todoRecordUseCase() {
     return WidgetbookUseCase(
-      name: 'Todo Block',
+      name: 'Todo Record',
       builder: (context) {
         final content = context.knobs.string(
           label: 'Content',
@@ -147,13 +144,13 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Checked',
           initialValue: false,
         );
-        return _wrapBlock(
-          Block(
+        return _wrapRecord(
+          Record(
             id: 'wb-todo-1',
             date: '2026-02-10',
-            type: BlockType.todo,
+            type: RecordType.todo,
             content: content,
-            metadata: {'checked': checked},
+            metadata: {'todo.checked': checked},
             orderPosition: 1.0,
             createdAt: 0,
             updatedAt: 0,
@@ -163,9 +160,9 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _bulletListBlockUseCase() {
+  static WidgetbookUseCase _bulletListRecordUseCase() {
     return WidgetbookUseCase(
-      name: 'Bullet List Block',
+      name: 'Bullet List Record',
       builder: (context) {
         final content = context.knobs.string(
           label: 'Content',
@@ -175,13 +172,13 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Indent Level',
           initialValue: 0,
         );
-        return _wrapBlock(
-          Block(
+        return _wrapRecord(
+          Record(
             id: 'wb-bullet-1',
             date: '2026-02-10',
-            type: BlockType.bulletList,
+            type: RecordType.bulletList,
             content: content,
-            metadata: {'indentLevel': indentLevel},
+            metadata: {'bulletList.indentLevel': indentLevel},
             orderPosition: 1.0,
             createdAt: 0,
             updatedAt: 0,
@@ -191,9 +188,9 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _habitBlockUseCase() {
+  static WidgetbookUseCase _habitRecordUseCase() {
     return WidgetbookUseCase(
-      name: 'Habit Block',
+      name: 'Habit Record',
       builder: (context) {
         final habitName = context.knobs.string(
           label: 'Habit Name',
@@ -203,21 +200,20 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Completions',
           initialValue: 5,
         );
-        // Generate mock completion dates
         final completions = List.generate(
           completionCount,
           (i) => '2026-02-${(10 - i).toString().padLeft(2, '0')}',
         );
-        return _wrapBlock(
-          Block(
+        return _wrapRecord(
+          Record(
             id: 'wb-habit-1',
             date: '2026-02-10',
-            type: BlockType.habit,
+            type: RecordType.habit,
             content: habitName,
             metadata: {
-              'habitName': habitName,
-              'frequency': 'daily',
-              'completions': completions,
+              'habit.name': habitName,
+              'habit.frequency': 'daily',
+              'habit.completions': completions,
             },
             orderPosition: 1.0,
             createdAt: 0,
@@ -228,14 +224,13 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  /// Wraps a Block in AdaptiveBlockWidget with no-op callbacks for previewing.
-  static Widget _wrapBlock(Block block) {
+  static Widget _wrapRecord(Record record) {
     return Scaffold(
       body: Center(
         child: SizedBox(
           width: 500,
-          child: AdaptiveBlockWidget(
-            block: block,
+          child: AdaptiveRecordWidget(
+            record: record,
             onSave: (_) {},
             onDelete: (_) {},
           ),

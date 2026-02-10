@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
-import '../../models/block.dart';
-import '../../constants/grid_constants.dart';
-import 'block_text_field.dart';
+import '../../models/record.dart';
+import 'package:lifelog/constants/grid_constants.dart';
+import 'record_text_field.dart';
 
-/// Renders a plain text block with a bullet point leading widget.
-/// Equivalent to the old NoteRecord rendering.
-class TextBlockWidget extends StatelessWidget {
-  final Block block;
-  final Function(Block) onSave;
+/// Renders a plain text record with a bullet point leading widget.
+class TextRecordWidget extends StatelessWidget {
+  final Record record;
+  final Function(Record) onSave;
   final Function(String) onDelete;
   final Function(String)? onSubmitted;
-  final int? blockIndex;
+  final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
 
-  const TextBlockWidget({
+  const TextRecordWidget({
     super.key,
-    required this.block,
+    required this.record,
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.blockIndex,
+    this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
   });
@@ -30,7 +29,6 @@ class TextBlockWidget extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Bullet point leading widget
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
@@ -39,14 +37,13 @@ class TextBlockWidget extends StatelessWidget {
             child: const Center(child: Text('•')),
           ),
         ),
-        // Text field
         Expanded(
-          child: BlockTextField(
-            block: block,
+          child: RecordTextField(
+            record: record,
             onSave: onSave,
             onDelete: onDelete,
             onSubmitted: onSubmitted,
-            blockIndex: blockIndex,
+            recordIndex: recordIndex,
             onFocusNodeCreated: onFocusNodeCreated,
             onFocusNodeDisposed: onFocusNodeDisposed,
           ),

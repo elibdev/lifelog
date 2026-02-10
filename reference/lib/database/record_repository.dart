@@ -1,40 +1,40 @@
 import 'dart:convert';
 import 'package:sqlite3/common.dart';
 
-import '../models/block.dart';
-import '../models/event.dart';
-import 'database_provider.dart';
+import '../models/record.dart';
+// Uses Event from main lib — same event sourcing pattern
+import 'package:lifelog/models/event.dart';
+import 'package:lifelog/database/database_provider.dart';
 
-/// CRUD repository for blocks, following the same patterns as RecordRepository.
-///
-/// Uses atomic transactions (upsert + event log) for every write operation
-/// to maintain the event sourcing architecture.
-class BlockRepository {
-  Future<void> saveBlock(Block block) async {
+/// CRUD repository for records, following the same patterns as the original
+/// RecordRepository but operating on the new `records` table (schema v3)
+/// which stores all record types uniformly.
+class RecordRepository {
+  Future<void> saveRecord(Record record) async {
     final event = Event(
       eventType: EventType.recordSaved,
-      recordId: block.id,
-      payload: block.toJson(),
+      recordId: record.id,
+      payload: record.toJson(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
     await DatabaseProvider.instance.transactionAsync((db) {
       final stmt = db.prepare('''
-        INSERT OR REPLACE INTO blocks
+        INSERT OR REPLACE INTO records
         (id, date, type, content, metadata, order_position, created_at, updated_at)
         VALUES (:id, :date, :type, :content, :metadata, :order_position, :created_at, :updated_at)
       ''');
 
       stmt.executeWith(
         StatementParameters.named({
-          ':id': block.id,
-          ':date': block.date,
-          ':type': block.type.toDbValue(),
-          ':content': block.content,
-          ':metadata': jsonEncode(block.metadata),
-          ':order_position': block.orderPosition,
-          ':created_at': block.createdAt,
-          ':updated_at': block.updatedAt,
+          ':id': record.id,
+          ':date': record.date,
+          ':type': record.type.toDbValue(),
+          ':content': record.content,
+          ':metadata': jsonEncode(record.metadata),
+          ':order_position': record.orderPosition,
+          ':created_at': record.createdAt,
+          ':updated_at': record.updatedAt,
         }),
       );
       stmt.dispose();
@@ -58,27 +58,27 @@ class BlockRepository {
     });
   }
 
-  Future<void> deleteBlock(String blockId) async {
+  Future<void> deleteRecord(String recordId) async {
     final results = await DatabaseProvider.instance.queryAsync(
-      'SELECT * FROM blocks WHERE id = :id',
-      {':id': blockId},
+      'SELECT * FROM records WHERE id = :id',
+      {':id': recordId},
     );
 
     if (results.isEmpty) return;
 
-    final block = _parseBlockFromDb(results.first);
+    final record = _parseRecordFromDb(results.first);
 
     final event = Event(
       eventType: EventType.recordDeleted,
-      recordId: blockId,
-      payload: block.toJson(),
+      recordId: recordId,
+      payload: record.toJson(),
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
     await DatabaseProvider.instance.transactionAsync((db) {
-      final deleteStmt = db.prepare('DELETE FROM blocks WHERE id = :id');
+      final deleteStmt = db.prepare('DELETE FROM records WHERE id = :id');
       deleteStmt.executeWith(
-        StatementParameters.named({':id': blockId}),
+        StatementParameters.named({':id': recordId}),
       );
       deleteStmt.dispose();
 
@@ -99,18 +99,18 @@ class BlockRepository {
     });
   }
 
-  Future<List<Block>> getBlocksForDate(String date) async {
+  Future<List<Record>> getRecordsForDate(String date) async {
     final results = await DatabaseProvider.instance.queryAsync(
-      'SELECT * FROM blocks WHERE date = :date ORDER BY order_position ASC',
+      'SELECT * FROM records WHERE date = :date ORDER BY order_position ASC',
       {':date': date},
     );
 
-    return results.map(_parseBlockFromDb).toList();
+    return results.map(_parseRecordFromDb).toList();
   }
 
-  /// Full-text search across block content with optional date-range filtering.
+  /// Full-text search across record content with optional date-range filtering.
   /// Uses LIKE for simplicity (sufficient for personal journal volumes).
-  Future<List<Block>> search(
+  Future<List<Record>> search(
     String query, {
     String? startDate,
     String? endDate,
@@ -129,21 +129,21 @@ class BlockRepository {
 
     final where = conditions.join(' AND ');
     final sql =
-        'SELECT * FROM blocks WHERE $where ORDER BY date DESC, order_position ASC';
+        'SELECT * FROM records WHERE $where ORDER BY date DESC, order_position ASC';
 
     final results = await DatabaseProvider.instance.queryAsync(sql, params);
-    return results.map(_parseBlockFromDb).toList();
+    return results.map(_parseRecordFromDb).toList();
   }
 
-  /// Parse a database row into a Block.
-  Block _parseBlockFromDb(Map<String, Object?> row) {
+  /// Parse a database row into a Record.
+  Record _parseRecordFromDb(Map<String, Object?> row) {
     final rawMetadata = row['metadata'] as String? ?? '{}';
     final metadata = jsonDecode(rawMetadata) as Map<String, dynamic>;
 
-    return Block(
+    return Record(
       id: row['id'] as String,
       date: row['date'] as String,
-      type: BlockType.fromDbValue(row['type'] as String),
+      type: RecordType.fromDbValue(row['type'] as String),
       content: row['content'] as String? ?? '',
       metadata: metadata,
       orderPosition: (row['order_position'] as num?)?.toDouble() ?? 0.0,

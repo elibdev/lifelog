@@ -1,41 +1,41 @@
 import 'package:flutter/material.dart';
-import '../../models/block.dart';
+import '../../models/record.dart';
 import '../../services/keyboard_service.dart';
-import '../../constants/grid_constants.dart';
+import 'package:lifelog/constants/grid_constants.dart';
 
-/// Shared text editing widget extracted from the old RecordWidget.
+/// Shared text editing widget used by all record sub-widgets.
 ///
 /// Encapsulates: TextEditingController, FocusNode lifecycle, keyboard shortcuts,
-/// and text change handling. Each block sub-widget composes this with its own
+/// and text change handling. Each record sub-widget composes this with its own
 /// leading widget (checkbox, bullet, etc.).
 ///
 /// This follows Flutter's "composition over inheritance" philosophy:
-/// instead of a base class with overrides, each block type wraps BlockTextField
+/// instead of a base class with overrides, each record type wraps RecordTextField
 /// inside its own layout.
 /// See: https://docs.flutter.dev/resources/architectural-overview#composition
-class BlockTextField extends StatefulWidget {
-  final Block block;
-  final Function(Block) onSave;
+class RecordTextField extends StatefulWidget {
+  final Record record;
+  final Function(Record) onSave;
   final Function(String) onDelete;
   final Function(String)? onSubmitted;
-  final int? blockIndex;
-  final void Function(int index, String blockId, FocusNode node)?
+  final int? recordIndex;
+  final void Function(int index, String recordId, FocusNode node)?
       onFocusNodeCreated;
-  final void Function(String blockId)? onFocusNodeDisposed;
+  final void Function(String recordId)? onFocusNodeDisposed;
 
   /// Optional text style override (used by headings for larger text)
   final TextStyle? textStyle;
 
-  /// Optional callback for checkbox toggle (used by todo blocks)
+  /// Optional callback for checkbox toggle (used by todo records)
   final Function(bool)? onToggleCheckbox;
 
-  const BlockTextField({
+  const RecordTextField({
     super.key,
-    required this.block,
+    required this.record,
     required this.onSave,
     required this.onDelete,
     this.onSubmitted,
-    this.blockIndex,
+    this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
     this.textStyle,
@@ -43,28 +43,27 @@ class BlockTextField extends StatefulWidget {
   });
 
   @override
-  State<BlockTextField> createState() => BlockTextFieldState();
+  State<RecordTextField> createState() => RecordTextFieldState();
 }
 
-class BlockTextFieldState extends State<BlockTextField> {
+class RecordTextFieldState extends State<RecordTextField> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
 
-  /// Expose focus node so parent widgets can request focus
   FocusNode get focusNode => _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.block.content);
+    _controller = TextEditingController(text: widget.record.content);
     _setupFocusNode();
   }
 
   void _setupFocusNode() {
     _focusNode = FocusNode();
     widget.onFocusNodeCreated?.call(
-      widget.blockIndex ?? -1,
-      widget.block.id,
+      widget.recordIndex ?? -1,
+      widget.record.id,
       _focusNode,
     );
     _focusNode.addListener(_handleFocusChange);
@@ -72,18 +71,18 @@ class BlockTextFieldState extends State<BlockTextField> {
 
   void _handleFocusChange() {
     if (!_focusNode.hasFocus && _controller.text.trim().isEmpty) {
-      widget.onDelete(widget.block.id);
+      widget.onDelete(widget.record.id);
     }
   }
 
   @override
-  void didUpdateWidget(BlockTextField oldWidget) {
+  void didUpdateWidget(RecordTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.block.id != oldWidget.block.id) {
-      _controller.text = widget.block.content;
-    } else if (widget.block.content != oldWidget.block.content &&
-        widget.block.content != _controller.text) {
-      _controller.text = widget.block.content;
+    if (widget.record.id != oldWidget.record.id) {
+      _controller.text = widget.record.content;
+    } else if (widget.record.content != oldWidget.record.content &&
+        widget.record.content != _controller.text) {
+      _controller.text = widget.record.content;
     }
   }
 
@@ -96,15 +95,15 @@ class BlockTextFieldState extends State<BlockTextField> {
 
   void _teardownFocusNode() {
     _focusNode.removeListener(_handleFocusChange);
-    widget.onFocusNodeDisposed?.call(widget.block.id);
+    widget.onFocusNodeDisposed?.call(widget.record.id);
     _focusNode.dispose();
   }
 
   void _handleTextChange() {
     final text = _controller.text;
-    if (text != widget.block.content) {
+    if (text != widget.record.content) {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final updated = widget.block.copyWith(content: text, updatedAt: now);
+      final updated = widget.record.copyWith(content: text, updatedAt: now);
       widget.onSave(updated);
     }
   }
@@ -116,15 +115,13 @@ class BlockTextFieldState extends State<BlockTextField> {
         );
     final effectiveStyle = widget.textStyle ?? defaultStyle;
 
-    // Focus + keyboard handler wrapping the TextField
-    // KeyboardService handles arrow navigation and action keys
     return Focus(
       onKeyEvent: (node, event) {
-        return KeyboardService.handleBlockKeyEvent(
+        return KeyboardService.handleRecordKeyEvent(
           event: event,
           node: node,
-          block: widget.block,
-          blockIndex: widget.blockIndex ?? -1,
+          record: widget.record,
+          recordIndex: widget.recordIndex ?? -1,
           textController: _controller,
           context: context,
           onDelete: widget.onDelete,
@@ -145,13 +142,13 @@ class BlockTextFieldState extends State<BlockTextField> {
         onChanged: (_) => _handleTextChange(),
         onSubmitted: (_) {
           if (_controller.text.isNotEmpty &&
-              _controller.text != widget.block.content) {
+              _controller.text != widget.record.content) {
             final now = DateTime.now().millisecondsSinceEpoch;
-            final updated =
-                widget.block.copyWith(content: _controller.text, updatedAt: now);
+            final updated = widget.record
+                .copyWith(content: _controller.text, updatedAt: now);
             widget.onSave(updated);
           }
-          widget.onSubmitted?.call(widget.block.id);
+          widget.onSubmitted?.call(widget.record.id);
         },
       ),
     );

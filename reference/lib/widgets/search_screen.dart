@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import '../models/block.dart';
-import '../database/block_repository.dart';
-import '../constants/grid_constants.dart';
-import '../services/date_service.dart';
-import '../utils/debouncer.dart';
-import 'blocks/adaptive_block_widget.dart';
+import '../models/record.dart';
+import '../database/record_repository.dart';
+import 'package:lifelog/constants/grid_constants.dart';
+import 'package:lifelog/services/date_service.dart';
+import 'package:lifelog/utils/debouncer.dart';
+import 'records/adaptive_record_widget.dart';
 
-/// Full-text search across all block content with optional date-range filtering.
+/// Full-text search across all record content with optional date-range filtering.
 ///
-/// Results are grouped by date and rendered with AdaptiveBlockWidget in read-only mode.
-/// Uses debounced input to avoid excessive database queries while typing.
+/// Results are grouped by date and rendered with AdaptiveRecordWidget in read-only mode.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -18,11 +17,11 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final BlockRepository _repository = BlockRepository();
+  final RecordRepository _repository = RecordRepository();
   final TextEditingController _queryController = TextEditingController();
   final Debouncer _searchDebouncer = Debouncer();
 
-  List<Block> _results = [];
+  List<Record> _results = [];
   bool _isSearching = false;
   String? _startDate;
   String? _endDate;
@@ -79,7 +78,6 @@ class _SearchScreenState extends State<SearchScreen> {
         _startDate = picked.start.toIso8601String().substring(0, 10);
         _endDate = picked.end.toIso8601String().substring(0, 10);
       });
-      // Re-run search with new date range
       _onQueryChanged(_queryController.text);
     }
   }
@@ -92,11 +90,10 @@ class _SearchScreenState extends State<SearchScreen> {
     _onQueryChanged(_queryController.text);
   }
 
-  /// Group results by date for display
-  Map<String, List<Block>> _groupByDate(List<Block> blocks) {
-    final Map<String, List<Block>> grouped = {};
-    for (final block in blocks) {
-      grouped.putIfAbsent(block.date, () => []).add(block);
+  Map<String, List<Record>> _groupByDate(List<Record> records) {
+    final Map<String, List<Record>> grouped = {};
+    for (final record in records) {
+      grouped.putIfAbsent(record.date, () => []).add(record);
     }
     return grouped;
   }
@@ -105,13 +102,12 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final grouped = _groupByDate(_results);
-    final dates = grouped.keys.toList(); // Already sorted DESC from query
+    final dates = grouped.keys.toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Search'),
         actions: [
-          // Date range filter button
           IconButton(
             icon: Icon(
               _startDate != null ? Icons.date_range : Icons.date_range_outlined,
@@ -134,16 +130,14 @@ class _SearchScreenState extends State<SearchScreen> {
             final screenWidth = constraints.maxWidth;
             final bool isDesktop = screenWidth > 900;
             final bool isTablet = screenWidth >= 600 && screenWidth <= 900;
-            final double maxWidth = isDesktop
-                ? 700
-                : (isTablet ? 600 : double.infinity);
+            final double maxWidth =
+                isDesktop ? 700 : (isTablet ? 600 : double.infinity);
 
             return Center(
               child: Container(
                 constraints: BoxConstraints(maxWidth: maxWidth),
                 child: Column(
                   children: [
-                    // Search input
                     Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: GridConstants.calculateContentLeftPadding(
@@ -155,7 +149,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         controller: _queryController,
                         autofocus: true,
                         decoration: InputDecoration(
-                          hintText: 'Search blocks...',
+                          hintText: 'Search records...',
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: _queryController.text.isNotEmpty
                               ? IconButton(
@@ -173,8 +167,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         onChanged: _onQueryChanged,
                       ),
                     ),
-
-                    // Date range indicator
                     if (_startDate != null && _endDate != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -188,16 +180,16 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                         ),
                       ),
-
-                    // Results
                     Expanded(
                       child: _isSearching
                           ? const Center(child: CircularProgressIndicator())
-                          : _results.isEmpty && _queryController.text.isNotEmpty
+                          : _results.isEmpty &&
+                                  _queryController.text.isNotEmpty
                               ? Center(
                                   child: Text(
                                     'No results found',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                    style:
+                                        theme.textTheme.bodyLarge?.copyWith(
                                       color: theme.colorScheme.outline,
                                     ),
                                   ),
@@ -206,33 +198,36 @@ class _SearchScreenState extends State<SearchScreen> {
                                   itemCount: dates.length,
                                   itemBuilder: (context, dateIndex) {
                                     final date = dates[dateIndex];
-                                    final blocks = grouped[date]!;
-                                    final isToday = DateService.isToday(date);
+                                    final records = grouped[date]!;
+                                    final isToday =
+                                        DateService.isToday(date);
 
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // Date header
                                         Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                              16, 16, 16, 4),
+                                          padding:
+                                              const EdgeInsets.fromLTRB(
+                                                  16, 16, 16, 4),
                                           child: Text(
                                             isToday
                                                 ? 'Today · ${DateService.formatForDisplay(date)}'
-                                                : DateService.formatForDisplay(
-                                                    date),
-                                            style: theme.textTheme.titleMedium,
+                                                : DateService
+                                                    .formatForDisplay(
+                                                        date),
+                                            style: theme
+                                                .textTheme.titleMedium,
                                           ),
                                         ),
-                                        // Blocks for this date (read-only)
-                                        ...blocks.map(
-                                          (block) => AdaptiveBlockWidget(
+                                        ...records.map(
+                                          (record) =>
+                                              AdaptiveRecordWidget(
                                             key: ValueKey(
-                                                'search-${block.id}'),
-                                            block: block,
-                                            onSave: (_) {}, // Read-only
-                                            onDelete: (_) {}, // Read-only
+                                                'search-${record.id}'),
+                                            record: record,
+                                            onSave: (_) {},
+                                            onDelete: (_) {},
                                           ),
                                         ),
                                       ],
