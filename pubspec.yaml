@@ -51,6 +51,10 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Widgetbook: Isolated widget development and testing environment
+  # Like Storybook for Flutter - renders widgets with configurable knobs
+  widgetbook: ^3.10.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

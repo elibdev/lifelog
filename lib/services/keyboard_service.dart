@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/record.dart';
+import '../models/block.dart';
 import '../notifications/navigation_notifications.dart';
 
 // WHAT IS THIS SERVICE?
@@ -270,6 +271,110 @@ class KeyboardService {
         isEmpty &&
         textController.selection.start == 0) {
       onDelete(record.id);
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  // ==========================================================================
+  // BLOCK-BASED KEYBOARD HANDLING
+  // Same logic as Record-based handling, adapted for the new Block model.
+  // ==========================================================================
+
+  /// Keyboard event handler for Block-based input fields.
+  /// Used by BlockTextField in the new adaptive block system.
+  static KeyEventResult handleBlockKeyEvent({
+    required KeyEvent event,
+    required FocusNode node,
+    required Block block,
+    required int blockIndex,
+    required TextEditingController textController,
+    required BuildContext context,
+    required Function(String) onDelete,
+    required Function(bool) onToggleCheckbox,
+  }) {
+    // Navigation (arrow keys)
+    final navResult = _handleBlockNavigationKey(
+      event: event,
+      block: block,
+      blockIndex: blockIndex,
+      context: context,
+    );
+    if (navResult == KeyEventResult.handled) return navResult;
+
+    // Action keys (Ctrl+Enter, Delete)
+    final actionResult = _handleBlockActionKey(
+      event: event,
+      block: block,
+      textController: textController,
+      onDelete: onDelete,
+      onToggleCheckbox: onToggleCheckbox,
+    );
+    if (actionResult == KeyEventResult.handled) return actionResult;
+
+    return KeyEventResult.ignored;
+  }
+
+  static KeyEventResult _handleBlockNavigationKey({
+    required KeyEvent event,
+    required Block block,
+    required int blockIndex,
+    required BuildContext context,
+  }) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      // With blocks, sectionType is always 'blocks' (one section per day)
+      NavigateDownNotification(
+        recordId: block.id,
+        recordIndex: blockIndex,
+        date: block.date,
+        sectionType: 'blocks',
+      ).dispatch(context);
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      NavigateUpNotification(
+        recordId: block.id,
+        recordIndex: blockIndex,
+        date: block.date,
+        sectionType: 'blocks',
+      ).dispatch(context);
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  static KeyEventResult _handleBlockActionKey({
+    required KeyEvent event,
+    required Block block,
+    required TextEditingController textController,
+    required Function(String) onDelete,
+    required Function(bool) onToggleCheckbox,
+  }) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final isEmpty = textController.text.trim().isEmpty;
+
+    // Ctrl/Cmd+Enter: Toggle checkbox (for non-empty todo blocks only)
+    if (event.logicalKey == LogicalKeyboardKey.enter &&
+        (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed) &&
+        block.type == BlockType.todo &&
+        !isEmpty) {
+      onToggleCheckbox(!block.isChecked);
+      return KeyEventResult.handled;
+    }
+
+    // Delete/Backspace: Delete empty block when cursor at start
+    if ((event.logicalKey == LogicalKeyboardKey.backspace ||
+            event.logicalKey == LogicalKeyboardKey.delete) &&
+        isEmpty &&
+        textController.selection.start == 0) {
+      onDelete(block.id);
       return KeyEventResult.handled;
     }
 

@@ -79,33 +79,35 @@ class DatabaseProvider {
 
     if (currentVersion == 0) {
       _createDb(db);
-    } else if (currentVersion < 2) {
-      _upgradeDb(db, currentVersion, 2);
+    } else if (currentVersion < 3) {
+      _upgradeDb(db, currentVersion, 3);
     }
 
     return db;
   }
 
   // Create initial schema with manual transaction
+  // Fresh installs go straight to version 3 (blocks table)
   void _createDb(Database db) {
     db.execute('BEGIN TRANSACTION');
 
     try {
-      // Records table - current state, mutable
+      // Blocks table - uniform storage for all block types (text, heading, todo, etc.)
+      // `content` is a real column for searchability; `metadata` holds type-specific JSON
       db.execute('''
-        CREATE TABLE records (
+        CREATE TABLE blocks (
           id TEXT PRIMARY KEY,
           date TEXT NOT NULL,
           type TEXT NOT NULL,
-          metadata TEXT NOT NULL,
+          content TEXT NOT NULL DEFAULT '',
+          metadata TEXT NOT NULL DEFAULT '{}',
+          order_position REAL NOT NULL DEFAULT 0,
           created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          order_position REAL NOT NULL DEFAULT 0
+          updated_at INTEGER NOT NULL
         )
       ''');
 
-      // Index for fast date queries
-      db.execute('CREATE INDEX idx_records_date ON records(date)');
+      db.execute('CREATE INDEX idx_blocks_date ON blocks(date)');
 
       // Event log - append-only history
       db.execute('''
@@ -120,7 +122,7 @@ class DatabaseProvider {
       ''');
 
       // Set schema version
-      db.execute('PRAGMA user_version = 2');
+      db.execute('PRAGMA user_version = 3');
       db.execute('COMMIT');
     } catch (e) {
       db.execute('ROLLBACK');
@@ -134,13 +136,48 @@ class DatabaseProvider {
 
     try {
       if (oldVersion < 2) {
-        // Add order_position column
+        // v1 → v2: Add order_position column to records
         db.execute('''
           ALTER TABLE records ADD COLUMN order_position REAL NOT NULL DEFAULT 0
         ''');
-
-        // Backfill order_position with created_at values
         db.execute('UPDATE records SET order_position = created_at');
+      }
+
+      if (oldVersion < 3) {
+        // v2 → v3: Migrate from records table to blocks table
+        // Create the new blocks table with separated content column
+        db.execute('''
+          CREATE TABLE IF NOT EXISTS blocks (
+            id TEXT PRIMARY KEY,
+            date TEXT NOT NULL,
+            type TEXT NOT NULL,
+            content TEXT NOT NULL DEFAULT '',
+            metadata TEXT NOT NULL DEFAULT '{}',
+            order_position REAL NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+        db.execute('CREATE INDEX IF NOT EXISTS idx_blocks_date ON blocks(date)');
+
+        // Migrate existing records → blocks
+        // 'note' type becomes 'text', 'todo' stays 'todo'
+        // json_extract pulls content out of the metadata JSON into its own column
+        db.execute('''
+          INSERT INTO blocks (id, date, type, content, metadata, order_position, created_at, updated_at)
+          SELECT
+            id,
+            date,
+            CASE type WHEN 'note' THEN 'text' ELSE type END,
+            json_extract(metadata, '\$.content'),
+            metadata,
+            order_position,
+            created_at,
+            updated_at
+          FROM records
+        ''');
+
+        // Keep records table for rollback safety (can drop in v4)
       }
 
       db.execute('PRAGMA user_version = $newVersion');
