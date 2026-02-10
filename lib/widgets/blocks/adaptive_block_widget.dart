@@ -45,8 +45,12 @@ class AdaptiveBlockWidget extends StatelessWidget {
         final rightPadding =
             GridConstants.calculateContentRightPadding(constraints.maxWidth);
 
-        // H1 headings span 2 grid rows (48px), everything else is 1 row (24px)
-        final height = (block.type == BlockType.heading && block.headingLevel == 1)
+        // Minimum height: H1 headings get 2 grid rows (48px), everything else 1 (24px).
+        // Blocks grow taller as content wraps to multiple lines.
+        // ConstrainedBox vs SizedBox: SizedBox clips multi-line text; ConstrainedBox
+        // sets a floor while allowing the widget to expand.
+        // See: https://api.flutter.dev/flutter/widgets/ConstrainedBox-class.html
+        final minHeight = (block.type == BlockType.heading && block.headingLevel == 1)
             ? GridConstants.spacing * 2
             : GridConstants.spacing;
 
@@ -57,8 +61,8 @@ class AdaptiveBlockWidget extends StatelessWidget {
             top: GridConstants.itemVerticalSpacing,
             bottom: GridConstants.itemVerticalSpacing,
           ),
-          child: SizedBox(
-            height: height,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
             // Exhaustive switch: compiler enforces all BlockType cases are handled
             child: switch (block.type) {
               BlockType.text => TextBlockWidget(
@@ -107,7 +111,7 @@ class AdaptiveBlockWidget extends StatelessWidget {
                   onFocusNodeDisposed: onFocusNodeDisposed,
                 ),
             },
-          ),
+          ), // ConstrainedBox
         );
       },
     );

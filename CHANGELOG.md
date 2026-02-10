@@ -51,10 +51,28 @@ A composable block widget (Notion-style) that renders differently based on block
 - [x] Store completions as an append-only list in block metadata
 - [x] Streak calculation walks backwards from today counting consecutive completions
 
+### Multi-line Text
+- [x] Blocks grow vertically as content wraps (ConstrainedBox minHeight instead of fixed SizedBox)
+- [x] TextField `maxLines: null` allows unlimited lines within a single block
+
 ## Planned (Future)
 
-- [ ] Support inline block type switching (e.g. typing `/` to change a text block into a heading or todo)
-- [ ] Add navigation from search results back to the block's position in the journal view
-- [ ] Add a habits summary view showing all habits with cumulative completion counts
+### Block Editing
+- [ ] Multi-line: snap expanded height to grid multiples (24px increments) for dotted-grid alignment
+- [ ] Support inline block type switching (typing `/` at start of empty block to pick type)
+- [ ] Block reordering via drag & drop
+- [ ] Undo/redo for block edits
+
+### Navigation
+- [ ] Search result → jump to block's position in journal view
+- [ ] Scroll-to-today button when scrolled far from today
+
+### Habits
+- [ ] Habits summary view showing all habits with cumulative completion counts
 - [ ] Support habit reset/archival without deleting history
-- [ ] Drop old `records` table in a future schema version 4
+- [ ] Weekly/custom frequency habits (not just daily)
+
+### Cleanup
+- [ ] Remove old unused files: `record.dart`, `record_repository.dart`, `record_widget.dart`, `record_section.dart`
+- [ ] Drop old `records` table in schema version 4
+- [ ] Remove Record-based code from `keyboard_service.dart`
