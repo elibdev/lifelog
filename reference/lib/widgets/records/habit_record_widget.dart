@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog/constants/grid_constants.dart';
-import 'package:lifelog/services/date_service.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
+import 'package:lifelog_reference/services/date_service.dart';
 
 /// Renders a habit record with name, streak count, and tap-to-complete action.
 ///

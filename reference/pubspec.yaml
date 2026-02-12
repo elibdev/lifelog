@@ -1,4 +1,4 @@
-name: lifelog
+name: lifelog_reference
 description: "Reference implementation for the Lifelog Flutter learning project."
 publish_to: 'none'
 

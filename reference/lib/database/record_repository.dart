@@ -3,8 +3,8 @@ import 'package:sqlite3/common.dart';
 
 import '../models/record.dart';
 // Uses Event from main lib — same event sourcing pattern
-import 'package:lifelog/models/event.dart';
-import 'package:lifelog/database/database_provider.dart';
+import 'package:lifelog_reference/models/event.dart';
+import 'package:lifelog_reference/database/database_provider.dart';
 
 /// CRUD repository for records, following the same patterns as the original
 /// RecordRepository but operating on the new `records` table (schema v3)

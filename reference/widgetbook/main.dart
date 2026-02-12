@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
-import 'package:lifelog/models/record.dart';
-import 'package:lifelog/widgets/records/adaptive_record_widget.dart';
+import 'package:lifelog_reference/models/record.dart';
+import 'package:lifelog_reference/widgets/records/adaptive_record_widget.dart';
 
 /// Widgetbook entry point: an isolated environment for developing and
 /// previewing widgets with configurable knobs.

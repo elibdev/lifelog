@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/record.dart';
-import 'package:lifelog/notifications/navigation_notifications.dart';
+import 'package:lifelog_reference/notifications/navigation_notifications.dart';
 import 'records/adaptive_record_widget.dart';
 
 /// Manages a flat list of mixed-type records for a single day.

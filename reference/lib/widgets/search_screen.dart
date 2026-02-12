@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
-import 'package:lifelog/constants/grid_constants.dart';
-import 'package:lifelog/services/date_service.dart';
-import 'package:lifelog/utils/debouncer.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
+import 'package:lifelog_reference/services/date_service.dart';
+import 'package:lifelog_reference/utils/debouncer.dart';
 import 'records/adaptive_record_widget.dart';
 
 /// Full-text search across all record content with optional date-range filtering.
