@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:lifelog/constants/grid_constants.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
 
 /// Custom decoration that paints vertical dotted lines behind a day section,
 /// giving the journal a ruled-notebook aesthetic.

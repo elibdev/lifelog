@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/record.dart';
-import 'package:lifelog/notifications/navigation_notifications.dart';
+import 'package:lifelog_reference/notifications/navigation_notifications.dart';
 
 /// Keyboard event handler for the new Record model.
 ///

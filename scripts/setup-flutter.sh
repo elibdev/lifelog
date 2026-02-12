@@ -31,8 +31,11 @@ if ! grep -q '/opt/flutter/bin' ~/.bashrc 2>/dev/null; then
   echo 'export PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:$PATH"' >> ~/.bashrc
 fi
 
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
 echo "Resolving dependencies..."
-flutter pub get
+(cd "$REPO_ROOT/lifelog" && flutter pub get)
+(cd "$REPO_ROOT/reference" && flutter pub get)
 
 echo ""
 flutter --version

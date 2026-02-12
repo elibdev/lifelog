@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../services/keyboard_service.dart';
-import 'package:lifelog/constants/grid_constants.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
 
 /// Shared text editing widget used by all record sub-widgets.
 ///

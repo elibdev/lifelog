@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog/constants/grid_constants.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
 
 /// Renders a heading record with configurable level (1, 2, or 3).

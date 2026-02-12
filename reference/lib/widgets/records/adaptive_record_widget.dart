@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog/constants/grid_constants.dart';
+import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'text_record_widget.dart';
 import 'heading_record_widget.dart';
 import 'todo_record_widget.dart';
