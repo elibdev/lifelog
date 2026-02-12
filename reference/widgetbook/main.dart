@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
-import '../lib/models/record.dart';
-import '../lib/widgets/records/adaptive_record_widget.dart';
+import 'package:lifelog/models/record.dart';
+import 'package:lifelog/widgets/records/adaptive_record_widget.dart';
 
 /// Widgetbook entry point: an isolated environment for developing and
 /// previewing widgets with configurable knobs.
@@ -22,13 +22,11 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookTheme(name: 'Dark', data: _darkTheme()),
           ],
         ),
-        DeviceFrameAddon(
-          devices: [
-            Devices.ios.iPhone13,
-            Devices.ios.iPadPro11Inches,
-            Devices.linux.laptop,
-          ],
-        ),
+        ViewportAddon([
+          IosViewports.iPhone13,
+          IosViewports.iPadPro11Inches,
+          LinuxViewports.desktop,
+        ]),
       ],
       directories: [
         WidgetbookFolder(
@@ -112,7 +110,7 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Content',
           initialValue: 'Section Title',
         );
-        final level = context.knobs.int_.input(
+        final level = context.knobs.int.input(
           label: 'Heading Level (1-3)',
           initialValue: 1,
         );
@@ -168,7 +166,7 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Content',
           initialValue: 'First item in the list',
         );
-        final indentLevel = context.knobs.int_.input(
+        final indentLevel = context.knobs.int.input(
           label: 'Indent Level',
           initialValue: 0,
         );
@@ -196,7 +194,7 @@ class WidgetbookApp extends StatelessWidget {
           label: 'Habit Name',
           initialValue: 'Meditation',
         );
-        final completionCount = context.knobs.int_.input(
+        final completionCount = context.knobs.int.input(
           label: 'Completions',
           initialValue: 5,
         );
