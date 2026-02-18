@@ -26,6 +26,43 @@ class WidgetbookApp extends StatelessWidget {
   // call would remount the keyed subtree. Static final ensures one instance.
   static final _daySectionKey = GlobalKey<RecordSectionState>();
 
+  // ===========================================================================
+  // TEXT SAMPLE PRESETS
+  // Each map key is the knob display label; the value is the actual content.
+  // Covers: short, long/wrapping, RTL (Arabic), CJK (Japanese), long compound
+  // word (German), emoji-heavy, and empty — to catch layout edge cases.
+  // ===========================================================================
+
+  /// General content for text records, todos, bullet items, and text fields.
+  static const _generalSamples = <String, String>{
+    'Short': 'Buy groceries',
+    'Long (wrapping)':
+        'Review all open pull requests and provide detailed feedback for the team before the end of the week',
+    'Arabic (RTL)': 'شراء البقالة من السوق',
+    'Japanese': 'ミーティングの準備をする',
+    'German (long word)': 'Aufgabenverwaltungssystem',
+    'With emoji': 'Fix the bug 🐛 and write unit tests ✅',
+    'Empty': '',
+  };
+
+  /// Content for heading records — shorter, title-appropriate strings.
+  static const _headingSamples = <String, String>{
+    'Short': 'Morning',
+    'Long': 'Weekly Team Retrospective and Planning Session',
+    'Arabic (RTL)': 'ملاحظات الصباح',
+    'Japanese': '今朝の記録',
+    'With emoji': 'Sprint Review 🚀',
+  };
+
+  /// Names for habit records — action-oriented, habit-appropriate strings.
+  static const _habitSamples = <String, String>{
+    'Short': 'Meditation',
+    'Long': 'Daily morning stretching and breathing exercises',
+    'Arabic (RTL)': 'التأمل اليومي',
+    'Japanese': '毎日の瞑想',
+    'With emoji': 'Morning workout 💪',
+  };
+
   @override
   Widget build(BuildContext context) {
     return Widgetbook.material(
@@ -62,7 +99,11 @@ class WidgetbookApp extends StatelessWidget {
             ),
             WidgetbookComponent(
               name: 'HeadingRecordWidget',
-              useCases: [_directHeadingRecordUseCase()],
+              useCases: [
+                _directHeadingRecordUseCase(level: 1, name: 'H1'),
+                _directHeadingRecordUseCase(level: 2, name: 'H2'),
+                _directHeadingRecordUseCase(level: 3, name: 'H3'),
+              ],
             ),
             WidgetbookComponent(
               name: 'TodoRecordWidget',
@@ -73,13 +114,18 @@ class WidgetbookApp extends StatelessWidget {
             ),
             WidgetbookComponent(
               name: 'BulletListRecordWidget',
-              useCases: [_directBulletListRecordUseCase()],
+              useCases: [
+                _directBulletListRecordUseCase(indent: 0, name: 'Indent 0'),
+                _directBulletListRecordUseCase(indent: 1, name: 'Indent 1'),
+                _directBulletListRecordUseCase(indent: 2, name: 'Indent 2'),
+              ],
             ),
             WidgetbookComponent(
               name: 'HabitRecordWidget',
               useCases: [
                 _habitNotCompletedUseCase(),
                 _habitCompletedUseCase(),
+                _habitLongStreakUseCase(),
               ],
             ),
             WidgetbookComponent(
@@ -156,6 +202,25 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
+  /// Returns a content string picked from [samples] via a list knob.
+  /// The knob label is [label]; [initialKey] is the key selected by default.
+  static String _contentKnob(
+    BuildContext context, {
+    required Map<String, String> samples,
+    required String label,
+    String initialKey = 'Short',
+  }) {
+    // context.knobs.object.dropdown<T>: dropdown knob with fixed options.
+    // labelBuilder converts each option to a display string in the panel.
+    // See: https://docs.widgetbook.io/knobs/list-knob
+    final selectedLabel = context.knobs.object.dropdown<String>(
+      label: label,
+      options: samples.keys.toList(),
+      initialOption: initialKey,
+    );
+    return samples[selectedLabel] ?? '';
+  }
+
   // ===========================================================================
   // USE CASES — AdaptiveRecordWidget
   // all metadata keys are namespaced by record type
@@ -165,9 +230,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Text Record',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'A simple text record',
         );
         return _wrapRecord(
           Record(
@@ -189,13 +255,16 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Heading Record',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _headingSamples,
           label: 'Content',
-          initialValue: 'Section Title',
         );
-        final level = context.knobs.int.input(
-          label: 'Heading Level (1-3)',
-          initialValue: 1,
+        // object.dropdown<int> constrains input to valid values, unlike int.input
+        final level = context.knobs.object.dropdown<int>(
+          label: 'Heading Level',
+          options: [1, 2, 3],
+          initialOption: 1,
         );
         return _wrapRecord(
           Record(
@@ -217,9 +286,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Todo Record',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'Buy groceries',
         );
         final checked = context.knobs.boolean(
           label: 'Checked',
@@ -245,13 +315,16 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Bullet List Record',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'First item in the list',
         );
-        final indentLevel = context.knobs.int.input(
+        // object.dropdown<int> constrains input to valid values (0, 1, 2)
+        final indentLevel = context.knobs.object.dropdown<int>(
           label: 'Indent Level',
-          initialValue: 0,
+          options: [0, 1, 2],
+          initialOption: 0,
         );
         return _wrapRecord(
           Record(
@@ -273,9 +346,15 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Habit Record',
       builder: (context) {
-        final habitName = context.knobs.string(
+        final habitName = _contentKnob(
+          context,
+          samples: _habitSamples,
           label: 'Habit Name',
-          initialValue: 'Meditation',
+        );
+        final frequency = context.knobs.object.dropdown<String>(
+          label: 'Frequency',
+          options: ['daily', 'weekly'],
+          initialOption: 'daily',
         );
         final completionCount = context.knobs.int.input(
           label: 'Completions',
@@ -293,7 +372,7 @@ class WidgetbookApp extends StatelessWidget {
             content: habitName,
             metadata: {
               'habit.name': habitName,
-              'habit.frequency': 'daily',
+              'habit.frequency': frequency,
               'habit.completions': completions,
             },
             orderPosition: 1.0,
@@ -328,9 +407,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Default',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'A plain text record',
         );
         return _wrapWidget(
           TextRecordWidget(
@@ -352,22 +432,24 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _directHeadingRecordUseCase() {
+  /// Produces one use case per heading level so each level is visually distinct
+  /// in the component navigator. [level] is fixed; content is a list knob.
+  static WidgetbookUseCase _directHeadingRecordUseCase({
+    required int level,
+    required String name,
+  }) {
     return WidgetbookUseCase(
-      name: 'Default',
+      name: name,
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _headingSamples,
           label: 'Content',
-          initialValue: 'Section Heading',
-        );
-        final level = context.knobs.int.input(
-          label: 'Heading Level (1-3)',
-          initialValue: 1,
         );
         return _wrapWidget(
           HeadingRecordWidget(
             record: Record(
-              id: 'wb-direct-heading-1',
+              id: 'wb-direct-heading-$level',
               date: '2026-02-10',
               type: RecordType.heading,
               content: content,
@@ -388,9 +470,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Unchecked',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'Buy groceries',
         );
         return _wrapWidget(
           TodoRecordWidget(
@@ -416,9 +499,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Checked',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'Buy groceries',
         );
         return _wrapWidget(
           TodoRecordWidget(
@@ -440,26 +524,28 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static WidgetbookUseCase _directBulletListRecordUseCase() {
+  /// Produces one use case per indent level so each bullet style (•, ◦, ▪) and
+  /// its left-padding is visually distinct in the component navigator.
+  static WidgetbookUseCase _directBulletListRecordUseCase({
+    required int indent,
+    required String name,
+  }) {
     return WidgetbookUseCase(
-      name: 'Default',
+      name: name,
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'A bulleted item',
-        );
-        final indentLevel = context.knobs.int.input(
-          label: 'Indent Level',
-          initialValue: 0,
         );
         return _wrapWidget(
           BulletListRecordWidget(
             record: Record(
-              id: 'wb-direct-bullet-1',
+              id: 'wb-direct-bullet-$indent',
               date: '2026-02-10',
               type: RecordType.bulletList,
               content: content,
-              metadata: {'bulletList.indentLevel': indentLevel},
+              metadata: {'bulletList.indentLevel': indent},
               orderPosition: 1.0,
               createdAt: 0,
               updatedAt: 0,
@@ -476,9 +562,15 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Not Completed Today',
       builder: (context) {
-        final habitName = context.knobs.string(
+        final habitName = _contentKnob(
+          context,
+          samples: _habitSamples,
           label: 'Habit Name',
-          initialValue: 'Meditation',
+        );
+        final frequency = context.knobs.object.dropdown<String>(
+          label: 'Frequency',
+          options: ['daily', 'weekly'],
+          initialOption: 'daily',
         );
         return _wrapWidget(
           HabitRecordWidget(
@@ -489,7 +581,7 @@ class WidgetbookApp extends StatelessWidget {
               content: habitName,
               metadata: {
                 'habit.name': habitName,
-                'habit.frequency': 'daily',
+                'habit.frequency': frequency,
                 'habit.completions': ['2026-02-08', '2026-02-09'],
               },
               orderPosition: 1.0,
@@ -508,9 +600,15 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Completed Today',
       builder: (context) {
-        final habitName = context.knobs.string(
+        final habitName = _contentKnob(
+          context,
+          samples: _habitSamples,
           label: 'Habit Name',
-          initialValue: 'Meditation',
+        );
+        final frequency = context.knobs.object.dropdown<String>(
+          label: 'Frequency',
+          options: ['daily', 'weekly'],
+          initialOption: 'daily',
         );
         // Compute today's date dynamically so _isCompletedToday returns true
         // regardless of when Widgetbook is opened.
@@ -526,8 +624,54 @@ class WidgetbookApp extends StatelessWidget {
               content: habitName,
               metadata: {
                 'habit.name': habitName,
-                'habit.frequency': 'daily',
+                'habit.frequency': frequency,
                 'habit.completions': [todayStr, '2026-02-09', '2026-02-08'],
+              },
+              orderPosition: 1.0,
+              createdAt: 0,
+              updatedAt: 0,
+            ),
+            onSave: (_) {},
+            onDelete: (_) {},
+          ),
+        );
+      },
+    );
+  }
+
+  /// Shows the streak + total display with a large number of completions,
+  /// including today — useful for testing layout with long stat strings.
+  static WidgetbookUseCase _habitLongStreakUseCase() {
+    return WidgetbookUseCase(
+      name: 'Long Streak',
+      builder: (context) {
+        final habitName = _contentKnob(
+          context,
+          samples: _habitSamples,
+          label: 'Habit Name',
+        );
+        final frequency = context.knobs.object.dropdown<String>(
+          label: 'Frequency',
+          options: ['daily', 'weekly'],
+          initialOption: 'daily',
+        );
+        final now = DateTime.now();
+        // Generate 30 consecutive daily completions ending today
+        final completions = List.generate(30, (i) {
+          final date = now.subtract(Duration(days: i));
+          return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        });
+        return _wrapWidget(
+          HabitRecordWidget(
+            record: Record(
+              id: 'wb-direct-habit-3',
+              date: '2026-02-10',
+              type: RecordType.habit,
+              content: habitName,
+              metadata: {
+                'habit.name': habitName,
+                'habit.frequency': frequency,
+                'habit.completions': completions,
               },
               orderPosition: 1.0,
               createdAt: 0,
@@ -545,9 +689,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Default Style',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
           label: 'Content',
-          initialValue: 'Editable text field',
         );
         return _wrapWidget(
           RecordTextField(
@@ -573,9 +718,10 @@ class WidgetbookApp extends StatelessWidget {
     return WidgetbookUseCase(
       name: 'Bold Style',
       builder: (context) {
-        final content = context.knobs.string(
+        final content = _contentKnob(
+          context,
+          samples: _headingSamples,
           label: 'Content',
-          initialValue: 'Bold styled text field',
         );
         return _wrapWidget(
           RecordTextField(
