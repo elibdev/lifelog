@@ -28,7 +28,10 @@ class BulletListRecordWidget extends StatelessWidget {
   });
 
   String _bulletForLevel(int level) {
-    const bullets = ['•', '◦', '▪'];
+    // ◦ (U+25E6), ▪ (U+25AA), and ○ (U+25CB) are absent from the Flutter SDK's
+    // Roboto subset bundled for tests. Use characters from Basic Latin / Latin-1
+    // Supplement which are guaranteed to be present in any Latin font.
+    const bullets = ['•', '–', '·'];
     return bullets[level.clamp(0, bullets.length - 1)];
   }
 
@@ -48,8 +51,7 @@ class BulletListRecordWidget extends StatelessWidget {
                 const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
             child: SizedBox(
               width: GridConstants.checkboxSize,
-              height: GridConstants.checkboxSize,
-              child: Center(child: Text(_bulletForLevel(indentLevel))),
+              child: Text(_bulletForLevel(indentLevel), textAlign: TextAlign.center),
             ),
           ),
           Expanded(

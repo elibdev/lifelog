@@ -43,7 +43,6 @@ class TodoRecordWidget extends StatelessWidget {
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
             width: GridConstants.checkboxSize,
-            height: GridConstants.checkboxSize,
             child: Checkbox(
               value: isChecked,
               onChanged: isEmpty ? null : _handleCheckboxToggle,

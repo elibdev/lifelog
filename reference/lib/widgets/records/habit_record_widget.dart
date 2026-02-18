@@ -73,7 +73,7 @@ class HabitRecordWidget extends StatelessWidget {
     final totalCompletions = record.habitCompletions.length;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),

@@ -33,8 +33,9 @@ class TextRecordWidget extends StatelessWidget {
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
             width: GridConstants.checkboxSize,
-            height: GridConstants.checkboxSize,
-            child: const Center(child: Text('•')),
+            // textAlign centers the bullet within the fixed-width column without
+            // using Center, which would expand vertically and misalign on multi-line text.
+            child: const Text('•', textAlign: TextAlign.center),
           ),
         ),
         Expanded(
