@@ -9,14 +9,22 @@ import 'day_section.dart';
 import 'search_screen.dart';
 
 class JournalScreen extends StatefulWidget {
-  const JournalScreen({super.key});
+  // Repository injected at construction so Widgetbook can pass a mock.
+  // `required` is a Dart named-parameter modifier — the caller must supply it.
+  // See: https://dart.dev/language/functions#named-parameters
+  const JournalScreen({super.key, required this.repository});
+
+  final RecordRepository repository;
 
   @override
   State<JournalScreen> createState() => _JournalScreenState();
 }
 
 class _JournalScreenState extends State<JournalScreen> {
-  final RecordRepository _repository = RecordRepository();
+  // widget.repository accesses the StatefulWidget's fields from its State.
+  // Flutter keeps State alive across rebuilds; widget ref always points to current.
+  // See: https://api.flutter.dev/flutter/widgets/State/widget.html
+  RecordRepository get _repository => widget.repository;
 
   final Map<String, List<Record>> _recordsByDate = {};
   final Map<String, Debouncer> _debouncers = {};
@@ -111,7 +119,9 @@ class _JournalScreenState extends State<JournalScreen> {
       floatingActionButton: FloatingActionButton.small(
         onPressed: () {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SearchScreen()),
+            MaterialPageRoute(
+            builder: (_) => SearchScreen(repository: _repository),
+          ),
           );
         },
         tooltip: 'Search',
