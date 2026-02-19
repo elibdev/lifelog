@@ -1,9 +1,15 @@
 name: Regenerate Widget PNGs
 
 # Runs whenever widget source or golden test files change.
-# Regenerates the committed PNGs in reference/test/goldens/ and pushes them back.
+# On push: regenerates PNGs and commits them back to the branch.
+# On pull_request: same — updates the PR branch so goldens are always current.
 on:
   push:
+    paths:
+      - 'reference/lib/widgets/**'
+      - 'reference/test/screenshots/**'
+      - 'reference/test/flutter_test_config.dart'
+  pull_request:
     paths:
       - 'reference/lib/widgets/**'
       - 'reference/test/screenshots/**'
@@ -48,5 +54,7 @@ jobs:
             echo "Goldens unchanged – nothing to commit."
           else
             git commit -m "chore: regenerate widget PNGs [skip ci]"
-            git push
+            # head_ref is set on pull_request events (source branch name);
+            # ref_name is set on push events. Together they cover both triggers.
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
           fi
