@@ -10,8 +10,6 @@ import 'package:lifelog_reference/widgets/records/habit_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/record_text_field.dart';
 import 'package:lifelog_reference/widgets/day_section.dart';
 import 'package:lifelog_reference/widgets/record_section.dart';
-import 'package:lifelog_reference/widgets/dotted_grid_decoration.dart';
-import 'package:lifelog_reference/constants/grid_constants.dart';
 
 /// Widgetbook entry point: an isolated environment for developing and
 /// previewing widgets with configurable knobs.
@@ -147,15 +145,6 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookComponent(
               name: 'RecordSection',
               useCases: [_recordSectionUseCase()],
-            ),
-          ],
-        ),
-        WidgetbookFolder(
-          name: 'Decorations',
-          children: [
-            WidgetbookComponent(
-              name: 'DottedGridDecoration',
-              useCases: [_dottedGridDecorationUseCase()],
             ),
           ],
         ),
@@ -850,33 +839,6 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  // ===========================================================================
-  // USE CASES — Decorations
-  // ===========================================================================
-
-  static WidgetbookUseCase _dottedGridDecorationUseCase() {
-    return WidgetbookUseCase(
-      name: 'Grid Pattern',
-      builder: (context) {
-        final horizontalOffset = context.knobs.int.input(
-          label: 'Horizontal Offset',
-          initialValue: 16,
-        );
-        final brightness = Theme.of(context).brightness;
-        final dotColor = brightness == Brightness.light
-            ? GridConstants.dotColorLight
-            : GridConstants.dotColorDark;
-        return Scaffold(
-          body: Container(
-            decoration: DottedGridDecoration(
-              horizontalOffset: horizontalOffset.toDouble(),
-              color: dotColor,
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 void main() {

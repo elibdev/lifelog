@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
 
 /// Renders a heading record with configurable level (1, 2, or 3).
 ///
-/// Heading heights are multiples of the 24px grid:
-/// - H1: 48px (bold, large)
-/// - H2: 24px (bold, medium)
-/// - H3: 24px (bold, normal size)
+/// Font sizes follow Material 3 type scale with enough step between each level
+/// to be visually distinct at a glance:
+/// - H1: headlineMedium (28px, bold)
+/// - H2: headlineSmall (24px, bold)
+/// - H3: titleMedium (16px, bold)
 ///
 /// No leading widget (checkbox/bullet) — headings use full width.
 class HeadingRecordWidget extends StatelessWidget {
@@ -39,21 +39,18 @@ class HeadingRecordWidget extends StatelessWidget {
     final TextStyle style;
     switch (level) {
       case 1:
-        style = (theme.headlineSmall ?? theme.titleLarge!).copyWith(
+        style = (theme.headlineMedium ?? theme.headlineSmall!).copyWith(
           fontWeight: FontWeight.bold,
-          height: 2.0,
         );
         break;
       case 2:
-        style = (theme.titleLarge ?? theme.titleMedium!).copyWith(
+        style = (theme.headlineSmall ?? theme.titleLarge!).copyWith(
           fontWeight: FontWeight.bold,
-          height: GridConstants.textLineHeightMultiplier,
         );
         break;
       default:
         style = (theme.titleMedium ?? theme.bodyLarge!).copyWith(
           fontWeight: FontWeight.bold,
-          height: GridConstants.textLineHeightMultiplier,
         );
     }
 

@@ -86,6 +86,26 @@ void main() {
         matchesGoldenFile('../goldens/text_record_default.png'),
       );
     });
+
+    testWidgets('wrapping', (tester) async {
+      _setWindowSize(tester, height: 200);
+      await tester.pumpWidget(_wrap(
+        TextRecordWidget(
+          record: _record(
+            type: RecordType.text,
+            content: 'Review all open pull requests and provide detailed feedback for the team before the end of the week',
+            id: 'text-wrapping',
+          ),
+          onSave: (_) {},
+          onDelete: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/text_record_wrapping.png'),
+      );
+    });
   });
 
   group('HeadingRecordWidget', () {
@@ -111,9 +131,51 @@ void main() {
         );
       });
     }
+
+    testWidgets('H1 wrapping', (tester) async {
+      _setWindowSize(tester, height: 200);
+      await tester.pumpWidget(_wrap(
+        HeadingRecordWidget(
+          record: _record(
+            type: RecordType.heading,
+            content: 'Weekly Team Retrospective and Planning Session',
+            metadata: {'heading.level': 1},
+            id: 'heading-h1-wrapping',
+          ),
+          onSave: (_) {},
+          onDelete: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/heading_h1_wrapping.png'),
+      );
+    });
   });
 
   group('TodoRecordWidget', () {
+    testWidgets('wrapping', (tester) async {
+      _setWindowSize(tester, height: 200);
+      await tester.pumpWidget(_wrap(
+        TodoRecordWidget(
+          record: _record(
+            type: RecordType.todo,
+            content: 'Review all open pull requests and provide detailed feedback for the team before the end of the week',
+            metadata: {'todo.checked': false},
+            id: 'todo-wrapping',
+          ),
+          onSave: (_) {},
+          onDelete: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/todo_wrapping.png'),
+      );
+    });
+
     testWidgets('unchecked', (tester) async {
       _setWindowSize(tester);
       await tester.pumpWidget(_wrap(
@@ -157,6 +219,27 @@ void main() {
   });
 
   group('BulletListRecordWidget', () {
+    testWidgets('wrapping', (tester) async {
+      _setWindowSize(tester, height: 200);
+      await tester.pumpWidget(_wrap(
+        BulletListRecordWidget(
+          record: _record(
+            type: RecordType.bulletList,
+            content: 'Review all open pull requests and provide detailed feedback for the team before the end of the week',
+            metadata: {'bulletList.indentLevel': 0},
+            id: 'bullet-wrapping',
+          ),
+          onSave: (_) {},
+          onDelete: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/bullet_wrapping.png'),
+      );
+    });
+
     for (final indent in [0, 1, 2]) {
       testWidgets('indent $indent', (tester) async {
         _setWindowSize(tester);
@@ -182,6 +265,31 @@ void main() {
   });
 
   group('HabitRecordWidget', () {
+    testWidgets('wrapping name', (tester) async {
+      _setWindowSize(tester, height: 200);
+      await tester.pumpWidget(_wrap(
+        HabitRecordWidget(
+          record: _record(
+            type: RecordType.habit,
+            content: 'Daily morning stretching, breathing exercises, and ten minutes of mindfulness meditation',
+            metadata: {
+              'habit.name': 'Daily morning stretching, breathing exercises, and ten minutes of mindfulness meditation',
+              'habit.frequency': 'daily',
+              'habit.completions': ['2026-01-01', '2026-01-02'],
+            },
+            id: 'habit-wrapping',
+          ),
+          onSave: (_) {},
+          onDelete: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/habit_wrapping.png'),
+      );
+    });
+
     testWidgets('not completed today', (tester) async {
       _setWindowSize(tester);
       await tester.pumpWidget(_wrap(

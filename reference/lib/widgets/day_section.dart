@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/record.dart';
 import 'package:lifelog_reference/services/date_service.dart';
 import 'package:lifelog_reference/constants/grid_constants.dart';
-import 'package:lifelog_reference/widgets/dotted_grid_decoration.dart';
 import 'record_section.dart';
 
 /// DaySection represents a single day in the infinite scroll journal.
@@ -42,54 +41,40 @@ class DaySection extends StatelessWidget {
             final rightPadding = GridConstants.calculateContentRightPadding(
               constraints.maxWidth,
             );
-            final horizontalOffset = GridConstants.calculateGridOffset(
-              constraints.maxWidth,
-            );
 
-            final brightness = Theme.of(context).brightness;
-            final dotColor = brightness == Brightness.light
-                ? GridConstants.dotColorLight
-                : GridConstants.dotColorDark;
-
-            return DecoratedBox(
-              decoration: DottedGridDecoration(
-                horizontalOffset: horizontalOffset,
-                color: dotColor,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      leftPadding,
-                      GridConstants.sectionTopPadding,
-                      rightPadding,
-                      GridConstants.sectionHeaderBottomPadding,
-                    ),
-                    child: SizedBox(
-                      height: GridConstants.spacing,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          isToday
-                              ? 'Today · ${DateService.formatForDisplay(date)}'
-                              : DateService.formatForDisplay(date),
-                          style: Theme.of(context).textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    leftPadding,
+                    GridConstants.sectionTopPadding,
+                    rightPadding,
+                    GridConstants.sectionHeaderBottomPadding,
+                  ),
+                  child: SizedBox(
+                    height: GridConstants.spacing,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        isToday
+                            ? 'Today · ${DateService.formatForDisplay(date)}'
+                            : DateService.formatForDisplay(date),
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  RecordSection(
-                    key: getSectionKey(date),
-                    records: records,
-                    date: date,
-                    onSave: onSave,
-                    onDelete: onDelete,
-                  ),
-                ],
-              ),
+                ),
+                RecordSection(
+                  key: getSectionKey(date),
+                  records: records,
+                  date: date,
+                  onSave: onSave,
+                  onDelete: onDelete,
+                ),
+              ],
             );
           },
         );

@@ -45,14 +45,10 @@ class AdaptiveRecordWidget extends StatelessWidget {
         final rightPadding =
             GridConstants.calculateContentRightPadding(constraints.maxWidth);
 
-        // Minimum height: H1 headings get 2 grid rows (48px), everything else 1 (24px).
-        // Records grow taller as content wraps to multiple lines.
+        // Minimum height: all records are at least one grid row (24px).
         // ConstrainedBox vs SizedBox: SizedBox clips multi-line text; ConstrainedBox
         // sets a floor while allowing the widget to expand.
-        final minHeight =
-            (record.type == RecordType.heading && record.headingLevel == 1)
-                ? GridConstants.spacing * 2
-                : GridConstants.spacing;
+        const minHeight = GridConstants.spacing;
 
         return Padding(
           padding: EdgeInsets.only(

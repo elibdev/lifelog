@@ -37,7 +37,11 @@ class TodoRecordWidget extends StatelessWidget {
     final isEmpty = record.content.isEmpty;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      // CrossAxisAlignment.center: vertically centers the checkbox with the text
+      // so single-line todos appear on one visual line. For multi-line todos the
+      // checkbox floats to the mid-point of all lines, which is acceptable.
+      // See: https://api.flutter.dev/flutter/widgets/Row-class.html
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
