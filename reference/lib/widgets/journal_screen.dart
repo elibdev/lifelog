@@ -7,7 +7,7 @@ import 'package:lifelog_reference/utils/debouncer.dart';
 import 'record_section.dart';
 import 'day_section.dart';
 import 'search_screen.dart';
-
+// Test
 class JournalScreen extends StatefulWidget {
   // Repository injected at construction so Widgetbook can pass a mock.
   // `required` is a Dart named-parameter modifier — the caller must supply it.
