@@ -1,0 +1,52 @@
+name: Regenerate Widget PNGs
+
+# Runs whenever widget source or golden test files change.
+# Regenerates the committed PNGs in reference/test/goldens/ and pushes them back.
+on:
+  push:
+    paths:
+      - 'reference/lib/widgets/**'
+      - 'reference/test/screenshots/**'
+      - 'reference/test/flutter_test_config.dart'
+
+# Write permission is required to push the regenerated PNGs back to the branch.
+permissions:
+  contents: write
+
+jobs:
+  regenerate-goldens:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Persist the token so the final git push is authenticated.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: reference
+
+      # --update-goldens writes new PNGs to reference/test/goldens/ instead of
+      # failing on mismatches. Equivalent to `make goldens` locally.
+      - name: Regenerate golden PNGs
+        run: flutter test --update-goldens test/screenshots/
+        working-directory: reference
+
+      - name: Commit and push updated goldens
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reference/test/goldens/
+          if git diff --staged --quiet; then
+            echo "Goldens unchanged – nothing to commit."
+          else
+            git commit -m "chore: regenerate widget PNGs [skip ci]"
+            git push
+          fi
