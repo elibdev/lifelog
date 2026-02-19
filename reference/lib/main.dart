@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'database/record_repository.dart';
 import 'widgets/journal_screen.dart';
 
 void main() {
@@ -29,7 +30,7 @@ class LifelogReferenceApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: const JournalScreen(),
+      home: JournalScreen(repository: SqliteRecordRepository()),
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:lifelog_reference/models/record.dart';
+import 'package:lifelog_reference/database/mock_record_repository.dart';
+import 'package:lifelog_reference/widgets/journal_screen.dart';
+import 'package:lifelog_reference/widgets/search_screen.dart';
 import 'package:lifelog_reference/widgets/records/adaptive_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/text_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/heading_record_widget.dart';
@@ -10,6 +13,7 @@ import 'package:lifelog_reference/widgets/records/habit_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/record_text_field.dart';
 import 'package:lifelog_reference/widgets/day_section.dart';
 import 'package:lifelog_reference/widgets/record_section.dart';
+import 'package:lifelog_reference/services/date_service.dart';
 
 /// Widgetbook entry point: an isolated environment for developing and
 /// previewing widgets with configurable knobs.
@@ -78,6 +82,19 @@ class WidgetbookApp extends StatelessWidget {
         ]),
       ],
       directories: [
+        WidgetbookFolder(
+          name: 'Screens',
+          children: [
+            WidgetbookComponent(
+              name: 'JournalScreen',
+              useCases: [_journalScreenUseCase()],
+            ),
+            WidgetbookComponent(
+              name: 'SearchScreen',
+              useCases: [_searchScreenUseCase()],
+            ),
+          ],
+        ),
         WidgetbookFolder(
           name: 'Records',
           children: [
@@ -733,6 +750,119 @@ class WidgetbookApp extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // ===========================================================================
+  // USE CASES — Screens
+  // MockRecordRepository is seeded with data covering today and several past
+  // days so the journal scroll and search are immediately usable in preview.
+  // ===========================================================================
+
+  static MockRecordRepository _mockRepo() {
+    final today = DateService.today();
+    final yesterday = DateService.getDateForOffset(-1);
+    final twoDaysAgo = DateService.getDateForOffset(-2);
+    // Dart spread operator `...` inserts all list elements inline.
+    // See: https://dart.dev/language/collections#spread-operators
+    return MockRecordRepository(
+      initialData: {
+        today: [
+          Record(
+            id: 'wb-s-1',
+            date: today,
+            type: RecordType.heading,
+            content: 'Morning',
+            metadata: {'heading.level': 1},
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          Record(
+            id: 'wb-s-2',
+            date: today,
+            type: RecordType.todo,
+            content: 'Review pull requests',
+            metadata: {'todo.checked': false},
+            orderPosition: 2.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          Record(
+            id: 'wb-s-3',
+            date: today,
+            type: RecordType.text,
+            content: 'Met with the team about the new architecture',
+            metadata: {},
+            orderPosition: 3.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          Record(
+            id: 'wb-s-4',
+            date: today,
+            type: RecordType.habit,
+            content: 'Meditation',
+            metadata: {
+              'habit.name': 'Meditation',
+              'habit.frequency': 'daily',
+              'habit.completions': [today, yesterday],
+            },
+            orderPosition: 4.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+        ],
+        yesterday: [
+          Record(
+            id: 'wb-s-5',
+            date: yesterday,
+            type: RecordType.heading,
+            content: 'Yesterday',
+            metadata: {'heading.level': 2},
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          Record(
+            id: 'wb-s-6',
+            date: yesterday,
+            type: RecordType.bulletList,
+            content: 'Wrote unit tests',
+            metadata: {'bulletList.indentLevel': 0},
+            orderPosition: 2.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+        ],
+        twoDaysAgo: [
+          Record(
+            id: 'wb-s-7',
+            date: twoDaysAgo,
+            type: RecordType.text,
+            content: 'Deployed to production successfully',
+            metadata: {},
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+        ],
+      },
+    );
+  }
+
+  static WidgetbookUseCase _journalScreenUseCase() {
+    return WidgetbookUseCase(
+      name: 'With Mock Data',
+      // Screens own their Scaffold so no wrapping needed — return directly.
+      builder: (context) => JournalScreen(repository: _mockRepo()),
+    );
+  }
+
+  static WidgetbookUseCase _searchScreenUseCase() {
+    return WidgetbookUseCase(
+      name: 'With Mock Data',
+      builder: (context) => SearchScreen(repository: _mockRepo()),
     );
   }
 

@@ -10,14 +10,16 @@ import 'records/adaptive_record_widget.dart';
 ///
 /// Results are grouped by date and rendered with AdaptiveRecordWidget in read-only mode.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, required this.repository});
+
+  final RecordRepository repository;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final RecordRepository _repository = RecordRepository();
+  RecordRepository get _repository => widget.repository;
   final TextEditingController _queryController = TextEditingController();
   final Debouncer _searchDebouncer = Debouncer();
 

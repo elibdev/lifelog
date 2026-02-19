@@ -6,10 +6,25 @@ import '../models/record.dart';
 import 'package:lifelog_reference/models/event.dart';
 import 'package:lifelog_reference/database/database_provider.dart';
 
-/// CRUD repository for records, following the same patterns as the original
-/// RecordRepository but operating on the new `records` table (schema v3)
-/// which stores all record types uniformly.
-class RecordRepository {
+// Dart abstract classes define a contract without implementation.
+// Screens depend on this interface, not the SQLite or mock concrete classes —
+// the classic Dependency Inversion Principle, which also makes Widgetbook possible.
+// See: https://dart.dev/language/class-modifiers#abstract
+abstract class RecordRepository {
+  Future<void> saveRecord(Record record);
+  Future<void> deleteRecord(String recordId);
+  Future<List<Record>> getRecordsForDate(String date);
+  Future<List<Record>> search(
+    String query, {
+    String? startDate,
+    String? endDate,
+  });
+}
+
+/// SQLite-backed implementation of [RecordRepository].
+/// Uses [DatabaseProvider] for WAL-mode SQLite with Isolate-backed async queries.
+class SqliteRecordRepository implements RecordRepository {
+  @override
   Future<void> saveRecord(Record record) async {
     final event = Event(
       eventType: EventType.recordSaved,
@@ -58,6 +73,7 @@ class RecordRepository {
     });
   }
 
+  @override
   Future<void> deleteRecord(String recordId) async {
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE id = :id',
@@ -99,6 +115,7 @@ class RecordRepository {
     });
   }
 
+  @override
   Future<List<Record>> getRecordsForDate(String date) async {
     final results = await DatabaseProvider.instance.queryAsync(
       'SELECT * FROM records WHERE date = :date ORDER BY order_position ASC',
@@ -108,8 +125,7 @@ class RecordRepository {
     return results.map(_parseRecordFromDb).toList();
   }
 
-  /// Full-text search across record content with optional date-range filtering.
-  /// Uses LIKE for simplicity (sufficient for personal journal volumes).
+  @override
   Future<List<Record>> search(
     String query, {
     String? startDate,
@@ -135,7 +151,6 @@ class RecordRepository {
     return results.map(_parseRecordFromDb).toList();
   }
 
-  /// Parse a database row into a Record.
   Record _parseRecordFromDb(Map<String, Object?> row) {
     final rawMetadata = row['metadata'] as String? ?? '{}';
     final metadata = jsonDecode(rawMetadata) as Map<String, dynamic>;
