@@ -79,7 +79,7 @@ class HabitRecordWidget extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
-            width: GridConstants.checkboxSize + 2,
+            width: GridConstants.checkboxSize,
             height: GridConstants.rowHeight,
             child: Center(
               child: GestureDetector(
@@ -88,7 +88,7 @@ class HabitRecordWidget extends StatelessWidget {
                   completedToday
                       ? Icons.check_circle_rounded
                       : Icons.circle_outlined,
-                  size: GridConstants.checkboxSize + 2,
+                  size: GridConstants.checkboxSize,
                   color: completedToday
                       ? theme.colorScheme.primary
                       : theme.colorScheme.outline,
@@ -99,25 +99,17 @@ class HabitRecordWidget extends StatelessWidget {
         ),
         // Habit name
         Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: (GridConstants.rowHeight - 15 * 1.5) / 2,
-            ),
-            child: Text(
-              record.habitName.isNotEmpty ? record.habitName : record.content,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: completedToday ? FontWeight.w500 : null,
-                height: GridConstants.textLineHeightMultiplier,
-              ),
+          child: Text(
+            record.habitName.isNotEmpty ? record.habitName : record.content,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: completedToday ? FontWeight.w500 : null,
+              height: GridConstants.textLineHeightMultiplier,
             ),
           ),
         ),
         // Streak/total metadata — right-aligned
         Padding(
-          padding: EdgeInsets.only(
-            top: (GridConstants.rowHeight - 12 * 1.4) / 2,
-            left: 8,
-          ),
+          padding: const EdgeInsets.only(left: 8),
           child: Text(
             streak > 0
                 ? '$streak streak · $totalCompletions total'
