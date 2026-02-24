@@ -1,36 +1,32 @@
 import 'package:flutter/material.dart';
+import 'theme/lifelog_theme.dart';
+import 'database/record_repository.dart';
+import 'widgets/journal_screen.dart';
 
 void main() {
   runApp(const LifelogApp());
 }
 
+/// Root widget — wraps the app in [LifelogTokens] (design system tokens)
+/// and applies the Swiss-Italian notebook theme.
+///
+/// LifelogTokens is an InheritedWidget that makes spacing/sizing tokens
+/// available to any descendant via LifelogTokens.of(context).
+/// See: https://api.flutter.dev/flutter/widgets/InheritedWidget-class.html
 class LifelogApp extends StatelessWidget {
   const LifelogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Lifelog',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: const Scaffold(
-        body: Center(
-          child: Text('Lifelog'),
-        ),
+    return LifelogTokens(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Lifelog',
+        // Design system themes — warm paper tones, Swiss typography
+        theme: LifelogTheme.light(),
+        darkTheme: LifelogTheme.dark(),
+        themeMode: ThemeMode.system,
+        home: JournalScreen(repository: SqliteRecordRepository()),
       ),
     );
   }
