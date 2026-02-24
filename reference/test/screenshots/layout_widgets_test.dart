@@ -1,21 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog_reference/models/record.dart';
+import 'package:lifelog_reference/theme/lifelog_theme.dart';
 import 'package:lifelog_reference/widgets/day_section.dart';
 import 'package:lifelog_reference/widgets/record_section.dart';
-
-ThemeData _lightTheme() {
-  const surface = Color.fromARGB(255, 188, 183, 173);
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
-      brightness: Brightness.light,
-      surface: surface,
-    ),
-    scaffoldBackgroundColor: surface,
-  );
-}
 
 void _setWindowSize(WidgetTester tester, {double width = 600, double height = 350}) {
   tester.view.physicalSize = Size(width, height);
@@ -73,18 +61,20 @@ void main() {
     testWidgets('mixed record types', (tester) async {
       _setWindowSize(tester);
       await tester.pumpWidget(
-        MaterialApp(
-          theme: _lightTheme(),
-          debugShowCheckedModeBanner: false,
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 500,
-                child: RecordSection(
-                  records: _mixedRecords,
-                  date: '2026-01-15',
-                  onSave: (_) {},
-                  onDelete: (_) {},
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.light(),
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 500,
+                  child: RecordSection(
+                    records: _mixedRecords,
+                    date: '2026-01-15',
+                    onSave: (_) {},
+                    onDelete: (_) {},
+                  ),
                 ),
               ),
             ),
@@ -107,17 +97,19 @@ void main() {
       // See: https://api.flutter.dev/flutter/widgets/FutureBuilder-class.html
       final sectionKey = GlobalKey<RecordSectionState>();
       await tester.pumpWidget(
-        MaterialApp(
-          theme: _lightTheme(),
-          debugShowCheckedModeBanner: false,
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: DaySection(
-                date: '2026-01-15',
-                recordsFuture: Future.value(_mixedRecords),
-                getSectionKey: (_) => sectionKey,
-                onSave: (_) {},
-                onDelete: (_) {},
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.light(),
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: DaySection(
+                  date: '2026-01-15',
+                  recordsFuture: Future.value(_mixedRecords),
+                  getSectionKey: (_) => sectionKey,
+                  onSave: (_) {},
+                  onDelete: (_) {},
+                ),
               ),
             ),
           ),

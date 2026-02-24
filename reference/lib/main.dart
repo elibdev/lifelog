@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'database/record_repository.dart';
+import 'theme/lifelog_theme.dart';
 import 'widgets/journal_screen.dart';
 
 void main() {
@@ -12,25 +13,15 @@ class LifelogReferenceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Lifelog (Reference)',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
+    return LifelogTokens(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Lifelog (Reference)',
+        theme: LifelogTheme.light(),
+        darkTheme: LifelogTheme.dark(),
+        themeMode: ThemeMode.system,
+        home: JournalScreen(repository: SqliteRecordRepository()),
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: JournalScreen(repository: SqliteRecordRepository()),
     );
   }
 }

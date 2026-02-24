@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog_reference/models/record.dart';
+import 'package:lifelog_reference/theme/lifelog_theme.dart';
 import 'package:lifelog_reference/widgets/records/text_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/heading_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/todo_record_widget.dart';
@@ -8,29 +9,17 @@ import 'package:lifelog_reference/widgets/records/bullet_list_record_widget.dart
 import 'package:lifelog_reference/widgets/records/habit_record_widget.dart';
 import 'package:lifelog_reference/widgets/records/record_text_field.dart';
 
-// Light theme matching the Widgetbook setup so goldens reflect the real app palette.
-ThemeData _lightTheme() {
-  const surface = Color.fromARGB(255, 188, 183, 173);
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
-      brightness: Brightness.light,
-      surface: surface,
-    ),
-    scaffoldBackgroundColor: surface,
-  );
-}
-
 // Wrap a widget in a themed MaterialApp/Scaffold with a fixed 500px content column,
 // mirroring the Widgetbook _wrapWidget helper.
 Widget _wrap(Widget child) {
-  return MaterialApp(
-    theme: _lightTheme(),
-    debugShowCheckedModeBanner: false,
-    home: Scaffold(
-      body: Center(
-        child: SizedBox(width: 500, child: child),
+  return LifelogTokens(
+    child: MaterialApp(
+      theme: LifelogTheme.light(),
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(width: 500, child: child),
+        ),
       ),
     ),
   );
