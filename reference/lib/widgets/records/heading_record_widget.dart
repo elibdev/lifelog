@@ -4,11 +4,10 @@ import 'record_text_field.dart';
 
 /// Renders a heading record with configurable level (1, 2, or 3).
 ///
-/// Font sizes follow Material 3 type scale with enough step between each level
-/// to be visually distinct at a glance:
-/// - H1: headlineMedium (28px, bold)
-/// - H2: headlineSmall (24px, bold)
-/// - H3: titleMedium (16px, bold)
+/// Sizes come from LifelogTheme's type scale — do not hard-code px values here.
+/// - H1: headlineMedium (26px, w700) — day anchors, most prominent
+/// - H2: headlineSmall (20px, w600) — sub-sections
+/// - H3: titleLarge  (16px, w600)   — minor headings
 ///
 /// No leading widget (checkbox/bullet) — headings use full width.
 class HeadingRecordWidget extends StatelessWidget {
@@ -36,23 +35,13 @@ class HeadingRecordWidget extends StatelessWidget {
     final level = record.headingLevel.clamp(1, 3);
     final theme = Theme.of(context).textTheme;
 
-    final TextStyle style;
-    switch (level) {
-      case 1:
-        style = (theme.headlineMedium ?? theme.headlineSmall!).copyWith(
-          fontWeight: FontWeight.bold,
-        );
-        break;
-      case 2:
-        style = (theme.headlineSmall ?? theme.titleLarge!).copyWith(
-          fontWeight: FontWeight.bold,
-        );
-        break;
-      default:
-        style = (theme.titleMedium ?? theme.bodyLarge!).copyWith(
-          fontWeight: FontWeight.bold,
-        );
-    }
+    // Use the theme styles directly — they already encode the correct weight and
+    // letter-spacing for each level. Only fall back if somehow undefined.
+    final TextStyle style = switch (level) {
+      1 => theme.headlineMedium ?? theme.headlineSmall!,
+      2 => theme.headlineSmall ?? theme.titleLarge!,
+      _ => theme.titleLarge ?? theme.bodyLarge!,
+    };
 
     return RecordTextField(
       record: record,

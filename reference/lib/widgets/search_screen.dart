@@ -214,10 +214,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                                   16, 16, 16, 4),
                                           child: Text(
                                             isToday
-                                                ? 'Today · ${DateService.formatForDisplay(date)}'
-                                                : DateService
-                                                    .formatForDisplay(
-                                                        date),
+                                                ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                                                : DateService.formatForDisplay(date).toUpperCase(),
                                             style: theme
                                                 .textTheme.titleMedium,
                                           ),

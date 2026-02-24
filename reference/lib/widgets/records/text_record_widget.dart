@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
 
 /// Renders a plain text record.
 ///
-/// No leading indicator — text sits flush with the content column,
-/// aligned with the text of other record types via a reserved gutter.
+/// No leading indicator and no gutter — text sits flush at the left margin,
+/// visually expressing "prose entry" vs a list item (bullet/todo).
 class TextRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
@@ -29,24 +28,14 @@ class TextRecordWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(
-          width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-        ),
-        Expanded(
-          child: RecordTextField(
-            record: record,
-            onSave: onSave,
-            onDelete: onDelete,
-            onSubmitted: onSubmitted,
-            recordIndex: recordIndex,
-            onFocusNodeCreated: onFocusNodeCreated,
-            onFocusNodeDisposed: onFocusNodeDisposed,
-          ),
-        ),
-      ],
+    return RecordTextField(
+      record: record,
+      onSave: onSave,
+      onDelete: onDelete,
+      onSubmitted: onSubmitted,
+      recordIndex: recordIndex,
+      onFocusNodeCreated: onFocusNodeCreated,
+      onFocusNodeDisposed: onFocusNodeDisposed,
     );
   }
 }

@@ -58,8 +58,8 @@ class DaySection extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         isToday
-                            ? 'Today · ${DateService.formatForDisplay(date)}'
-                            : DateService.formatForDisplay(date),
+                            ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                            : DateService.formatForDisplay(date).toUpperCase(),
                         style: Theme.of(context).textTheme.titleMedium,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

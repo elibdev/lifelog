@@ -197,6 +197,29 @@ void main() {
     });
   });
 
+  group('JournalScreen dark', () {
+    testWidgets('with mock data', (tester) async {
+      _setWindowSize(tester);
+      final repo = _mockRepo();
+
+      await tester.pumpWidget(
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.dark(),
+            debugShowCheckedModeBanner: false,
+            home: JournalScreen(repository: repo),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/journal_screen_dark.png'),
+      );
+    });
+  });
+
   group('SearchScreen', () {
     testWidgets('empty state', (tester) async {
       _setWindowSize(tester);

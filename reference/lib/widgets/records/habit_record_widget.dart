@@ -77,19 +77,30 @@ class HabitRecordWidget extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          child: SizedBox(
-            width: GridConstants.checkboxSize,
-            height: GridConstants.checkboxSize,
-            child: GestureDetector(
-              onTap: _toggleCompletion,
-              child: Icon(
-                completedToday
-                    ? Icons.check_circle_rounded
-                    : Icons.circle_outlined,
-                size: GridConstants.checkboxSize,
-                color: completedToday
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outline,
+          // ConstrainedBox ensures the icon column is at least as tall as one
+          // line of body text so the icon is vertically centred on single-line
+          // habits, while still pinning to the top on wrapping names.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: GridConstants.checkboxSize * GridConstants.textLineHeightMultiplier,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: GridConstants.checkboxSize,
+                height: GridConstants.checkboxSize,
+                child: GestureDetector(
+                  onTap: _toggleCompletion,
+                  child: Icon(
+                    completedToday
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: GridConstants.checkboxSize,
+                    color: completedToday
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                  ),
+                ),
               ),
             ),
           ),
