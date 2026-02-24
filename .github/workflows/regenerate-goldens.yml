@@ -48,5 +48,5 @@ jobs:
             echo "Goldens unchanged – nothing to commit."
           else
             git commit -m "chore: regenerate widget PNGs [skip ci]"
-            git push
+            git push origin HEAD
           fi
