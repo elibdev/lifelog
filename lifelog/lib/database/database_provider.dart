@@ -132,47 +132,12 @@ class DatabaseProvider {
     }
   }
 
-  /// Creates the FTS5 virtual table and triggers that keep it in sync.
-  ///
-  /// FTS5 external content table: index lives separately from data, so we need
-  /// triggers to propagate inserts/updates/deletes into the FTS index.
-  /// See: https://www.sqlite.org/fts5.html#external_content_tables
+  /// Creates the FTS5 virtual table. No triggers — the repository maintains
+  /// the index explicitly in saveRecord/deleteRecord, since those are the
+  /// only write paths. See: https://www.sqlite.org/fts5.html
   void _createFts(Database db) {
-    // External content table: FTS stores only the index, not the content.
-    // content='records' tells FTS5 where to read content for snippets/highlights.
-    // content_rowid='rowid' maps FTS rowids to the records table rowids.
-    db.execute('''
-      CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
-        content,
-        content='records',
-        content_rowid='rowid'
-      )
-    ''');
-
-    // Trigger: after INSERT, add to FTS index
-    db.execute('''
-      CREATE TRIGGER IF NOT EXISTS records_ai AFTER INSERT ON records BEGIN
-        INSERT INTO records_fts(rowid, content) VALUES (new.rowid, new.content);
-      END
-    ''');
-
-    // Trigger: before DELETE, remove from FTS index
-    // FTS5 delete uses the special 'delete' command with the old content.
-    db.execute('''
-      CREATE TRIGGER IF NOT EXISTS records_ad AFTER DELETE ON records BEGIN
-        INSERT INTO records_fts(records_fts, rowid, content)
-          VALUES ('delete', old.rowid, old.content);
-      END
-    ''');
-
-    // Trigger: after UPDATE, remove old content then add new content
-    db.execute('''
-      CREATE TRIGGER IF NOT EXISTS records_au AFTER UPDATE ON records BEGIN
-        INSERT INTO records_fts(records_fts, rowid, content)
-          VALUES ('delete', old.rowid, old.content);
-        INSERT INTO records_fts(rowid, content) VALUES (new.rowid, new.content);
-      END
-    ''');
+    db.execute(
+        'CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(content)');
   }
 
   /// Run a read query off the main isolate.
