@@ -131,21 +131,37 @@ class SqliteRecordRepository implements RecordRepository {
     String? startDate,
     String? endDate,
   }) async {
-    final params = <String, dynamic>{':query': '%$query%'};
-    final conditions = ['content LIKE :query'];
+    // FTS5 MATCH query: each token is double-quoted to escape special chars,
+    // then joined with spaces (FTS5 treats space as AND).
+    // e.g. "meeting notes" → `"meeting" "notes"` (both terms must appear)
+    // See: https://www.sqlite.org/fts5.html#full_text_query_syntax
+    final ftsQuery = query
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .map((t) => '"${t.replaceAll('"', '')}"')
+        .join(' ');
+
+    final params = <String, dynamic>{':query': ftsQuery};
+
+    // JOIN records with the FTS index — FTS rowid maps to records.rowid
+    var sql = '''
+      SELECT records.*
+      FROM records
+      JOIN records_fts ON records.rowid = records_fts.rowid
+      WHERE records_fts MATCH :query
+    ''';
 
     if (startDate != null) {
-      conditions.add('date >= :start');
+      sql += ' AND records.date >= :start';
       params[':start'] = startDate;
     }
     if (endDate != null) {
-      conditions.add('date <= :end');
+      sql += ' AND records.date <= :end';
       params[':end'] = endDate;
     }
 
-    final where = conditions.join(' AND ');
-    final sql =
-        'SELECT * FROM records WHERE $where ORDER BY date DESC, order_position ASC';
+    sql += ' ORDER BY records.date DESC, records.order_position ASC';
 
     final results = await DatabaseProvider.instance.queryAsync(sql, params);
     return results.map(_parseRecordFromDb).toList();

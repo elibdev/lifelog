@@ -35,8 +35,8 @@ class DatabaseProvider {
 
     if (currentVersion == 0) {
       _createDb(_database!);
-    } else if (currentVersion < 3) {
-      _upgradeDb(_database!, currentVersion, 3);
+    } else if (currentVersion < 4) {
+      _upgradeDb(_database!, currentVersion, 4);
     }
 
     return _database!;
@@ -70,7 +70,9 @@ class DatabaseProvider {
         )
       ''');
 
-      db.execute('PRAGMA user_version = 3');
+      _createFts(db);
+
+      db.execute('PRAGMA user_version = 4');
       db.execute('COMMIT');
     } catch (e) {
       db.execute('ROLLBACK');
@@ -110,12 +112,67 @@ class DatabaseProvider {
         ''');
       }
 
+      if (oldVersion < 4) {
+        // FTS5 table can't be created inside a transaction, so commit first.
+        // See: https://www.sqlite.org/fts5.html
+        db.execute('COMMIT');
+        _createFts(db);
+        // Backfill FTS index from existing records
+        db.execute(
+            "INSERT INTO records_fts(rowid, content) SELECT rowid, content FROM records");
+        db.execute('PRAGMA user_version = 4');
+        return;
+      }
+
       db.execute('PRAGMA user_version = $newVersion');
       db.execute('COMMIT');
     } catch (e) {
       db.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  /// Creates the FTS5 virtual table and triggers that keep it in sync.
+  ///
+  /// FTS5 external content table: index lives separately from data, so we need
+  /// triggers to propagate inserts/updates/deletes into the FTS index.
+  /// See: https://www.sqlite.org/fts5.html#external_content_tables
+  void _createFts(Database db) {
+    // External content table: FTS stores only the index, not the content.
+    // content='records' tells FTS5 where to read content for snippets/highlights.
+    // content_rowid='rowid' maps FTS rowids to the records table rowids.
+    db.execute('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+        content,
+        content='records',
+        content_rowid='rowid'
+      )
+    ''');
+
+    // Trigger: after INSERT, add to FTS index
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS records_ai AFTER INSERT ON records BEGIN
+        INSERT INTO records_fts(rowid, content) VALUES (new.rowid, new.content);
+      END
+    ''');
+
+    // Trigger: before DELETE, remove from FTS index
+    // FTS5 delete uses the special 'delete' command with the old content.
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS records_ad AFTER DELETE ON records BEGIN
+        INSERT INTO records_fts(records_fts, rowid, content)
+          VALUES ('delete', old.rowid, old.content);
+      END
+    ''');
+
+    // Trigger: after UPDATE, remove old content then add new content
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS records_au AFTER UPDATE ON records BEGIN
+        INSERT INTO records_fts(records_fts, rowid, content)
+          VALUES ('delete', old.rowid, old.content);
+        INSERT INTO records_fts(rowid, content) VALUES (new.rowid, new.content);
+      END
+    ''');
   }
 
   /// Run a read query off the main isolate.
