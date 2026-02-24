@@ -83,7 +83,9 @@ class HabitRecordWidget extends StatelessWidget {
             child: GestureDetector(
               onTap: _toggleCompletion,
               child: Icon(
-                completedToday ? Icons.check_circle : Icons.circle_outlined,
+                completedToday
+                    ? Icons.check_circle_rounded
+                    : Icons.circle_outlined,
                 size: GridConstants.checkboxSize,
                 color: completedToday
                     ? theme.colorScheme.primary
@@ -97,16 +99,19 @@ class HabitRecordWidget extends StatelessWidget {
             record.habitName.isNotEmpty ? record.habitName : record.content,
             style: theme.textTheme.bodyMedium?.copyWith(
               height: GridConstants.textLineHeightMultiplier,
-              fontWeight: completedToday ? FontWeight.bold : null,
+              fontWeight: completedToday ? FontWeight.w500 : null,
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 8.0),
+          padding: const EdgeInsets.only(left: 8),
           child: Text(
             streak > 0 ? '$streak streak · $totalCompletions total' : '$totalCompletions total',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
+              color: streak > 0
+                  ? theme.colorScheme.tertiary
+                  : theme.colorScheme.outline,
+              fontWeight: streak > 0 ? FontWeight.w500 : null,
             ),
           ),
         ),

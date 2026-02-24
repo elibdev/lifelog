@@ -3,7 +3,10 @@ import '../../models/record.dart';
 import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
 
-/// Renders a plain text record with a bullet point leading widget.
+/// Renders a plain text record.
+///
+/// No leading indicator — text sits flush with the content column,
+/// aligned with the text of other record types via a reserved gutter.
 class TextRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
@@ -29,14 +32,8 @@ class TextRecordWidget extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          child: SizedBox(
-            width: GridConstants.checkboxSize,
-            // textAlign centers the bullet within the fixed-width column without
-            // using Center, which would expand vertically and misalign on multi-line text.
-            child: const Text('•', textAlign: TextAlign.center),
-          ),
+        const SizedBox(
+          width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
         ),
         Expanded(
           child: RecordTextField(
