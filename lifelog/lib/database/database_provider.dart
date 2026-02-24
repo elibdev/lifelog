@@ -35,8 +35,8 @@ class DatabaseProvider {
 
     if (currentVersion == 0) {
       _createDb(_database!);
-    } else if (currentVersion < 3) {
-      _upgradeDb(_database!, currentVersion, 3);
+    } else if (currentVersion < 4) {
+      _upgradeDb(_database!, currentVersion, 4);
     }
 
     return _database!;
@@ -70,7 +70,9 @@ class DatabaseProvider {
         )
       ''');
 
-      db.execute('PRAGMA user_version = 3');
+      _createFts(db);
+
+      db.execute('PRAGMA user_version = 4');
       db.execute('COMMIT');
     } catch (e) {
       db.execute('ROLLBACK');
@@ -110,12 +112,32 @@ class DatabaseProvider {
         ''');
       }
 
+      if (oldVersion < 4) {
+        // FTS5 table can't be created inside a transaction, so commit first.
+        // See: https://www.sqlite.org/fts5.html
+        db.execute('COMMIT');
+        _createFts(db);
+        // Backfill FTS index from existing records
+        db.execute(
+            "INSERT INTO records_fts(rowid, content) SELECT rowid, content FROM records");
+        db.execute('PRAGMA user_version = 4');
+        return;
+      }
+
       db.execute('PRAGMA user_version = $newVersion');
       db.execute('COMMIT');
     } catch (e) {
       db.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  /// Creates the FTS5 virtual table. No triggers — the repository maintains
+  /// the index explicitly in saveRecord/deleteRecord, since those are the
+  /// only write paths. See: https://www.sqlite.org/fts5.html
+  void _createFts(Database db) {
+    db.execute(
+        'CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(content)');
   }
 
   /// Run a read query off the main isolate.

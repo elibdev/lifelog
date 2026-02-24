@@ -34,6 +34,17 @@ class SqliteRecordRepository implements RecordRepository {
     );
 
     await DatabaseProvider.instance.transactionAsync((db) {
+      // INSERT OR REPLACE deletes then re-inserts, so the rowid changes on
+      // updates. Capture the old rowid first so we can remove the stale FTS
+      // entry after the upsert.
+      final oldRowidStmt =
+          db.prepare('SELECT rowid FROM records WHERE id = :id');
+      final oldRows = oldRowidStmt
+          .selectWith(StatementParameters.named({':id': record.id}));
+      final oldRowid =
+          oldRows.isEmpty ? null : oldRows.first.values.first as int;
+      oldRowidStmt.dispose();
+
       final stmt = db.prepare('''
         INSERT OR REPLACE INTO records
         (id, date, type, content, metadata, order_position, created_at, updated_at)
@@ -53,6 +64,25 @@ class SqliteRecordRepository implements RecordRepository {
         }),
       );
       stmt.dispose();
+
+      // Sync FTS: remove old entry (rowid may have changed), add new one.
+      if (oldRowid != null) {
+        final delFtsStmt =
+            db.prepare('DELETE FROM records_fts WHERE rowid = :rowid');
+        delFtsStmt
+            .executeWith(StatementParameters.named({':rowid': oldRowid}));
+        delFtsStmt.dispose();
+      }
+      final newRowid = db
+          .select('SELECT last_insert_rowid()')
+          .first
+          .values
+          .first as int;
+      final insFtsStmt = db.prepare(
+          'INSERT INTO records_fts(rowid, content) VALUES (:rowid, :content)');
+      insFtsStmt.executeWith(StatementParameters.named(
+          {':rowid': newRowid, ':content': record.content}));
+      insFtsStmt.dispose();
 
       // Append to event log
       final eventStmt = db.prepare('''
@@ -75,13 +105,15 @@ class SqliteRecordRepository implements RecordRepository {
 
   @override
   Future<void> deleteRecord(String recordId) async {
+    // SELECT rowid explicitly — SQLite's * doesn't include rowid
     final results = await DatabaseProvider.instance.queryAsync(
-      'SELECT * FROM records WHERE id = :id',
+      'SELECT rowid, * FROM records WHERE id = :id',
       {':id': recordId},
     );
 
     if (results.isEmpty) return;
 
+    final rowid = results.first['rowid'] as int;
     final record = _parseRecordFromDb(results.first);
 
     final event = Event(
@@ -92,6 +124,12 @@ class SqliteRecordRepository implements RecordRepository {
     );
 
     await DatabaseProvider.instance.transactionAsync((db) {
+      // Remove FTS entry before deleting the record
+      final delFtsStmt =
+          db.prepare('DELETE FROM records_fts WHERE rowid = :rowid');
+      delFtsStmt.executeWith(StatementParameters.named({':rowid': rowid}));
+      delFtsStmt.dispose();
+
       final deleteStmt = db.prepare('DELETE FROM records WHERE id = :id');
       deleteStmt.executeWith(
         StatementParameters.named({':id': recordId}),
@@ -131,21 +169,37 @@ class SqliteRecordRepository implements RecordRepository {
     String? startDate,
     String? endDate,
   }) async {
-    final params = <String, dynamic>{':query': '%$query%'};
-    final conditions = ['content LIKE :query'];
+    // FTS5 MATCH query: each token is double-quoted to escape special chars,
+    // then joined with spaces (FTS5 treats space as AND).
+    // e.g. "meeting notes" → `"meeting" "notes"` (both terms must appear)
+    // See: https://www.sqlite.org/fts5.html#full_text_query_syntax
+    final ftsQuery = query
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .map((t) => '"${t.replaceAll('"', '')}"')
+        .join(' ');
+
+    final params = <String, dynamic>{':query': ftsQuery};
+
+    // JOIN records with the FTS index — FTS rowid maps to records.rowid
+    var sql = '''
+      SELECT records.*
+      FROM records
+      JOIN records_fts ON records.rowid = records_fts.rowid
+      WHERE records_fts MATCH :query
+    ''';
 
     if (startDate != null) {
-      conditions.add('date >= :start');
+      sql += ' AND records.date >= :start';
       params[':start'] = startDate;
     }
     if (endDate != null) {
-      conditions.add('date <= :end');
+      sql += ' AND records.date <= :end';
       params[':end'] = endDate;
     }
 
-    final where = conditions.join(' AND ');
-    final sql =
-        'SELECT * FROM records WHERE $where ORDER BY date DESC, order_position ASC';
+    sql += ' ORDER BY records.date DESC, records.order_position ASC';
 
     final results = await DatabaseProvider.instance.queryAsync(sql, params);
     return results.map(_parseRecordFromDb).toList();
