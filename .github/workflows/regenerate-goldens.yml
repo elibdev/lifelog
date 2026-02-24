@@ -3,6 +3,7 @@ name: Regenerate Widget PNGs
 # Runs whenever widget source or golden test files change.
 # Regenerates the committed PNGs in reference/test/goldens/ and pushes them back.
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'reference/lib/widgets/**'
