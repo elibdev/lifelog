@@ -133,6 +133,10 @@ class RecordTextFieldState extends State<RecordTextField> {
         focusNode: _focusNode,
         decoration: const InputDecoration(
           border: InputBorder.none,
+          // Flutter resolves enabledBorder/focusedBorder before border — override
+          // all states so the theme's OutlineInputBorder never shows on record rows.
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
         ),

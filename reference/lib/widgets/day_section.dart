@@ -67,12 +67,19 @@ class DaySection extends StatelessWidget {
                     ),
                   ),
                 ),
-                RecordSection(
-                  key: getSectionKey(date),
-                  records: records,
-                  date: date,
-                  onSave: onSave,
-                  onDelete: onDelete,
+                // Minimum height ensures empty days feel like blank pages,
+                // not collapsed rows — same visual weight whether filled or not.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: GridConstants.spacing * 4,
+                  ),
+                  child: RecordSection(
+                    key: getSectionKey(date),
+                    records: records,
+                    date: date,
+                    onSave: onSave,
+                    onDelete: onDelete,
+                  ),
                 ),
               ],
             );

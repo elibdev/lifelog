@@ -158,9 +158,10 @@ class LifelogTheme {
         thickness: 0.5,
         space: 0,
       ),
+      // inputDecorationTheme: default unfilled surface — search bar sets its own fill.
+      // InheritedWidget theme merging: filled/fillColor here would bleed into all
+      // TextFields including record rows. Each field that wants fill opts in explicitly.
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: _surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
@@ -247,8 +248,6 @@ class LifelogTheme {
         space: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: _darkSurface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,

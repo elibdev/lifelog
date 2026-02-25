@@ -162,6 +162,10 @@ class _SearchScreenState extends State<SearchScreen> {
                                   },
                                 )
                               : null,
+                          // Explicit fill here (not in theme) so record TextFields
+                          // don't inherit the white surface background.
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
