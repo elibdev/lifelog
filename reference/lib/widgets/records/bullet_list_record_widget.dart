@@ -51,7 +51,13 @@ class BulletListRecordWidget extends StatelessWidget {
                 const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
             child: SizedBox(
               width: GridConstants.checkboxSize,
-              child: Text(_bulletForLevel(indentLevel), textAlign: TextAlign.center),
+              child: Text(
+                _bulletForLevel(indentLevel),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
           Expanded(

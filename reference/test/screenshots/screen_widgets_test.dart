@@ -3,22 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog_reference/models/record.dart';
 import 'package:lifelog_reference/database/mock_record_repository.dart';
 import 'package:lifelog_reference/services/date_service.dart';
+import 'package:lifelog_reference/theme/lifelog_theme.dart';
 import 'package:lifelog_reference/widgets/journal_screen.dart';
 import 'package:lifelog_reference/widgets/search_screen.dart';
-
-// Light theme matching the Widgetbook and other golden tests.
-ThemeData _lightTheme() {
-  const surface = Color.fromARGB(255, 188, 183, 173);
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
-      brightness: Brightness.light,
-      surface: surface,
-    ),
-    scaffoldBackgroundColor: surface,
-  );
-}
 
 // Set a fixed logical pixel window for stable golden output.
 // Phone-like dimensions to show full screen layout.
@@ -191,10 +178,12 @@ void main() {
       final repo = _mockRepo();
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: _lightTheme(),
-          debugShowCheckedModeBanner: false,
-          home: JournalScreen(repository: repo),
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.light(),
+            debugShowCheckedModeBanner: false,
+            home: JournalScreen(repository: repo),
+          ),
         ),
       );
       // Multiple pump cycles: JournalScreen loads data in initState via async,
@@ -208,16 +197,41 @@ void main() {
     });
   });
 
+  group('JournalScreen dark', () {
+    testWidgets('with mock data', (tester) async {
+      _setWindowSize(tester);
+      final repo = _mockRepo();
+
+      await tester.pumpWidget(
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.dark(),
+            debugShowCheckedModeBanner: false,
+            home: JournalScreen(repository: repo),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/journal_screen_dark.png'),
+      );
+    });
+  });
+
   group('SearchScreen', () {
     testWidgets('empty state', (tester) async {
       _setWindowSize(tester);
       final repo = _mockRepo();
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: _lightTheme(),
-          debugShowCheckedModeBanner: false,
-          home: SearchScreen(repository: repo),
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.light(),
+            debugShowCheckedModeBanner: false,
+            home: SearchScreen(repository: repo),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -233,10 +247,12 @@ void main() {
       final repo = _mockRepo();
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: _lightTheme(),
-          debugShowCheckedModeBanner: false,
-          home: SearchScreen(repository: repo),
+        LifelogTokens(
+          child: MaterialApp(
+            theme: LifelogTheme.light(),
+            debugShowCheckedModeBanner: false,
+            home: SearchScreen(repository: repo),
+          ),
         ),
       );
       await tester.pumpAndSettle();

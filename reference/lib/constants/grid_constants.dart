@@ -7,8 +7,9 @@ class GridConstants {
   /// Base grid spacing — all vertical dimensions are multiples of this.
   static const double spacing = 24.0;
 
-  /// Line-height multiplier for body text.
-  static const double textLineHeightMultiplier = 1.0;
+  /// Line-height multiplier for body text. 1.5 gives comfortable reading
+  /// rhythm for journal-style content (matches the production lifelog package).
+  static const double textLineHeightMultiplier = 1.5;
 
   /// Padding above a day-section header.
   static const double sectionTopPadding = 16.0;
@@ -19,11 +20,11 @@ class GridConstants {
   /// Vertical spacing between record items.
   static const double itemVerticalSpacing = 0.0;
 
-  /// Checkbox / leading-icon size.
-  static const double checkboxSize = 24.0;
+  /// Checkbox / leading-icon size. 20px sits in better proportion to 15px body.
+  static const double checkboxSize = 20.0;
 
   /// Gap between checkbox and text.
-  static const double checkboxToTextGap = 12.0;
+  static const double checkboxToTextGap = 10.0;
 
   /// Responsive left padding: wider screens get more margin.
   static double calculateContentLeftPadding(double screenWidth) {

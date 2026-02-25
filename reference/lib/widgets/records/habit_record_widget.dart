@@ -77,17 +77,30 @@ class HabitRecordWidget extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          child: SizedBox(
-            width: GridConstants.checkboxSize,
-            height: GridConstants.checkboxSize,
-            child: GestureDetector(
-              onTap: _toggleCompletion,
-              child: Icon(
-                completedToday ? Icons.check_circle : Icons.circle_outlined,
-                size: GridConstants.checkboxSize,
-                color: completedToday
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outline,
+          // ConstrainedBox ensures the icon column is at least as tall as one
+          // line of body text so the icon is vertically centred on single-line
+          // habits, while still pinning to the top on wrapping names.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: GridConstants.checkboxSize * GridConstants.textLineHeightMultiplier,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: GridConstants.checkboxSize,
+                height: GridConstants.checkboxSize,
+                child: GestureDetector(
+                  onTap: _toggleCompletion,
+                  child: Icon(
+                    completedToday
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: GridConstants.checkboxSize,
+                    color: completedToday
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                  ),
+                ),
               ),
             ),
           ),
@@ -97,16 +110,19 @@ class HabitRecordWidget extends StatelessWidget {
             record.habitName.isNotEmpty ? record.habitName : record.content,
             style: theme.textTheme.bodyMedium?.copyWith(
               height: GridConstants.textLineHeightMultiplier,
-              fontWeight: completedToday ? FontWeight.bold : null,
+              fontWeight: completedToday ? FontWeight.w500 : null,
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 8.0),
+          padding: const EdgeInsets.only(left: 8),
           child: Text(
             streak > 0 ? '$streak streak · $totalCompletions total' : '$totalCompletions total',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
+              color: streak > 0
+                  ? theme.colorScheme.tertiary
+                  : theme.colorScheme.outline,
+              fontWeight: streak > 0 ? FontWeight.w500 : null,
             ),
           ),
         ),

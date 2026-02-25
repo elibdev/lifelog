@@ -3,10 +3,10 @@ import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
 import 'record_text_field.dart';
 
-/// Renders a plain text record with a small bullet leading indicator.
+/// Renders a plain text record.
 ///
-/// The bullet is a small filled circle — subtle enough to not distract
-/// but present enough to mark that this is a discrete entry.
+/// No leading indicator — text sits flush with the content column,
+/// aligned with the text of other record types via a reserved gutter.
 class TextRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
@@ -29,29 +29,11 @@ class TextRecordWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          child: SizedBox(
-            width: GridConstants.checkboxSize,
-            // Align bullet with the first line of text
-            height: GridConstants.rowHeight,
-            child: Center(
-              child: Container(
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  // Small dot — ink-colored, understated
-                  color: theme.colorScheme.outline,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
+        const SizedBox(
+          width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
         ),
         Expanded(
           child: RecordTextField(

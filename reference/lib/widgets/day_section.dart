@@ -58,8 +58,8 @@ class DaySection extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         isToday
-                            ? 'Today · ${DateService.formatForDisplay(date)}'
-                            : DateService.formatForDisplay(date),
+                            ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                            : DateService.formatForDisplay(date).toUpperCase(),
                         style: Theme.of(context).textTheme.titleMedium,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -67,12 +67,19 @@ class DaySection extends StatelessWidget {
                     ),
                   ),
                 ),
-                RecordSection(
-                  key: getSectionKey(date),
-                  records: records,
-                  date: date,
-                  onSave: onSave,
-                  onDelete: onDelete,
+                // Minimum height ensures empty days feel like blank pages,
+                // not collapsed rows — same visual weight whether filled or not.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: GridConstants.spacing * 4,
+                  ),
+                  child: RecordSection(
+                    key: getSectionKey(date),
+                    records: records,
+                    date: date,
+                    onSave: onSave,
+                    onDelete: onDelete,
+                  ),
                 ),
               ],
             );

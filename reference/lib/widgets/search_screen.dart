@@ -162,6 +162,10 @@ class _SearchScreenState extends State<SearchScreen> {
                                   },
                                 )
                               : null,
+                          // Explicit fill here (not in theme) so record TextFields
+                          // don't inherit the white surface background.
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -214,10 +218,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                                   16, 16, 16, 4),
                                           child: Text(
                                             isToday
-                                                ? 'Today · ${DateService.formatForDisplay(date)}'
-                                                : DateService
-                                                    .formatForDisplay(
-                                                        date),
+                                                ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                                                : DateService.formatForDisplay(date).toUpperCase(),
                                             style: theme
                                                 .textTheme.titleMedium,
                                           ),
