@@ -291,6 +291,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                             record: record,
                                             onSave: (_) {},
                                             onDelete: (_) {},
+                                            // C2: search results are display-only;
+                                            // readOnly prevents silent data loss
+                                            readOnly: true,
                                           ),
                                         ),
                                       ],

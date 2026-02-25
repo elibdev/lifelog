@@ -154,34 +154,46 @@ class RecordSectionState extends State<RecordSection> {
           final prevIndex = notification.recordIndex - 1;
           return _tryFocusRecordAt(prevIndex);
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ...widget.records.asMap().entries.map((entry) {
-              final index = entry.key;
-              final record = entry.value;
-              return AdaptiveRecordWidget(
-                key: ValueKey(record.id),
-                record: record,
-                onSave: widget.onSave,
-                onDelete: widget.onDelete,
+        child: NotificationListener<RefocusRecordNotification>(
+          // After a slash command rebuilds the sub-widget with a new type,
+          // wait one frame for the new FocusNode to register then refocus.
+          onNotification: (notification) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _focusNodes[notification.recordId]?.requestFocus();
+              }
+            });
+            return true;
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...widget.records.asMap().entries.map((entry) {
+                final index = entry.key;
+                final record = entry.value;
+                return AdaptiveRecordWidget(
+                  key: ValueKey(record.id),
+                  record: record,
+                  onSave: widget.onSave,
+                  onDelete: widget.onDelete,
+                  onSubmitted: _handleEnterPressed,
+                  recordIndex: index,
+                  onFocusNodeCreated: _handleFocusNodeCreated,
+                  onFocusNodeDisposed: _handleFocusNodeDisposed,
+                );
+              }),
+              AdaptiveRecordWidget(
+                key: ValueKey(_placeholderId),
+                record: placeholder,
+                onSave: _handlePlaceholderSave,
+                onDelete: (_) {},
                 onSubmitted: _handleEnterPressed,
-                recordIndex: index,
+                recordIndex: widget.records.length,
                 onFocusNodeCreated: _handleFocusNodeCreated,
                 onFocusNodeDisposed: _handleFocusNodeDisposed,
-              );
-            }),
-            AdaptiveRecordWidget(
-              key: ValueKey(_placeholderId),
-              record: placeholder,
-              onSave: _handlePlaceholderSave,
-              onDelete: (_) {},
-              onSubmitted: _handleEnterPressed,
-              recordIndex: widget.records.length,
-              onFocusNodeCreated: _handleFocusNodeCreated,
-              onFocusNodeDisposed: _handleFocusNodeDisposed,
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
