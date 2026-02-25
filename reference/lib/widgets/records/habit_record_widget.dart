@@ -15,6 +15,8 @@ class HabitRecordWidget extends StatelessWidget {
   final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
+  // C2: prevents toggling in read-only contexts (e.g. search results)
+  final bool readOnly;
 
   const HabitRecordWidget({
     super.key,
@@ -25,6 +27,7 @@ class HabitRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   bool get _isCompletedToday {
@@ -90,7 +93,7 @@ class HabitRecordWidget extends StatelessWidget {
                 width: GridConstants.checkboxSize,
                 height: GridConstants.checkboxSize,
                 child: GestureDetector(
-                  onTap: _toggleCompletion,
+                  onTap: readOnly ? null : _toggleCompletion,
                   child: Icon(
                     completedToday
                         ? Icons.check_circle_rounded
