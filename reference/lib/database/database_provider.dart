@@ -18,13 +18,22 @@ class DatabaseProvider {
   DatabaseProvider._();
 
   Database? _database;
+  // Cached path so isolates can open their own connections without
+  // capturing the NativeFinalizer-backed Database object.
+  String? _dbPath;
+
+  Future<String> _getDbPath() async {
+    if (_dbPath != null) return _dbPath!;
+    final dir = await getApplicationDocumentsDirectory();
+    _dbPath = p.join(dir.path, 'lifelog.db');
+    return _dbPath!;
+  }
 
   /// Opens (or returns cached) database handle.
   Future<Database> _getDatabase() async {
     if (_database != null) return _database!;
 
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, 'lifelog.db');
+    final dbPath = await _getDbPath();
     _database = sqlite3.open(dbPath);
 
     // WAL mode: readers don't block writers
@@ -119,34 +128,51 @@ class DatabaseProvider {
   }
 
   /// Run a read query off the main isolate.
+  ///
+  /// Dart isolates have separate heaps — you can't send a [Database] (which
+  /// holds a NativeFinalizer over a C pointer) across the isolate boundary.
+  /// Instead, pass the plain path String and open a short-lived connection
+  /// inside the isolate. WAL mode on the main connection allows concurrent
+  /// readers without blocking. See: https://api.dart.dev/dart-isolate/Isolate/run.html
   Future<List<Map<String, Object?>>> queryAsync(
     String sql,
     Map<String, dynamic> params,
   ) async {
-    final db = await _getDatabase();
+    // Ensure schema is initialized on the main connection first.
+    await _getDatabase();
+    final path = _dbPath!;
 
     return Isolate.run(() {
-      final stmt = db.prepare(sql);
-      final result = stmt.selectWith(StatementParameters.named(params));
-      final rows = result.map((row) => Map<String, Object?>.from(row)).toList();
-      stmt.dispose();
-      return rows;
+      // Fresh connection per query — cheap with WAL, no NativeFinalizer issue.
+      final db = sqlite3.open(path);
+      try {
+        final stmt = db.prepare(sql);
+        final result = stmt.selectWith(StatementParameters.named(params));
+        final rows =
+            result.map((row) => Map<String, Object?>.from(row)).toList();
+        stmt.dispose();
+        return rows;
+      } finally {
+        db.dispose();
+      }
     });
   }
 
-  /// Run a write transaction off the main isolate.
+  /// Run a write transaction on the main isolate.
+  ///
+  /// Write operations in a lifelog are fast (single-record inserts/updates),
+  /// so running on the main isolate avoids both the NativeFinalizer
+  /// serialization problem and the complexity of a dedicated writer isolate.
   Future<void> transactionAsync(void Function(Database db) callback) async {
     final db = await _getDatabase();
 
-    return Isolate.run(() {
-      db.execute('BEGIN TRANSACTION');
-      try {
-        callback(db);
-        db.execute('COMMIT');
-      } catch (e) {
-        db.execute('ROLLBACK');
-        rethrow;
-      }
-    });
+    db.execute('BEGIN TRANSACTION');
+    try {
+      callback(db);
+      db.execute('COMMIT');
+    } catch (e) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
   }
 }
