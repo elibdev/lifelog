@@ -33,3 +33,13 @@ class NavigateUpNotification extends Notification {
     required this.sectionType,
   });
 }
+
+/// Notification dispatched after a slash command or type-picker converts a record.
+///
+/// RecordSection's listener calls addPostFrameCallback so the new widget's
+/// FocusNode has time to register before focus is restored.
+class RefocusRecordNotification extends Notification {
+  final String recordId;
+
+  const RefocusRecordNotification({required this.recordId});
+}

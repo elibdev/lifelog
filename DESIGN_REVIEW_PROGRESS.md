@@ -8,13 +8,15 @@
 ## 🔴 Critical
 
 ### C1 — No UI to create non-text record types
-**Status:** 🟡 Partial — slash commands done; type-picker dropdown planned
+**Status:** ✅ Fixed
 
 **Done (commit `3919fd2`):** Typing `/todo`, `/h1`, `/h2`, `/h3`, `/bullet`, or `/habit` in any text record converts it to the target type. A `RefocusRecordNotification` restores keyboard focus after the widget tree rebuilds. Habit records now accept a name via `RecordTextField` (mapped to `habit.name` metadata).
 
-**Remaining:** Add a type-picker dropdown as a second entry point (both mechanisms should coexist — slash commands for keyboard-first users, dropdown for pointer/touch users).
+**Done (this commit):** A `+` icon button in the leading gutter of every text record opens a `PopupMenuButton` with all five record types. Selecting a type converts the record in-place, preserving content (text → habit moves content to `habit.name`). `RefocusRecordNotification` restores focus after the rebuild, mirroring the slash-command pattern. Hidden in `readOnly` contexts (search results).
 
-**Files:** `record_section.dart`, `record_text_field.dart`, `notifications/navigation_notifications.dart`
+Both entry points coexist: slash commands for keyboard-first users; the `+` picker for pointer/touch users.
+
+**Files:** `record_section.dart`, `record_text_field.dart`, `notifications/navigation_notifications.dart`, `text_record_widget.dart`
 
 ---
 

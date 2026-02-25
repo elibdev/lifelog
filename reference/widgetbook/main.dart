@@ -106,11 +106,18 @@ class WidgetbookApp extends StatelessWidget {
                 _todoRecordUseCase(),
                 _bulletListRecordUseCase(),
                 _habitRecordUseCase(),
+                // Read-only variants: same content, no editing/toggle affordances
+                _textRecordReadOnlyUseCase(),
+                _todoRecordReadOnlyUseCase(),
+                _habitRecordReadOnlyUseCase(),
               ],
             ),
             WidgetbookComponent(
               name: 'TextRecordWidget',
-              useCases: [_directTextRecordUseCase()],
+              useCases: [
+                _directTextRecordUseCase(),
+                _directTextRecordReadOnlyUseCase(),
+              ],
             ),
             WidgetbookComponent(
               name: 'HeadingRecordWidget',
@@ -390,7 +397,103 @@ class WidgetbookApp extends StatelessWidget {
     );
   }
 
-  static Widget _wrapRecord(Record record) {
+  // ===========================================================================
+  // USE CASES — AdaptiveRecordWidget read-only variants
+  // These mirror the search screen, where onSave/onDelete are no-ops and
+  // readOnly: true prevents editing, checkbox toggling, and habit completion.
+  // ===========================================================================
+
+  static WidgetbookUseCase _textRecordReadOnlyUseCase() {
+    return WidgetbookUseCase(
+      name: 'Text Record (Read-only)',
+      builder: (context) {
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
+          label: 'Content',
+          initialKey: 'Long (wrapping)',
+        );
+        return _wrapRecord(
+          Record(
+            id: 'wb-text-ro',
+            date: '2026-02-10',
+            type: RecordType.text,
+            content: content,
+            metadata: {},
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          readOnly: true,
+        );
+      },
+    );
+  }
+
+  static WidgetbookUseCase _todoRecordReadOnlyUseCase() {
+    return WidgetbookUseCase(
+      name: 'Todo Record (Read-only)',
+      builder: (context) {
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
+          label: 'Content',
+        );
+        final checked = context.knobs.boolean(
+          label: 'Checked',
+          initialValue: false,
+        );
+        return _wrapRecord(
+          Record(
+            id: 'wb-todo-ro',
+            date: '2026-02-10',
+            type: RecordType.todo,
+            content: content,
+            metadata: {'todo.checked': checked},
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          readOnly: true,
+        );
+      },
+    );
+  }
+
+  static WidgetbookUseCase _habitRecordReadOnlyUseCase() {
+    return WidgetbookUseCase(
+      name: 'Habit Record (Read-only)',
+      builder: (context) {
+        final habitName = _contentKnob(
+          context,
+          samples: _habitSamples,
+          label: 'Habit Name',
+        );
+        final now = DateTime.now();
+        final todayStr =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        return _wrapRecord(
+          Record(
+            id: 'wb-habit-ro',
+            date: '2026-02-10',
+            type: RecordType.habit,
+            content: habitName,
+            metadata: {
+              'habit.name': habitName,
+              'habit.frequency': 'daily',
+              'habit.completions': [todayStr, '2026-02-09'],
+            },
+            orderPosition: 1.0,
+            createdAt: 0,
+            updatedAt: 0,
+          ),
+          readOnly: true,
+        );
+      },
+    );
+  }
+
+  static Widget _wrapRecord(Record record, {bool readOnly = false}) {
     return Scaffold(
       body: Center(
         child: SizedBox(
@@ -399,6 +502,7 @@ class WidgetbookApp extends StatelessWidget {
             record: record,
             onSave: (_) {},
             onDelete: (_) {},
+            readOnly: readOnly,
           ),
         ),
       ),
@@ -432,6 +536,39 @@ class WidgetbookApp extends StatelessWidget {
             ),
             onSave: (_) {},
             onDelete: (_) {},
+          ),
+        );
+      },
+    );
+  }
+
+  /// Read-only variant: shows a plain SizedBox spacer in the gutter instead of
+  /// the type-picker `+` button, matching how search results render text records.
+  static WidgetbookUseCase _directTextRecordReadOnlyUseCase() {
+    return WidgetbookUseCase(
+      name: 'Read-only',
+      builder: (context) {
+        final content = _contentKnob(
+          context,
+          samples: _generalSamples,
+          label: 'Content',
+          initialKey: 'Long (wrapping)',
+        );
+        return _wrapWidget(
+          TextRecordWidget(
+            record: Record(
+              id: 'wb-direct-text-ro',
+              date: '2026-02-10',
+              type: RecordType.text,
+              content: content,
+              metadata: {},
+              orderPosition: 1.0,
+              createdAt: 0,
+              updatedAt: 0,
+            ),
+            onSave: (_) {},
+            onDelete: (_) {},
+            readOnly: true,
           ),
         );
       },

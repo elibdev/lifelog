@@ -19,6 +19,8 @@ class HeadingRecordWidget extends StatelessWidget {
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
 
+  final bool readOnly;
+
   const HeadingRecordWidget({
     super.key,
     required this.record,
@@ -28,6 +30,7 @@ class HeadingRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   @override
@@ -52,6 +55,7 @@ class HeadingRecordWidget extends StatelessWidget {
       onFocusNodeCreated: onFocusNodeCreated,
       onFocusNodeDisposed: onFocusNodeDisposed,
       textStyle: style,
+      readOnly: readOnly,
     );
   }
 }

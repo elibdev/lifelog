@@ -7,6 +7,12 @@ class GridConstants {
   /// Base grid spacing — all vertical dimensions are multiples of this.
   static const double spacing = 24.0;
 
+  /// Minimum record row height — ensures consistent vertical rhythm.
+  static const double rowHeight = 28.0;
+
+  /// Indent step for bullet list nesting.
+  static const double indentStep = 24.0;
+
   /// Line-height multiplier for body text. 1.5 gives comfortable reading
   /// rhythm for journal-style content (matches the production lifelog package).
   static const double textLineHeightMultiplier = 1.5;
