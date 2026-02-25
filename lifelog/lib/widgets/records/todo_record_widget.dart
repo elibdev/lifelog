@@ -16,6 +16,7 @@ class TodoRecordWidget extends StatelessWidget {
   final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
+  final bool readOnly;
 
   const TodoRecordWidget({
     super.key,
@@ -26,6 +27,7 @@ class TodoRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   void _handleCheckboxToggle(bool? value) {
@@ -58,7 +60,8 @@ class TodoRecordWidget extends StatelessWidget {
                   height: GridConstants.checkboxSize,
                   child: Checkbox(
                     value: isChecked,
-                    onChanged: isEmpty ? null : _handleCheckboxToggle,
+                    // C2: also disable in readOnly (search results)
+                    onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
                   ),
                 ),
               ),
@@ -80,6 +83,7 @@ class TodoRecordWidget extends StatelessWidget {
                 height: GridConstants.textLineHeightMultiplier,
               ),
               onToggleCheckbox: (value) => _handleCheckboxToggle(value),
+              readOnly: readOnly,
             ),
           ),
         ],

@@ -18,6 +18,7 @@ class BulletListRecordWidget extends StatelessWidget {
   final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
+  final bool readOnly;
 
   const BulletListRecordWidget({
     super.key,
@@ -28,6 +29,7 @@ class BulletListRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   /// Bullet character varies by indent level for visual hierarchy.
@@ -75,6 +77,7 @@ class BulletListRecordWidget extends StatelessWidget {
               recordIndex: recordIndex,
               onFocusNodeCreated: onFocusNodeCreated,
               onFocusNodeDisposed: onFocusNodeDisposed,
+              readOnly: readOnly,
             ),
           ),
         ],

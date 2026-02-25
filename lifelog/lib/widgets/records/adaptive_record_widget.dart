@@ -21,6 +21,8 @@ class AdaptiveRecordWidget extends StatelessWidget {
   final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
+  // C2: when true, all sub-widgets render as read-only (used in search results)
+  final bool readOnly;
 
   const AdaptiveRecordWidget({
     super.key,
@@ -31,6 +33,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   @override
@@ -62,6 +65,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
                   recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
+                  readOnly: readOnly,
                 ),
               RecordType.heading => HeadingRecordWidget(
                   record: record,
@@ -71,6 +75,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
                   recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
+                  readOnly: readOnly,
                 ),
               RecordType.todo => TodoRecordWidget(
                   record: record,
@@ -80,6 +85,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
                   recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
+                  readOnly: readOnly,
                 ),
               RecordType.bulletList => BulletListRecordWidget(
                   record: record,
@@ -89,6 +95,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
                   recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
+                  readOnly: readOnly,
                 ),
               RecordType.habit => HabitRecordWidget(
                   record: record,
@@ -98,6 +105,7 @@ class AdaptiveRecordWidget extends StatelessWidget {
                   recordIndex: recordIndex,
                   onFocusNodeCreated: onFocusNodeCreated,
                   onFocusNodeDisposed: onFocusNodeDisposed,
+                  readOnly: readOnly,
                 ),
             },
           ),

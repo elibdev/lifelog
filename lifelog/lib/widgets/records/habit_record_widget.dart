@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
 import '../../services/date_service.dart';
+import 'record_text_field.dart';
 
 /// Renders a habit record with circular completion indicator and streak info.
 ///
@@ -16,6 +17,8 @@ class HabitRecordWidget extends StatelessWidget {
   final int? recordIndex;
   final void Function(int, String, FocusNode)? onFocusNodeCreated;
   final void Function(String)? onFocusNodeDisposed;
+  // C2: prevents editing/toggling in read-only contexts (e.g. search results)
+  final bool readOnly;
 
   const HabitRecordWidget({
     super.key,
@@ -26,6 +29,7 @@ class HabitRecordWidget extends StatelessWidget {
     this.recordIndex,
     this.onFocusNodeCreated,
     this.onFocusNodeDisposed,
+    this.readOnly = false,
   });
 
   bool get _isCompletedToday {
@@ -72,10 +76,16 @@ class HabitRecordWidget extends StatelessWidget {
     final streak = _currentStreak;
     final totalCompletions = record.habitCompletions.length;
 
+    // C1: Present the habit name via RecordTextField so it's editable after
+    // a /habit slash command creates the record. The trick: RecordTextField
+    // works on record.content, so we pass a view where content = habitName,
+    // then intercept onSave to write the new name back to habit.name metadata.
+    final habitNameRecord = record.copyWith(content: record.habitName);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Circular completion indicator
+        // Circular completion indicator — C2: onTap is null when readOnly
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
@@ -83,7 +93,7 @@ class HabitRecordWidget extends StatelessWidget {
             height: GridConstants.rowHeight,
             child: Center(
               child: GestureDetector(
-                onTap: _toggleCompletion,
+                onTap: readOnly ? null : _toggleCompletion,
                 child: Icon(
                   completedToday
                       ? Icons.check_circle_rounded
@@ -97,14 +107,19 @@ class HabitRecordWidget extends StatelessWidget {
             ),
           ),
         ),
-        // Habit name
+        // C1: Habit name is now editable via RecordTextField.
+        // onSave remaps content → habit.name metadata so the name persists.
         Expanded(
-          child: Text(
-            record.habitName.isNotEmpty ? record.habitName : record.content,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: completedToday ? FontWeight.w500 : null,
-              height: GridConstants.textLineHeightMultiplier,
-            ),
+          child: RecordTextField(
+            record: habitNameRecord,
+            onSave: (updated) =>
+                onSave(record.copyWithMetadata({'habit.name': updated.content})),
+            onDelete: onDelete,
+            onSubmitted: onSubmitted,
+            recordIndex: recordIndex,
+            onFocusNodeCreated: onFocusNodeCreated,
+            onFocusNodeDisposed: onFocusNodeDisposed,
+            readOnly: readOnly,
           ),
         ),
         // Streak/total metadata — right-aligned

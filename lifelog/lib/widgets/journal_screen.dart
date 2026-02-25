@@ -90,7 +90,19 @@ class _JournalScreenState extends State<JournalScreen> {
     final debouncer =
         _debouncers.putIfAbsent(record.id, () => Debouncer());
     debouncer.call(() async {
-      await _repository.saveRecord(record);
+      try {
+        await _repository.saveRecord(record);
+      } catch (_) {
+        // C3: surface DB failures — in-memory state already updated optimistically
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to save — check available storage'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
     });
   }
 
@@ -106,7 +118,19 @@ class _JournalScreenState extends State<JournalScreen> {
       }
     });
 
-    await _repository.deleteRecord(recordId);
+    try {
+      await _repository.deleteRecord(recordId);
+    } catch (_) {
+      // C3: surface DB failures — in-memory state already updated optimistically
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete — check available storage'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override

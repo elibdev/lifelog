@@ -33,3 +33,14 @@ class NavigateUpNotification extends Notification {
     required this.sectionType,
   });
 }
+
+/// Notification dispatched after a slash command converts a record's type.
+///
+/// The widget tree is rebuilt with a new sub-widget type for the same record ID.
+/// RecordSection listens for this and refocuses the record after the rebuild
+/// completes, restoring keyboard focus across the type-change transition.
+class RefocusRecordNotification extends Notification {
+  final String recordId;
+
+  const RefocusRecordNotification({required this.recordId});
+}
