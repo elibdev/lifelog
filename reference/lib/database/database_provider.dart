@@ -46,6 +46,9 @@ class DatabaseProvider {
       _createDb(_database!);
     } else if (currentVersion < 3) {
       _upgradeDb(_database!, currentVersion, 3);
+      _addFtsIndex(_database!);
+    } else if (currentVersion < 4) {
+      _addFtsIndex(_database!);
     }
 
     return _database!;
@@ -85,6 +88,9 @@ class DatabaseProvider {
       db.execute('ROLLBACK');
       rethrow;
     }
+    // FTS5 virtual tables cannot be created inside a transaction.
+    // See: https://www.sqlite.org/fts5.html
+    _addFtsIndex(db);
   }
 
   void _upgradeDb(Database db, int oldVersion, int newVersion) {
@@ -125,6 +131,24 @@ class DatabaseProvider {
       db.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  /// Creates the FTS5 virtual table and backfills from existing records.
+  ///
+  /// Called outside any transaction — SQLite's FTS5 extension doesn't support
+  /// CREATE VIRTUAL TABLE inside a transaction.
+  /// See: https://www.sqlite.org/fts5.html
+  void _addFtsIndex(Database db) {
+    db.execute(
+        'CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(content)');
+    // Backfill only if empty — keeps this call idempotent.
+    final count =
+        db.select('SELECT count(*) AS c FROM records_fts').first['c'] as int;
+    if (count == 0) {
+      db.execute(
+          'INSERT INTO records_fts(rowid, content) SELECT rowid, content FROM records');
+    }
+    db.execute('PRAGMA user_version = 4');
   }
 
   /// Run a read query off the main isolate.

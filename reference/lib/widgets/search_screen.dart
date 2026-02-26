@@ -232,6 +232,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                             record: record,
                                             onSave: (_) {},
                                             onDelete: (_) {},
+                                            readOnly: true,
                                           ),
                                         ),
                                       ],

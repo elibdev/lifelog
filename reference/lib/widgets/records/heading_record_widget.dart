@@ -9,7 +9,7 @@ import 'record_text_field.dart';
 /// - H2: headlineSmall (20px, w600) — sub-sections
 /// - H3: titleLarge  (16px, w600)   — minor headings
 ///
-/// No leading widget (checkbox/bullet) — headings use full width.
+/// The TypePickerButton gutter is owned by [AdaptiveRecordWidget].
 class HeadingRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;

@@ -160,7 +160,18 @@ class RecordSectionState extends State<RecordSection> {
           final prevIndex = notification.recordIndex - 1;
           return _tryFocusRecordAt(prevIndex);
         },
-        child: Column(
+        child: NotificationListener<RefocusRecordNotification>(
+          // After a type conversion rebuilds the sub-widget, wait one frame
+          // for the new FocusNode to register before restoring focus.
+          onNotification: (notification) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _focusNodes[notification.recordId]?.requestFocus();
+              }
+            });
+            return true;
+          },
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ...widget.records.asMap().entries.map((entry) {
@@ -188,6 +199,7 @@ class RecordSectionState extends State<RecordSection> {
               onFocusNodeDisposed: _handleFocusNodeDisposed,
             ),
           ],
+        ),
         ),
       ),
     );

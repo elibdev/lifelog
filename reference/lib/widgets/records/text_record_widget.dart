@@ -6,10 +6,8 @@ import 'record_text_field.dart';
 
 /// Renders a plain text record.
 ///
-/// No leading indicator — text sits flush with the content column,
-/// aligned with the text of other record types via a reserved gutter.
-/// In editable mode the gutter holds a type-picker button (C1: second entry
-/// point for record types, complementing slash commands for touch/pointer users).
+/// No leading indicator — delegates entirely to [RecordTextField].
+/// The TypePickerButton gutter is owned by [AdaptiveRecordWidget].
 class TextRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
@@ -34,30 +32,15 @@ class TextRecordWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // C1: type-picker in the gutter — touch/pointer alternative to slash cmds.
-        // Hidden in readOnly (search results) where conversion makes no sense.
-        if (!readOnly)
-          _TypePickerButton(record: record, onSave: onSave)
-        else
-          const SizedBox(
-            width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-          ),
-        Expanded(
-          child: RecordTextField(
-            record: record,
-            onSave: onSave,
-            onDelete: onDelete,
-            onSubmitted: onSubmitted,
-            recordIndex: recordIndex,
-            onFocusNodeCreated: onFocusNodeCreated,
-            onFocusNodeDisposed: onFocusNodeDisposed,
-            readOnly: readOnly,
-          ),
-        ),
-      ],
+    return RecordTextField(
+      record: record,
+      onSave: onSave,
+      onDelete: onDelete,
+      onSubmitted: onSubmitted,
+      recordIndex: recordIndex,
+      onFocusNodeCreated: onFocusNodeCreated,
+      onFocusNodeDisposed: onFocusNodeDisposed,
+      readOnly: readOnly,
     );
   }
 }
@@ -68,11 +51,11 @@ class TextRecordWidget extends StatelessWidget {
 /// where meaningful. Uses [PopupMenuButton] — a Material widget that manages
 /// its own overlay state, so no StatefulWidget is needed here.
 /// See: https://api.flutter.dev/flutter/material/PopupMenuButton-class.html
-class _TypePickerButton extends StatelessWidget {
+class TypePickerButton extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
 
-  const _TypePickerButton({required this.record, required this.onSave});
+  const TypePickerButton({super.key, required this.record, required this.onSave});
 
   // Converts to a new type, preserving content where the target type uses it.
   // Habit is the exception: content becomes the habit name (stored in metadata).
