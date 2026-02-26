@@ -1,18 +1,18 @@
 # Design Review — Progress Tracker
 
-**Last updated:** 2026-02-25
+**Last updated:** 2026-02-26
 **Source review:** [DESIGN_REVIEW.md](DESIGN_REVIEW.md)
 
 ---
 
-## 🔴 Critical
+## 🟢 Fixed
 
 ### C1 — No UI to create non-text record types
 **Status:** ✅ Fixed
 
 **Done (commit `3919fd2`):** Typing `/todo`, `/h1`, `/h2`, `/h3`, `/bullet`, or `/habit` in any text record converts it to the target type. A `RefocusRecordNotification` restores keyboard focus after the widget tree rebuilds. Habit records now accept a name via `RecordTextField` (mapped to `habit.name` metadata).
 
-**Done (this commit):** A `+` icon button in the leading gutter of every text record opens a `PopupMenuButton` with all five record types. Selecting a type converts the record in-place, preserving content (text → habit moves content to `habit.name`). `RefocusRecordNotification` restores focus after the rebuild, mirroring the slash-command pattern. Hidden in `readOnly` contexts (search results).
+**Done (commit `638cf8c`):** A `+` icon button in the leading gutter of every text record opens a `PopupMenuButton` with all five record types. Selecting a type converts the record in-place, preserving content (text → habit moves content to `habit.name`). `RefocusRecordNotification` restores focus after the rebuild, mirroring the slash-command pattern. Hidden in `readOnly` contexts (search results).
 
 Both entry points coexist: slash commands for keyboard-first users; the `+` picker for pointer/touch users.
 
@@ -32,34 +32,37 @@ Both entry points coexist: slash commands for keyboard-first users; the `+` pick
 ### C3 — No error handling on database writes
 **Status:** ✅ Fixed (commit `3919fd2`)
 
-Both the save and delete paths are now wrapped in `try/catch`. On failure a `SnackBar` is shown and the in-memory state is not silently promoted as persisted.
+Both the save and delete paths are now wrapped in `try/catch`. On failure a `SnackBar` is shown.
 
 **Files:** `journal_screen.dart`, `record_section.dart`
 
 ---
 
-## 🟡 Major
+## 🔴 Major — Open
 
-| ID | Status | Title |
-|----|--------|-------|
-| M1 | 🔴 Open | No empty state or onboarding hint |
-| M2 | 🔴 Open | No save feedback |
-| M3 | 🔴 Open | Arrow navigation silently fails at unloaded day boundaries |
-| M4 | 🔴 Open | Search results not sorted by date |
-| M5 | 🔴 Open | Checkbox touch target below 44×44 px |
-| M6 | 🔴 Open | Habit completion targets today, not the viewed day |
-| M7 | 🔴 Open | FAB obscures bottom content |
+| ID | Title |
+|----|-------|
+| M1 | No empty state or onboarding hint |
+| M2 | No save feedback |
+| M3 | Arrow navigation silently fails at unloaded day boundaries |
+| M4 | Search results not sorted by date |
+| M5 | Checkbox and habit circle touch targets below 44×44 px |
+| M6 | Habit completion targets today, not the viewed day |
+| M7 | FAB obscures bottom content |
 
 ---
 
-## 🔵 Minor
+## 🔵 Minor — Open
 
-| ID | Status | Title |
-|----|--------|-------|
-| P1 | 🔴 Open | Date filter label shows raw ISO format |
-| P2 | 🔴 Open | No loading state in DaySection |
-| P3 | 🔴 Open | Checked todo strikethrough contrast |
-| P4 | 🔴 Open | `bodyLarge` and `bodyMedium` are identical |
-| P5 | 🔴 Open | No undo for auto-deleted records |
-| P6 | 🔴 Open | Habit streak O(n) per build |
-| P7 | 🔴 Open | "SEARCH" AppBar title is redundant |
+| ID | Title | New? |
+|----|-------|------|
+| P1 | Date filter label shows raw ISO format | |
+| P2 | No loading state in DaySection | |
+| P3 | Checked todo strikethrough contrast | |
+| P4 | `bodyLarge` and `bodyMedium` are identical | |
+| P5 | No undo for auto-deleted records | |
+| P6 | Habit streak O(n²) per build (worse than originally noted as O(n)) | |
+| P7 | "SEARCH" AppBar title is redundant | |
+| P8 | Search blank view instead of prompt when no query entered | ✨ New |
+| P9 | Loading spinner fires on keystroke, not on query dispatch | ✨ New |
+| P10 | `sectionType` is dead code in navigation notifications | ✨ New |
