@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
-import '../../notifications/navigation_notifications.dart';
 import 'record_text_field.dart';
 import 'text_record_widget.dart';
 
@@ -53,36 +52,25 @@ class BulletListRecordWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Builder gives GestureDetector a local context scoped to the
-          // bullet gutter so showRecordTypePicker anchors the menu correctly.
-          Builder(
-            builder: (gutterContext) => GestureDetector(
-              onLongPress: readOnly
-                  ? null
-                  : () => showRecordTypePicker(
-                        gutterContext: gutterContext,
-                        currentType: record.type,
-                        onSelected: (type) {
-                          onSave(convertRecordType(record, type));
-                          RefocusRecordNotification(recordId: record.id)
-                              .dispatch(gutterContext);
-                        },
-                      ),
-              child: Padding(
-                padding: const EdgeInsets.only(
-                    right: GridConstants.checkboxToTextGap),
-                child: SizedBox(
-                  width: GridConstants.checkboxSize,
-                  height: GridConstants.rowHeight,
-                  child: Center(
-                    child: Text(
-                      _bulletForLevel(indentLevel),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+          if (!readOnly)
+            TypePickerButton(record: record, onSave: onSave)
+          else
+            const SizedBox(
+              width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
+            ),
+          Padding(
+            padding: const EdgeInsets.only(
+                right: GridConstants.checkboxToTextGap),
+            child: SizedBox(
+              width: GridConstants.checkboxSize,
+              height: GridConstants.rowHeight,
+              child: Center(
+                child: Text(
+                  _bulletForLevel(indentLevel),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.outline,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
