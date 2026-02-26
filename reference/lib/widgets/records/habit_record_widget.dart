@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'package:lifelog_reference/services/date_service.dart';
-import 'text_record_widget.dart';
 
 /// Renders a habit record with name, streak count, and tap-to-complete action.
 ///
@@ -79,12 +78,6 @@ class HabitRecordWidget extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!readOnly)
-          TypePickerButton(record: record, onSave: onSave)
-        else
-          const SizedBox(
-            width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-          ),
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           // ConstrainedBox ensures the icon column is at least as tall as one

@@ -9,9 +9,9 @@ import 'habit_record_widget.dart';
 
 /// Routes a Record to the appropriate sub-widget based on its type.
 ///
-/// This is the main entry point for rendering any record in the journal.
-/// It handles the shared layout (padding, grid alignment) and delegates
-/// type-specific rendering to sub-widgets.
+/// Owns the shared layout for every record: responsive padding, minimum row
+/// height, and the leading TypePickerButton gutter. Sub-widgets only need to
+/// render their type-specific indicator (checkbox, bullet, circle) + content.
 ///
 /// Dart's exhaustive switch expression ensures a compile-time error if
 /// a new RecordType is added without a corresponding widget.
@@ -48,11 +48,6 @@ class AdaptiveRecordWidget extends StatelessWidget {
         final rightPadding =
             GridConstants.calculateContentRightPadding(constraints.maxWidth);
 
-        // Minimum height: all records are at least one grid row (28px).
-        // ConstrainedBox vs SizedBox: SizedBox clips multi-line text; ConstrainedBox
-        // sets a floor while allowing the widget to expand.
-        const minHeight = GridConstants.rowHeight;
-
         return Padding(
           padding: EdgeInsets.only(
             left: leftPadding,
@@ -60,61 +55,79 @@ class AdaptiveRecordWidget extends StatelessWidget {
             top: GridConstants.itemVerticalSpacing,
             bottom: GridConstants.itemVerticalSpacing,
           ),
+          // ConstrainedBox vs SizedBox: SizedBox clips multi-line text; ConstrainedBox
+          // sets a floor while allowing the widget to expand.
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minHeight),
-            // Exhaustive switch: compiler enforces all RecordType cases are handled
-            child: switch (record.type) {
-              RecordType.text => TextRecordWidget(
-                  record: record,
-                  onSave: onSave,
-                  onDelete: onDelete,
-                  onSubmitted: onSubmitted,
-                  recordIndex: recordIndex,
-                  onFocusNodeCreated: onFocusNodeCreated,
-                  onFocusNodeDisposed: onFocusNodeDisposed,
-                  readOnly: readOnly,
+            constraints: const BoxConstraints(minHeight: GridConstants.rowHeight),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // C1: type-picker centralised here so individual widgets stay
+                // focused on their own indicator without TypePickerButton boilerplate.
+                // Hidden in readOnly (search results) where conversion makes no sense.
+                if (!readOnly)
+                  TypePickerButton(record: record, onSave: onSave)
+                else
+                  const SizedBox(
+                    width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
+                  ),
+                // Exhaustive switch: compiler enforces all RecordType cases are handled
+                Expanded(
+                  child: switch (record.type) {
+                    RecordType.text => TextRecordWidget(
+                        record: record,
+                        onSave: onSave,
+                        onDelete: onDelete,
+                        onSubmitted: onSubmitted,
+                        recordIndex: recordIndex,
+                        onFocusNodeCreated: onFocusNodeCreated,
+                        onFocusNodeDisposed: onFocusNodeDisposed,
+                        readOnly: readOnly,
+                      ),
+                    RecordType.heading => HeadingRecordWidget(
+                        record: record,
+                        onSave: onSave,
+                        onDelete: onDelete,
+                        onSubmitted: onSubmitted,
+                        recordIndex: recordIndex,
+                        onFocusNodeCreated: onFocusNodeCreated,
+                        onFocusNodeDisposed: onFocusNodeDisposed,
+                        readOnly: readOnly,
+                      ),
+                    RecordType.todo => TodoRecordWidget(
+                        record: record,
+                        onSave: onSave,
+                        onDelete: onDelete,
+                        onSubmitted: onSubmitted,
+                        recordIndex: recordIndex,
+                        onFocusNodeCreated: onFocusNodeCreated,
+                        onFocusNodeDisposed: onFocusNodeDisposed,
+                        readOnly: readOnly,
+                      ),
+                    RecordType.bulletList => BulletListRecordWidget(
+                        record: record,
+                        onSave: onSave,
+                        onDelete: onDelete,
+                        onSubmitted: onSubmitted,
+                        recordIndex: recordIndex,
+                        onFocusNodeCreated: onFocusNodeCreated,
+                        onFocusNodeDisposed: onFocusNodeDisposed,
+                        readOnly: readOnly,
+                      ),
+                    RecordType.habit => HabitRecordWidget(
+                        record: record,
+                        onSave: onSave,
+                        onDelete: onDelete,
+                        onSubmitted: onSubmitted,
+                        recordIndex: recordIndex,
+                        onFocusNodeCreated: onFocusNodeCreated,
+                        onFocusNodeDisposed: onFocusNodeDisposed,
+                        readOnly: readOnly,
+                      ),
+                  },
                 ),
-              RecordType.heading => HeadingRecordWidget(
-                  record: record,
-                  onSave: onSave,
-                  onDelete: onDelete,
-                  onSubmitted: onSubmitted,
-                  recordIndex: recordIndex,
-                  onFocusNodeCreated: onFocusNodeCreated,
-                  onFocusNodeDisposed: onFocusNodeDisposed,
-                  readOnly: readOnly,
-                ),
-              RecordType.todo => TodoRecordWidget(
-                  record: record,
-                  onSave: onSave,
-                  onDelete: onDelete,
-                  onSubmitted: onSubmitted,
-                  recordIndex: recordIndex,
-                  onFocusNodeCreated: onFocusNodeCreated,
-                  onFocusNodeDisposed: onFocusNodeDisposed,
-                  readOnly: readOnly,
-                ),
-              RecordType.bulletList => BulletListRecordWidget(
-                  record: record,
-                  onSave: onSave,
-                  onDelete: onDelete,
-                  onSubmitted: onSubmitted,
-                  recordIndex: recordIndex,
-                  onFocusNodeCreated: onFocusNodeCreated,
-                  onFocusNodeDisposed: onFocusNodeDisposed,
-                  readOnly: readOnly,
-                ),
-              RecordType.habit => HabitRecordWidget(
-                  record: record,
-                  onSave: onSave,
-                  onDelete: onDelete,
-                  onSubmitted: onSubmitted,
-                  recordIndex: recordIndex,
-                  onFocusNodeCreated: onFocusNodeCreated,
-                  onFocusNodeDisposed: onFocusNodeDisposed,
-                  readOnly: readOnly,
-                ),
-            },
+              ],
+            ),
           ),
         );
       },

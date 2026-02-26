@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
-import 'text_record_widget.dart';
 
 /// Renders a bulleted list item with indent support.
 ///
@@ -50,12 +49,6 @@ class BulletListRecordWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!readOnly)
-            TypePickerButton(record: record, onSave: onSave)
-          else
-            const SizedBox(
-              width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-            ),
           Padding(
             padding:
                 const EdgeInsets.only(right: GridConstants.checkboxToTextGap),

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
-import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
-import 'text_record_widget.dart';
 
 /// Renders a heading record with configurable level (1, 2, or 3).
 ///
@@ -10,6 +8,8 @@ import 'text_record_widget.dart';
 /// - H1: headlineMedium (26px, w700) — day anchors, most prominent
 /// - H2: headlineSmall (20px, w600) — sub-sections
 /// - H3: titleLarge  (16px, w600)   — minor headings
+///
+/// The TypePickerButton gutter is owned by [AdaptiveRecordWidget].
 class HeadingRecordWidget extends StatelessWidget {
   final Record record;
   final Function(Record) onSave;
@@ -46,31 +46,16 @@ class HeadingRecordWidget extends StatelessWidget {
       _ => theme.titleLarge ?? theme.bodyLarge!,
     };
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Heading has no semantic gutter indicator, so it gets the same
-        // TypePickerButton as text records. Hidden in readOnly contexts.
-        if (!readOnly)
-          TypePickerButton(record: record, onSave: onSave)
-        else
-          const SizedBox(
-            width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-          ),
-        Expanded(
-          child: RecordTextField(
-            record: record,
-            onSave: onSave,
-            onDelete: onDelete,
-            onSubmitted: onSubmitted,
-            recordIndex: recordIndex,
-            onFocusNodeCreated: onFocusNodeCreated,
-            onFocusNodeDisposed: onFocusNodeDisposed,
-            textStyle: style,
-            readOnly: readOnly,
-          ),
-        ),
-      ],
+    return RecordTextField(
+      record: record,
+      onSave: onSave,
+      onDelete: onDelete,
+      onSubmitted: onSubmitted,
+      recordIndex: recordIndex,
+      onFocusNodeCreated: onFocusNodeCreated,
+      onFocusNodeDisposed: onFocusNodeDisposed,
+      textStyle: style,
+      readOnly: readOnly,
     );
   }
 }
