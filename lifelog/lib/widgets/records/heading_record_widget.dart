@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
+import '../../constants/grid_constants.dart';
 import 'record_text_field.dart';
+import 'text_record_widget.dart';
 
 /// Renders a heading record with configurable level (1, 2, or 3).
 ///
@@ -47,16 +49,31 @@ class HeadingRecordWidget extends StatelessWidget {
     return Padding(
       // Headings get top breathing room — separates them from content above
       padding: EdgeInsets.only(top: level == 1 ? 4.0 : 2.0),
-      child: RecordTextField(
-        record: record,
-        onSave: onSave,
-        onDelete: onDelete,
-        onSubmitted: onSubmitted,
-        recordIndex: recordIndex,
-        onFocusNodeCreated: onFocusNodeCreated,
-        onFocusNodeDisposed: onFocusNodeDisposed,
-        textStyle: style,
-        readOnly: readOnly,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Heading has no semantic gutter indicator, so it gets the same
+          // TypePickerButton as text records. Hidden in readOnly contexts.
+          if (!readOnly)
+            TypePickerButton(record: record, onSave: onSave)
+          else
+            const SizedBox(
+              width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
+            ),
+          Expanded(
+            child: RecordTextField(
+              record: record,
+              onSave: onSave,
+              onDelete: onDelete,
+              onSubmitted: onSubmitted,
+              recordIndex: recordIndex,
+              onFocusNodeCreated: onFocusNodeCreated,
+              onFocusNodeDisposed: onFocusNodeDisposed,
+              textStyle: style,
+              readOnly: readOnly,
+            ),
+          ),
+        ],
       ),
     );
   }

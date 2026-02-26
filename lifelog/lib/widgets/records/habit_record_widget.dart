@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
+import '../../notifications/navigation_notifications.dart';
 import '../../services/date_service.dart';
 import 'record_text_field.dart';
+import 'text_record_widget.dart';
 
 /// Renders a habit record with circular completion indicator and streak info.
 ///
@@ -85,23 +87,38 @@ class HabitRecordWidget extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Circular completion indicator — C2: onTap is null when readOnly
+        // Circular completion indicator — C2: onTap is null when readOnly.
+        // Builder scopes the context to the gutter widget so showRecordTypePicker
+        // can anchor the popup menu to the circle's screen position.
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
             width: GridConstants.checkboxSize,
             height: GridConstants.rowHeight,
             child: Center(
-              child: GestureDetector(
-                onTap: readOnly ? null : _toggleCompletion,
-                child: Icon(
-                  completedToday
-                      ? Icons.check_circle_rounded
-                      : Icons.circle_outlined,
-                  size: GridConstants.checkboxSize,
-                  color: completedToday
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline,
+              child: Builder(
+                builder: (gutterContext) => GestureDetector(
+                  onTap: readOnly ? null : _toggleCompletion,
+                  onLongPress: readOnly
+                      ? null
+                      : () => showRecordTypePicker(
+                            gutterContext: gutterContext,
+                            currentType: record.type,
+                            onSelected: (type) {
+                              onSave(convertRecordType(record, type));
+                              RefocusRecordNotification(recordId: record.id)
+                                  .dispatch(gutterContext);
+                            },
+                          ),
+                  child: Icon(
+                    completedToday
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: GridConstants.checkboxSize,
+                    color: completedToday
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                  ),
                 ),
               ),
             ),
@@ -109,11 +126,20 @@ class HabitRecordWidget extends StatelessWidget {
         ),
         // C1: Habit name is now editable via RecordTextField.
         // onSave remaps content → habit.name metadata so the name persists.
+        // Exception: if a slash command changed the record type, pass through
+        // the full type conversion instead of treating it as a name edit.
         Expanded(
           child: RecordTextField(
             record: habitNameRecord,
-            onSave: (updated) =>
-                onSave(record.copyWithMetadata({'habit.name': updated.content})),
+            onSave: (updated) {
+              if (updated.type != RecordType.habit) {
+                // Slash command converted the type — propagate the full change.
+                // `updated` inherits id/date/position from habitNameRecord → record.
+                onSave(updated);
+              } else {
+                onSave(record.copyWithMetadata({'habit.name': updated.content}));
+              }
+            },
             onDelete: onDelete,
             onSubmitted: onSubmitted,
             recordIndex: recordIndex,

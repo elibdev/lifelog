@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
+import '../../notifications/navigation_notifications.dart';
 import 'record_text_field.dart';
+import 'text_record_widget.dart';
 
 /// Renders a todo record with a refined checkbox and optional strikethrough.
 ///
@@ -48,20 +50,44 @@ class TodoRecordWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding:
-                const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-            child: SizedBox(
-              width: GridConstants.checkboxSize,
-              height: GridConstants.rowHeight,
-              child: Center(
+          // Builder gives GestureDetector a local context scoped to this
+          // widget's subtree position, so showRecordTypePicker can anchor
+          // the popup menu to the checkbox gutter correctly.
+          // See: https://api.flutter.dev/flutter/widgets/Builder-class.html
+          Builder(
+            builder: (gutterContext) => GestureDetector(
+              // Long-press on the checkbox gutter opens the type picker.
+              // Flutter's gesture arena disambiguates: short tap → Checkbox.onChanged;
+              // held press (≥500ms) → LongPressGestureRecognizer wins here.
+              onLongPress: readOnly
+                  ? null
+                  : () => showRecordTypePicker(
+                        gutterContext: gutterContext,
+                        currentType: record.type,
+                        onSelected: (type) {
+                          onSave(convertRecordType(record, type));
+                          RefocusRecordNotification(recordId: record.id)
+                              .dispatch(gutterContext);
+                        },
+                      ),
+              child: Padding(
+                padding: const EdgeInsets.only(
+                    right: GridConstants.checkboxToTextGap),
                 child: SizedBox(
                   width: GridConstants.checkboxSize,
-                  height: GridConstants.checkboxSize,
-                  child: Checkbox(
-                    value: isChecked,
-                    // C2: also disable in readOnly (search results)
-                    onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
+                  height: GridConstants.rowHeight,
+                  child: Center(
+                    child: SizedBox(
+                      width: GridConstants.checkboxSize,
+                      height: GridConstants.checkboxSize,
+                      child: Checkbox(
+                        value: isChecked,
+                        // C2: also disable in readOnly (search results)
+                        onChanged: (isEmpty || readOnly)
+                            ? null
+                            : _handleCheckboxToggle,
+                      ),
+                    ),
                   ),
                 ),
               ),

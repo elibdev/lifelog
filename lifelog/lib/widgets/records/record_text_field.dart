@@ -135,6 +135,10 @@ class RecordTextFieldState extends State<RecordTextField> {
             'habit.archived': false,
           },
         ),
+      '/text' => base.copyWith(
+          type: RecordType.text,
+          metadata: {},
+        ),
       _ => null,
     };
   }
