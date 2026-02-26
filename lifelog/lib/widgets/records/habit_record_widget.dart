@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import '../../constants/grid_constants.dart';
-import '../../notifications/navigation_notifications.dart';
 import '../../services/date_service.dart';
 import 'record_text_field.dart';
 import 'text_record_widget.dart';
@@ -87,38 +86,29 @@ class HabitRecordWidget extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (!readOnly)
+          TypePickerButton(record: record, onSave: onSave)
+        else
+          const SizedBox(
+            width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
+          ),
         // Circular completion indicator — C2: onTap is null when readOnly.
-        // Builder scopes the context to the gutter widget so showRecordTypePicker
-        // can anchor the popup menu to the circle's screen position.
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
             width: GridConstants.checkboxSize,
             height: GridConstants.rowHeight,
             child: Center(
-              child: Builder(
-                builder: (gutterContext) => GestureDetector(
-                  onTap: readOnly ? null : _toggleCompletion,
-                  onLongPress: readOnly
-                      ? null
-                      : () => showRecordTypePicker(
-                            gutterContext: gutterContext,
-                            currentType: record.type,
-                            onSelected: (type) {
-                              onSave(convertRecordType(record, type));
-                              RefocusRecordNotification(recordId: record.id)
-                                  .dispatch(gutterContext);
-                            },
-                          ),
-                  child: Icon(
-                    completedToday
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    size: GridConstants.checkboxSize,
-                    color: completedToday
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
-                  ),
+              child: GestureDetector(
+                onTap: readOnly ? null : _toggleCompletion,
+                child: Icon(
+                  completedToday
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  size: GridConstants.checkboxSize,
+                  color: completedToday
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
                 ),
               ),
             ),
