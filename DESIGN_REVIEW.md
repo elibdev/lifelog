@@ -1,6 +1,6 @@
 # Lifelog — Solo Design Review
 
-**Date:** 2026-02-25
+**Date:** 2026-02-26 (refresh pass — original: 2026-02-25)
 **Reviewer:** Claude
 **Scope:** Full codebase audit — journal screen, search screen, all record widgets, theme system
 
@@ -14,103 +14,55 @@ Lifelog is a keyboard-centric, infinite-scroll journal with a Swiss-Italian aest
 
 ## Findings Triage
 
+### 🟢 Fixed (since original review)
+
+| ID | Title | Commit |
+|----|-------|--------|
+| C1 | No UI to create non-text record types | `3919fd2`, `638cf8c` |
+| C2 | Search results silently read-only but look editable | `3919fd2` |
+| C3 | No error handling on database writes | `3919fd2` |
+
+---
+
 ### 🔴 Critical — Must fix before launch
 
----
-
-### C1: No UI to create non-text record types
-
-**Files:** `record_section.dart:111`, `keyboard_service.dart`
-**Persona:** Naive User + Business Owner
-
-`_handleEnterPressed` always creates `RecordType.text`:
-
-```dart
-final newRecord = Record(
-  type: RecordType.text,  // hardcoded — no way to choose
-  ...
-);
-```
-
-`AdaptiveRecordWidget`, `TodoRecordWidget`, `HabitRecordWidget`, etc. all render correctly — but there is **no mechanism in the UI to create them**. A user cannot create a todo, heading, bullet list, or habit from the journal. `KeyboardService` handles `Ctrl+Enter` to toggle a todo checkbox, but you can't get a todo record to exist in the first place.
-
-The entire record-type system is invisible to users. This is a feature completeness issue that makes the app effectively a plain text editor.
-
-**Recommendation:** Inline type commands (e.g., `/todo`, `/h1`) on empty records, or a type-picker toolbar that appears on focus.
+*No new critical findings in this pass. C1–C3 are resolved.*
 
 ---
 
-### C2: Search results are silently read-only
-
-**File:** `search_screen.dart:292–294`
-**Persona:** Skeptical Engineer + Naive User
-
-```dart
-AdaptiveRecordWidget(
-  record: record,
-  onSave: (_) {},    // changes discarded
-  onDelete: (_) {},  // deletes discarded
-)
-```
-
-Record widgets in search are fully interactive — they render editable `TextField` inputs — but changes are silently dropped. A user who edits a search result and navigates away loses their edits with no warning. Worse, if the empty-field auto-delete fires (focus loss on empty text), the deletion is also silently swallowed, so the DB record survives but the user expects deletion.
-
-**Recommendation:** Either make search results visually read-only (non-editable display, no cursor) or wire up real `onSave`/`onDelete` with the repository.
-
----
-
-### C3: No error handling on database writes
-
-**File:** `journal_screen.dart:77–95`, `record_section.dart:83–88`
-**Persona:** Skeptical Engineer
-
-```dart
-debouncer.call(() async {
-  await _repository.saveRecord(record);  // no try/catch
-});
-```
-
-If SQLite throws (disk full, corruption, permission error), the in-memory state reflects the "saved" record while the DB does not. Silent data divergence. No user feedback.
-
-**Recommendation:** Wrap in try/catch, surface an error snackbar, and consider reverting in-memory state on failure.
-
----
-
-## 🟡 Major — Significant UX impact
+### 🟡 Major — Significant UX impact
 
 ---
 
 ### M1: No empty state or onboarding
 
-**File:** `record_section.dart:136–145`, `day_section.dart`
+**Files:** `record_section.dart:136–145`, `record_text_field.dart:199–207`
 **Persona:** Naive User
 
-On first launch, the user sees today's date header above a blank, borderless text input with no hint text or explanation. Nothing communicates:
+On first launch, the user sees today's date header above a blank, borderless text input with no hint text or explanation. `RecordTextField.build()` constructs its `InputDecoration` with all borders set to `InputBorder.none` and no `hintText`. Nothing communicates:
 - What types of content they can create
 - That records auto-save
 - That records auto-delete when empty
 - How to navigate between days
 
-The placeholder `Record` in `RecordSection` has `content: ''` and type `text` — the rendered `RecordTextField` has no `hintText` set.
-
-**Recommendation:** Add `hintText` to the placeholder's `RecordTextField` (e.g., "Write something…"). For first-run, consider a brief inline tooltip or coach mark.
+**Recommendation:** Add `hintText` to `RecordTextField`'s decoration (e.g., "Write something, or type / for commands…"). For first-run, a brief inline coach mark or tooltip.
 
 ---
 
 ### M2: No save feedback — users can't tell if data persisted
 
-**File:** `journal_screen.dart:90–94`
+**File:** `journal_screen.dart:90–106`
 **Persona:** Naive User + Business Owner
 
-The 500ms debounce save has zero UI feedback. A user typing, then immediately backgrounding the app, could lose the trailing keystrokes. More critically, users who are anxious about data loss have no reassurance signal.
+The 500ms debounce save has zero UI feedback. A user typing, then immediately backgrounding the app, could lose the trailing keystrokes. Users with data-loss anxiety have no reassurance signal.
 
-**Recommendation:** A subtle "Saved" indicator — even a fading dot or status text in the date header — gives users confidence without cluttering the minimalist design.
+**Recommendation:** A subtle "Saved" indicator — even a fading dot or status text in the date header — gives confidence without cluttering the minimalist design.
 
 ---
 
 ### M3: Arrow navigation silently fails at unloaded day boundaries
 
-**File:** `journal_screen.dart:38–46`, `record_section.dart:33–36`
+**File:** `journal_screen.dart:38–46`
 **Persona:** Skeptical Engineer
 
 ```dart
@@ -150,7 +102,7 @@ The grouped map's key iteration order equals SQLite's return order, which is not
 
 ### M5: Checkbox touch target below 44×44 px minimum
 
-**File:** `lifelog_theme.dart:196–197`
+**File:** `lifelog_theme.dart:196–197`, `habit_record_widget.dart:98–115`
 **Persona:** Skeptical Engineer + Accessibility
 
 ```dart
@@ -158,15 +110,15 @@ materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
 visualDensity: VisualDensity.compact,
 ```
 
-The checkbox is sized at `GridConstants.checkboxSize` (20px) with shrink-wrap tap target. The HIG (iOS) and Material guidelines both specify a minimum 44×44 pt interactive area. On mobile, the checkbox will be difficult to hit accurately.
+Both the todo checkbox and habit completion circle have sub-minimum touch targets. The checkbox is constrained to `GridConstants.checkboxSize` (20px) with shrink-wrap tap target. The habit `GestureDetector` wraps `SizedBox(width: 20, height: 28)`. The HIG (iOS) and Material guidelines both specify a minimum 44×44 pt interactive area. On mobile, both will be difficult to hit accurately.
 
-**Recommendation:** Remove `MaterialTapTargetSize.shrinkWrap`, or increase `checkboxSize`. The checkbox is wrapped in a `SizedBox(width: 20, height: 28)` in `TodoRecordWidget` which also constrains the effective tap area.
+**Recommendation:** Remove `MaterialTapTargetSize.shrinkWrap` from the checkbox theme, or increase `checkboxSize`. Wrap the habit circle `GestureDetector` in a minimum 44×44 `SizedBox` or use `InkWell` with `customBorder`.
 
 ---
 
 ### M6: Habit completion always targets today, not the viewed day
 
-**File:** `habit_record_widget.dart:31–51`
+**File:** `habit_record_widget.dart:36–71`
 **Persona:** Skeptical Engineer + Naive User
 
 ```dart
@@ -181,24 +133,24 @@ void _toggleCompletion() {
 }
 ```
 
-A habit record appears on every day in the infinite scroll (because it's stored with a specific `record.date`). When a user views a past day and taps the habit circle, it marks **today** complete, not the past day they're looking at. Retroactive journaling — marking a habit as done on Monday when it's now Wednesday — is impossible.
+A habit record appears on every day in the infinite scroll (because it's stored with a specific `record.date`). When a user views a past day and taps the habit circle, it marks **today** complete, not the past day they're looking at. Retroactive journaling is impossible.
 
-**Recommendation:** Pass the `record.date` to `_toggleCompletion` and toggle completions for that date. The `_isCompletedToday` check should use `record.date` to show whether that day was completed.
+**Recommendation:** Pass `record.date` to `_toggleCompletion` and toggle completions for that date. Update `_isCompletedToday` to check `record.date` rather than `DateService.today()`.
 
 ---
 
 ### M7: FAB obscures bottom record on small screens
 
-**File:** `journal_screen.dart:116–126`
+**File:** `journal_screen.dart:140–150`
 **Persona:** Naive User
 
-The `FloatingActionButton.small` in the bottom-right overlaps the last visible record when there's no bottom padding. `SafeArea` handles system insets, but the FAB itself (56×56 with margins) can cover content. The journal is the main writing surface — obscuring it is a direct usability hit.
+The `FloatingActionButton.small` in the bottom-right overlaps the last visible record. `SafeArea` handles system insets, but the FAB itself (with margins) can cover content on small screens. The journal is the primary writing surface — obscuring it is a direct usability hit.
 
 **Recommendation:** Add `floatingActionButtonLocation: FloatingActionButtonLocation.endTop` to push the FAB to the top-right, or add bottom padding to the `CustomScrollView` equal to the FAB height + margin.
 
 ---
 
-## 🔵 Minor / Polish
+### 🔵 Minor / Polish
 
 ---
 
@@ -245,7 +197,7 @@ Both `bodyLarge` and `bodyMedium` are defined with `fontSize: 15`, `fontWeight: 
 
 ### P5: No undo for auto-deleted empty records
 
-**File:** `record_text_field.dart:63–66`
+**File:** `record_text_field.dart:67–73`
 
 ```dart
 void _handleFocusChange() {
@@ -259,11 +211,18 @@ Records vanish on focus-loss when empty. This is elegant in principle but surpri
 
 ---
 
-### P6: Habit streak calculation runs on every build
+### P6: Habit streak calculation is O(n²) per build
 
-**File:** `habit_record_widget.dart:36–52`
+**File:** `habit_record_widget.dart:41–57`
 
-`_currentStreak` iterates all completions on each `build()`. For heavy users (hundreds of completions), this is O(n) work per render. Cache the streak value or compute it in the repository layer.
+```dart
+int get _currentStreak {
+  ...
+  for (int i = 0; i < completions.length; i++) {
+    if (completions.contains(checkDate)) {  // O(n) scan inside O(n) loop
+```
+
+`_currentStreak` iterates up to `completions.length` times, with a `List.contains` call (O(n)) on each iteration — total O(n²). For users with hundreds of completions, this runs on every `build()`. Convert `completions` to a `Set<String>` first to reduce to O(n), and cache the streak value to avoid recomputing on each rebuild.
 
 ---
 
@@ -272,6 +231,41 @@ Records vanish on focus-loss when empty. This is elegant in principle but surpri
 **File:** `search_screen.dart:114`
 
 The AppBar title says "SEARCH" while the primary element below is a search input with a search icon prefix. The title adds no information. Consider replacing it with the app name or removing it, following the pattern of Gmail/Notion where the search bar IS the header.
+
+---
+
+### P8: Search shows blank view instead of prompt when no query entered
+
+**File:** `search_screen.dart:226–234`
+
+```dart
+: _results.isEmpty && _queryController.text.isNotEmpty
+    ? Center(child: Text('No results'))
+    : ListView.builder(itemCount: dates.length, ...)  // 0 items when no query
+```
+
+When the screen opens with no query, `_results` is empty and `_queryController.text.isEmpty`, so it falls through to a zero-item `ListView`. The user sees a blank area. "Start typing to search…" would set clearer expectations and reduce the appearance of a broken screen.
+
+---
+
+### P9: Loading spinner fires on every keystroke, not on query dispatch
+
+**File:** `search_screen.dart:49`
+
+```dart
+setState(() => _isSearching = true);  // fires immediately on any keystroke
+_searchDebouncer.call(() async { ... });  // actual query deferred 500ms
+```
+
+`_isSearching` becomes `true` on every character typed, so the spinner appears and disappears 500ms after each keystroke — even when the user is mid-word. A more accurate signal: set `_isSearching = true` only inside the debouncer callback immediately before the async query.
+
+---
+
+### P10: `sectionType` is dead code in navigation notifications
+
+**File:** `navigation_notifications.dart:12,28`, `keyboard_service.dart:60,68`, `journal_screen.dart:38–46`
+
+`NavigateDownNotification` and `NavigateUpNotification` carry a `sectionType` field. In `KeyboardService`, it is hardcoded to `'records'` on every dispatch. In `_navigateDown` / `_navigateUp`, it is received as a parameter but never used. This is vestigial scaffolding from a planned multi-section design. Remove the field or document the intended extension point.
 
 ---
 
@@ -285,30 +279,35 @@ The AppBar title says "SEARCH" while the primary element below is a search input
 | Content padding | ✅ | `GridConstants.calculateContentLeftPadding()` used in all layouts |
 | Back button placement | ✅ | Standard Navigator AppBar back button |
 | Checkbox sizing | ✅ | `GridConstants.checkboxSize` shared |
+| Touch target size | ❌ | Checkbox (20px) and habit circle (20×28) both below 44×44 minimum (M5) |
 | Text styles | ⚠️ | `bodyLarge` == `bodyMedium` (see P4) |
 | Brand voice | ✅ | "TODAY · WEDNESDAY 25 FEB" style consistent |
-| Record deletion | ⚠️ | Auto-delete on blur in journal; silently suppressed in search (see C2) |
+| Record deletion | ✅ | Auto-delete on blur in journal; correctly suppressed (readOnly=true) in search |
+| Empty states | ⚠️ | Search no-query state is blank; journal placeholder has no hint text (M1, P8) |
 
 ---
 
 ## Summary Table
 
-| ID | Severity | Title |
-|----|----------|-------|
-| C1 | 🔴 Critical | No UI to create non-text record types |
-| C2 | 🔴 Critical | Search results silently read-only but look editable |
-| C3 | 🔴 Critical | No error handling on database writes |
-| M1 | 🟡 Major | No empty state or onboarding hint |
-| M2 | 🟡 Major | No save feedback |
-| M3 | 🟡 Major | Arrow navigation silently fails at unloaded day boundaries |
-| M4 | 🟡 Major | Search results not sorted by date |
-| M5 | 🟡 Major | Checkbox touch target below 44×44 px |
-| M6 | 🟡 Major | Habit completion targets today, not the viewed day |
-| M7 | 🟡 Major | FAB obscures bottom content |
-| P1 | 🔵 Minor | Date filter label shows raw ISO format |
-| P2 | 🔵 Minor | No loading state in DaySection |
-| P3 | 🔵 Minor | Checked todo strikethrough contrast |
-| P4 | 🔵 Minor | `bodyLarge` and `bodyMedium` are identical |
-| P5 | 🔵 Minor | No undo for auto-deleted records |
-| P6 | 🔵 Minor | Habit streak O(n) per build |
-| P7 | 🔵 Minor | "SEARCH" AppBar title is redundant |
+| ID | Severity | Status | Title |
+|----|----------|--------|-------|
+| C1 | 🔴 Critical | ✅ Fixed | No UI to create non-text record types |
+| C2 | 🔴 Critical | ✅ Fixed | Search results silently read-only but look editable |
+| C3 | 🔴 Critical | ✅ Fixed | No error handling on database writes |
+| M1 | 🟡 Major | 🔴 Open | No empty state or onboarding hint |
+| M2 | 🟡 Major | 🔴 Open | No save feedback |
+| M3 | 🟡 Major | 🔴 Open | Arrow navigation silently fails at unloaded day boundaries |
+| M4 | 🟡 Major | 🔴 Open | Search results not sorted by date |
+| M5 | 🟡 Major | 🔴 Open | Checkbox and habit circle touch targets below 44×44 px |
+| M6 | 🟡 Major | 🔴 Open | Habit completion targets today, not the viewed day |
+| M7 | 🟡 Major | 🔴 Open | FAB obscures bottom content |
+| P1 | 🔵 Minor | 🔴 Open | Date filter label shows raw ISO format |
+| P2 | 🔵 Minor | 🔴 Open | No loading state in DaySection |
+| P3 | 🔵 Minor | 🔴 Open | Checked todo strikethrough contrast |
+| P4 | 🔵 Minor | 🔴 Open | `bodyLarge` and `bodyMedium` are identical |
+| P5 | 🔵 Minor | 🔴 Open | No undo for auto-deleted records |
+| P6 | 🔵 Minor | 🔴 Open | Habit streak O(n²) per build |
+| P7 | 🔵 Minor | 🔴 Open | "SEARCH" AppBar title is redundant |
+| P8 | 🔵 Minor | 🔴 Open | Search blank view instead of prompt when no query entered |
+| P9 | 🔵 Minor | 🔴 Open | Loading spinner fires on keystroke, not on query dispatch |
+| P10 | 🔵 Minor | 🔴 Open | `sectionType` is dead code in navigation notifications |
