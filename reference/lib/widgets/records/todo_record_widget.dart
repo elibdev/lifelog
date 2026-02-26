@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/record.dart';
 import 'package:lifelog_reference/constants/grid_constants.dart';
 import 'record_text_field.dart';
+import 'text_record_widget.dart';
 
 /// Renders a todo record with a checkbox and optional strikethrough text.
 class TodoRecordWidget extends StatelessWidget {
@@ -45,6 +46,12 @@ class TodoRecordWidget extends StatelessWidget {
       // See: https://api.flutter.dev/flutter/widgets/Row-class.html
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        if (!readOnly)
+          TypePickerButton(record: record, onSave: onSave)
+        else
+          const SizedBox(
+            width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
+          ),
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
