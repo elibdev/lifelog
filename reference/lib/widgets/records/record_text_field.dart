@@ -68,7 +68,26 @@ class RecordTextFieldState extends State<RecordTextField> {
     // C2: never auto-delete in read-only mode (search results)
     if (widget.readOnly) return;
     if (!_focusNode.hasFocus && _controller.text.trim().isEmpty) {
-      widget.onDelete(widget.record.id);
+      // Capture callbacks before onDelete removes this widget from the tree.
+      final record = widget.record;
+      final onSave = widget.onSave;
+      widget.onDelete(record.id);
+
+      // P5: Offer undo so users who accidentally blur an empty record can recover.
+      // ScaffoldMessenger.maybeOf — safe fallback if there is no Scaffold ancestor.
+      // See: https://api.flutter.dev/flutter/material/ScaffoldMessenger-class.html
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: const Text('Empty record removed'),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Undo',
+            // onSave re-creates the record in JournalScreen's _recordsByDate
+            // and schedules a DB write via the normal debounced save path.
+            onPressed: () => onSave(record),
+          ),
+        ),
+      );
     }
   }
 
