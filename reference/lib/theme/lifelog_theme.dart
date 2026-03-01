@@ -86,9 +86,9 @@ class LifelogTheme {
         height: 1.4,
         color: inkMedium,
       ),
-      // Body text — comfortable reading
+      // Body text — comfortable reading; P4: differentiated from bodyMedium.
       bodyLarge: TextStyle(
-        fontSize: 15,
+        fontSize: 17,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.0,
         height: 1.5,
@@ -194,8 +194,9 @@ class LifelogTheme {
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(_surface),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
+        // M5: Use padded target (default) for 48×48 accessible tap area.
+        // The SizedBox(20,20) constraint in TodoRecordWidget has also been removed.
+        materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _inkBlack,
@@ -281,8 +282,7 @@ class LifelogTheme {
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(_darkBackground),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _darkInk,
