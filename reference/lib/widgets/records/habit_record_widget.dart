@@ -92,8 +92,8 @@ class HabitRecordWidget extends StatelessWidget {
               // M5: 44×44 minimum tap target (HIG / Material) around the 20px visual icon.
               // GestureDetector fills the SizedBox, giving full 44×44 hit area.
               child: SizedBox(
-                width: 44,
-                height: 44,
+                width: GridConstants.minTouchTarget,
+                height: GridConstants.minTouchTarget,
                 child: GestureDetector(
                   onTap: readOnly ? null : _toggleCompletion,
                   child: Center(

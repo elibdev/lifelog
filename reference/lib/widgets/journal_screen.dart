@@ -43,35 +43,32 @@ class _JournalScreenState extends State<JournalScreen> {
         date, () => GlobalKey<RecordSectionState>());
   }
 
+  void _navigateDown(String date) => _focusAdjacentDay(
+        DateService.getNextDate(date),
+        focus: (s) => s.focusFirstRecord(),
+      );
+
+  void _navigateUp(String date) => _focusAdjacentDay(
+        DateService.getPreviousDate(date),
+        focus: (s) => s.focusLastRecord(),
+      );
+
   // M3: Pre-load adjacent day's data so it's cached when DaySection renders,
   // then post-frame retry handles the focus if the section was off-screen.
-  void _navigateDown(String date) {
-    final nextDate = DateService.getNextDate(date);
-    final state = _getSectionKey(nextDate).currentState;
+  void _focusAdjacentDay(
+    String date, {
+    required void Function(RecordSectionState) focus,
+  }) {
+    final state = _getSectionKey(date).currentState;
     if (state != null) {
-      state.focusFirstRecord();
+      focus(state);
     } else {
-      _getRecordsForDate(nextDate).then((_) {
+      _getRecordsForDate(date).then((_) {
         if (!mounted) return;
         setState(() {});
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _getSectionKey(nextDate).currentState?.focusFirstRecord();
-        });
-      });
-    }
-  }
-
-  void _navigateUp(String date) {
-    final prevDate = DateService.getPreviousDate(date);
-    final state = _getSectionKey(prevDate).currentState;
-    if (state != null) {
-      state.focusLastRecord();
-    } else {
-      _getRecordsForDate(prevDate).then((_) {
-        if (!mounted) return;
-        setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _getSectionKey(prevDate).currentState?.focusLastRecord();
+          final s = _getSectionKey(date).currentState;
+          if (s != null) focus(s);
         });
       });
     }

@@ -24,6 +24,10 @@ class _SearchScreenState extends State<SearchScreen> {
   final Debouncer _searchDebouncer = Debouncer();
 
   List<Record> _results = [];
+  // Grouped + sorted are computed once when _results changes, not on every build.
+  Map<String, List<Record>> _grouped = {};
+  List<String> _sortedDates = [];
+
   bool _isSearching = false;
   String? _startDate;
   String? _endDate;
@@ -35,11 +39,21 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  void _setResults(List<Record> results) {
+    _results = results;
+    _grouped = {};
+    for (final record in results) {
+      _grouped.putIfAbsent(record.date, () => []).add(record);
+    }
+    // M4: Sort descending so most-recent results appear first.
+    _sortedDates = _grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  }
+
   void _onQueryChanged(String query) {
     if (query.trim().isEmpty) {
       _searchDebouncer.cancel();
       setState(() {
-        _results = [];
+        _setResults([]);
         _isSearching = false;
       });
       return;
@@ -55,7 +69,7 @@ class _SearchScreenState extends State<SearchScreen> {
       );
       if (mounted) {
         setState(() {
-          _results = results;
+          _setResults(results);
           _isSearching = false;
         });
       }
@@ -93,20 +107,12 @@ class _SearchScreenState extends State<SearchScreen> {
     _onQueryChanged(_queryController.text);
   }
 
-  Map<String, List<Record>> _groupByDate(List<Record> records) {
-    final Map<String, List<Record>> grouped = {};
-    for (final record in records) {
-      grouped.putIfAbsent(record.date, () => []).add(record);
-    }
-    return grouped;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final grouped = _groupByDate(_results);
-    // M4: Sort descending so most-recent results appear first.
-    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Shared style for empty-state labels ('Start typing…' and 'No results found').
+    final emptyLabelStyle =
+        theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline);
 
     return Scaffold(
       appBar: AppBar(
@@ -197,60 +203,54 @@ class _SearchScreenState extends State<SearchScreen> {
                               ? Center(
                                   child: Text(
                                     'Start typing to search…',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: theme.colorScheme.outline,
-                                    ),
+                                    style: emptyLabelStyle,
                                   ),
                                 )
                               : _results.isEmpty
                                   ? Center(
                                       child: Text(
                                         'No results found',
-                                        style: theme.textTheme.bodyLarge
-                                            ?.copyWith(
-                                          color: theme.colorScheme.outline,
-                                        ),
+                                        style: emptyLabelStyle,
                                       ),
                                     )
                                   : ListView.builder(
-                                  itemCount: dates.length,
-                                  itemBuilder: (context, dateIndex) {
-                                    final date = dates[dateIndex];
-                                    final records = grouped[date]!;
-                                    final isToday =
-                                        DateService.isToday(date);
+                                      itemCount: _sortedDates.length,
+                                      itemBuilder: (context, dateIndex) {
+                                        final date = _sortedDates[dateIndex];
+                                        final records = _grouped[date]!;
+                                        final isToday =
+                                            DateService.isToday(date);
 
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.fromLTRB(
-                                                  16, 16, 16, 4),
-                                          child: Text(
-                                            isToday
-                                                ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
-                                                : DateService.formatForDisplay(date).toUpperCase(),
-                                            style: theme
-                                                .textTheme.titleMedium,
-                                          ),
-                                        ),
-                                        ...records.map(
-                                          (record) =>
-                                              AdaptiveRecordWidget(
-                                            key: ValueKey(
-                                                'search-${record.id}'),
-                                            record: record,
-                                            onSave: (_) {},
-                                            onDelete: (_) {},
-                                            readOnly: true,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                      16, 16, 16, 4),
+                                              child: Text(
+                                                isToday
+                                                    ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                                                    : DateService.formatForDisplay(date).toUpperCase(),
+                                                style: theme
+                                                    .textTheme.titleMedium,
+                                              ),
+                                            ),
+                                            ...records.map(
+                                              (record) => AdaptiveRecordWidget(
+                                                key: ValueKey(
+                                                    'search-${record.id}'),
+                                                record: record,
+                                                onSave: (_) {},
+                                                onDelete: (_) {},
+                                                readOnly: true,
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
                     ),
                   ],
                 ),

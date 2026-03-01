@@ -37,8 +37,10 @@ class DaySection extends StatelessWidget {
         // Without this, slower devices flash an empty section before records appear.
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: GridConstants.sectionTopPadding,
+            // Use spacing (24px) so the spinner has the same visual weight as the
+            // section header (sectionTopPadding 16 + sectionHeaderBottomPadding 8 = 24).
+            padding: const EdgeInsets.symmetric(
+              vertical: GridConstants.spacing,
             ),
             child: const Center(
               child: SizedBox(

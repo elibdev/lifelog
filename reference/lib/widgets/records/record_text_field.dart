@@ -44,6 +44,9 @@ class RecordTextField extends StatefulWidget {
 class RecordTextFieldState extends State<RecordTextField> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  // Tracks whether the user has typed anything; suppresses the undo SnackBar
+  // for auto-generated placeholders that were never touched.
+  bool _hasUserEdited = false;
 
   FocusNode get focusNode => _focusNode;
 
@@ -73,9 +76,9 @@ class RecordTextFieldState extends State<RecordTextField> {
       final onSave = widget.onSave;
       widget.onDelete(record.id);
 
-      // P5: Offer undo so users who accidentally blur an empty record can recover.
-      // ScaffoldMessenger.maybeOf — safe fallback if there is no Scaffold ancestor.
-      // See: https://api.flutter.dev/flutter/material/ScaffoldMessenger-class.html
+      // P5: Only offer undo if the user actually edited the field — suppresses
+      // the SnackBar for auto-generated placeholders that were never touched.
+      if (!_hasUserEdited) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: const Text('Empty record removed'),
@@ -158,6 +161,7 @@ class RecordTextFieldState extends State<RecordTextField> {
   }
 
   void _handleTextChange() {
+    _hasUserEdited = true;
     final text = _controller.text;
 
     // C1: Slash command detection — only on non-empty lines starting with '/'
