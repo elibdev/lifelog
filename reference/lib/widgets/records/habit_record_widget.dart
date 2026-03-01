@@ -30,37 +30,37 @@ class HabitRecordWidget extends StatelessWidget {
     this.readOnly = false,
   });
 
-  bool get _isCompletedToday {
-    final today = DateService.today();
-    return record.habitCompletions.contains(today);
+  // M6: Check completion for the record's own date, not always today.
+  // This allows retroactive journaling on past days.
+  bool get _isCompletedForDate {
+    return record.habitCompletions.contains(record.date);
   }
 
+  // P6: Streak uses a Set for O(1) lookups — was O(n²) with List.contains inside a loop.
+  // Streak always counts backward from today (current streak, not historical).
   int get _currentStreak {
-    final completions = record.habitCompletions.toList()..sort();
+    final completions = Set<String>.from(record.habitCompletions);
     if (completions.isEmpty) return 0;
 
     int streak = 0;
     var checkDate = DateService.today();
 
-    for (int i = 0; i < completions.length; i++) {
-      if (completions.contains(checkDate)) {
-        streak++;
-        checkDate = DateService.getPreviousDate(checkDate);
-      } else {
-        break;
-      }
+    while (completions.contains(checkDate)) {
+      streak++;
+      checkDate = DateService.getPreviousDate(checkDate);
     }
     return streak;
   }
 
+  // M6: Toggle completion for record.date, not today.
   void _toggleCompletion() {
-    final today = DateService.today();
+    final date = record.date;
     final completions = record.habitCompletions.toList();
 
-    if (completions.contains(today)) {
-      completions.remove(today);
+    if (completions.contains(date)) {
+      completions.remove(date);
     } else {
-      completions.add(today);
+      completions.add(date);
     }
 
     // Namespaced metadata key: "habit.completions"
@@ -71,7 +71,7 @@ class HabitRecordWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final completedToday = _isCompletedToday;
+    final completedForDate = _isCompletedForDate;
     final streak = _currentStreak;
     final totalCompletions = record.habitCompletions.length;
 
@@ -89,19 +89,23 @@ class HabitRecordWidget extends StatelessWidget {
             ),
             child: Align(
               alignment: Alignment.topCenter,
+              // M5: 44×44 minimum tap target (HIG / Material) around the 20px visual icon.
+              // GestureDetector fills the SizedBox, giving full 44×44 hit area.
               child: SizedBox(
-                width: GridConstants.checkboxSize,
-                height: GridConstants.checkboxSize,
+                width: 44,
+                height: 44,
                 child: GestureDetector(
                   onTap: readOnly ? null : _toggleCompletion,
-                  child: Icon(
-                    completedToday
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    size: GridConstants.checkboxSize,
-                    color: completedToday
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
+                  child: Center(
+                    child: Icon(
+                      completedForDate
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      size: GridConstants.checkboxSize,
+                      color: completedForDate
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
+                    ),
                   ),
                 ),
               ),
@@ -113,7 +117,7 @@ class HabitRecordWidget extends StatelessWidget {
             record.habitName.isNotEmpty ? record.habitName : record.content,
             style: theme.textTheme.bodyMedium?.copyWith(
               height: GridConstants.textLineHeightMultiplier,
-              fontWeight: completedToday ? FontWeight.w500 : null,
+              fontWeight: completedForDate ? FontWeight.w500 : null,
             ),
           ),
         ),
