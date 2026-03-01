@@ -38,13 +38,12 @@ class _JournalScreenState extends State<JournalScreen> {
         date, () => GlobalKey<RecordSectionState>());
   }
 
-  // Navigation simplified: one section per day means just next/prev day
-  void _navigateDown(String date, String sectionType) {
+  void _navigateDown(String date) {
     final nextDate = DateService.getNextDate(date);
     _getSectionKey(nextDate).currentState?.focusFirstRecord();
   }
 
-  void _navigateUp(String date, String sectionType) {
+  void _navigateUp(String date) {
     final prevDate = DateService.getPreviousDate(date);
     _getSectionKey(prevDate).currentState?.focusLastRecord();
   }
@@ -163,14 +162,12 @@ class _JournalScreenState extends State<JournalScreen> {
                 constraints: BoxConstraints(maxWidth: maxWidth),
                 child: NotificationListener<NavigateDownNotification>(
                   onNotification: (notification) {
-                    _navigateDown(
-                        notification.date, notification.sectionType);
+                    _navigateDown(notification.date);
                     return true;
                   },
                   child: NotificationListener<NavigateUpNotification>(
                     onNotification: (notification) {
-                      _navigateUp(
-                          notification.date, notification.sectionType);
+                      _navigateUp(notification.date);
                       return true;
                     },
                     child: CustomScrollView(

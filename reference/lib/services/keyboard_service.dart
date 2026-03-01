@@ -6,8 +6,7 @@ import 'package:lifelog_reference/notifications/navigation_notifications.dart';
 /// Keyboard event handler for the new Record model.
 ///
 /// Handles arrow navigation, Ctrl+Enter checkbox toggle, and Delete/Backspace
-/// for empty records. Uses the existing NavigateDown/UpNotification pattern
-/// with sectionType='records' (one section per day).
+/// for empty records. Uses the existing NavigateDown/UpNotification pattern.
 class KeyboardService {
   KeyboardService._();
 
@@ -52,12 +51,10 @@ class KeyboardService {
     }
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      // sectionType is 'records' — one section per day
       NavigateDownNotification(
         recordId: record.id,
         recordIndex: recordIndex,
         date: record.date,
-        sectionType: 'records',
       ).dispatch(context);
       return KeyEventResult.handled;
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -65,7 +62,6 @@ class KeyboardService {
         recordId: record.id,
         recordIndex: recordIndex,
         date: record.date,
-        sectionType: 'records',
       ).dispatch(context);
       return KeyEventResult.handled;
     }

@@ -9,13 +9,12 @@ class NavigateDownNotification extends Notification {
   final String recordId;
   final int recordIndex;
   final String date;
-  final String sectionType;
+  // P10: sectionType removed — was hardcoded 'records' at every call site and never read.
 
   const NavigateDownNotification({
     required this.recordId,
     required this.recordIndex,
     required this.date,
-    required this.sectionType,
   });
 }
 
@@ -24,13 +23,11 @@ class NavigateUpNotification extends Notification {
   final String recordId;
   final int recordIndex;
   final String date;
-  final String sectionType;
 
   const NavigateUpNotification({
     required this.recordId,
     required this.recordIndex,
     required this.date,
-    required this.sectionType,
   });
 }
 
