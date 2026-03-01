@@ -37,6 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _onQueryChanged(String query) {
     if (query.trim().isEmpty) {
+      _searchDebouncer.cancel();
       setState(() {
         _results = [];
         _isSearching = false;
@@ -44,9 +45,9 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    setState(() => _isSearching = true);
-
+    // P9: Only show spinner after debounce fires, not on every keystroke.
     _searchDebouncer.call(() async {
+      if (mounted) setState(() => _isSearching = true);
       final results = await _repository.search(
         query.trim(),
         startDate: _startDate,
@@ -104,11 +105,12 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final grouped = _groupByDate(_results);
-    final dates = grouped.keys.toList();
+    // M4: Sort descending so most-recent results appear first.
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search'),
+        // P7: Title removed — the search field below makes "SEARCH" redundant.
         actions: [
           IconButton(
             icon: Icon(
@@ -180,7 +182,8 @@ class _SearchScreenState extends State<SearchScreen> {
                           vertical: 4.0,
                         ),
                         child: Text(
-                          'Filtering: $_startDate to $_endDate',
+                          // P1: Use human-readable dates instead of raw ISO strings.
+                          'Filtering: ${DateService.formatForDisplay(_startDate!)} — ${DateService.formatForDisplay(_endDate!)}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.primary,
                           ),
@@ -189,18 +192,27 @@ class _SearchScreenState extends State<SearchScreen> {
                     Expanded(
                       child: _isSearching
                           ? const Center(child: CircularProgressIndicator())
-                          : _results.isEmpty &&
-                                  _queryController.text.isNotEmpty
+                          // P8: Show prompt when no query instead of blank screen.
+                          : _queryController.text.isEmpty
                               ? Center(
                                   child: Text(
-                                    'No results found',
-                                    style:
-                                        theme.textTheme.bodyLarge?.copyWith(
+                                    'Start typing to search…',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
                                       color: theme.colorScheme.outline,
                                     ),
                                   ),
                                 )
-                              : ListView.builder(
+                              : _results.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'No results found',
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                          color: theme.colorScheme.outline,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
                                   itemCount: dates.length,
                                   itemBuilder: (context, dateIndex) {
                                     final date = dates[dateIndex];
