@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/record.dart';
 import '../database/record_repository.dart';
@@ -7,7 +8,7 @@ import 'package:lifelog_reference/utils/debouncer.dart';
 import 'record_section.dart';
 import 'day_section.dart';
 import 'search_screen.dart';
-// Test
+
 class JournalScreen extends StatefulWidget {
   // Repository injected at construction so Widgetbook can pass a mock.
   // `required` is a Dart named-parameter modifier — the caller must supply it.
@@ -33,19 +34,47 @@ class _JournalScreenState extends State<JournalScreen> {
   final Map<String, GlobalKey<RecordSectionState>> _sectionKeys = {};
   final GlobalKey _todayKey = GlobalKey();
 
+  // M2: Save feedback — true for 1.5s after each successful debounced write.
+  bool _showSaved = false;
+  Timer? _savedTimer;
+
   GlobalKey<RecordSectionState> _getSectionKey(String date) {
     return _sectionKeys.putIfAbsent(
         date, () => GlobalKey<RecordSectionState>());
   }
 
+  // M3: Pre-load adjacent day's data so it's cached when DaySection renders,
+  // then post-frame retry handles the focus if the section was off-screen.
   void _navigateDown(String date) {
     final nextDate = DateService.getNextDate(date);
-    _getSectionKey(nextDate).currentState?.focusFirstRecord();
+    final state = _getSectionKey(nextDate).currentState;
+    if (state != null) {
+      state.focusFirstRecord();
+    } else {
+      _getRecordsForDate(nextDate).then((_) {
+        if (!mounted) return;
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _getSectionKey(nextDate).currentState?.focusFirstRecord();
+        });
+      });
+    }
   }
 
   void _navigateUp(String date) {
     final prevDate = DateService.getPreviousDate(date);
-    _getSectionKey(prevDate).currentState?.focusLastRecord();
+    final state = _getSectionKey(prevDate).currentState;
+    if (state != null) {
+      state.focusLastRecord();
+    } else {
+      _getRecordsForDate(prevDate).then((_) {
+        if (!mounted) return;
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _getSectionKey(prevDate).currentState?.focusLastRecord();
+        });
+      });
+    }
   }
 
   @override
@@ -56,10 +85,20 @@ class _JournalScreenState extends State<JournalScreen> {
 
   @override
   void dispose() {
+    _savedTimer?.cancel();
     for (final debouncer in _debouncers.values) {
       debouncer.dispose();
     }
     super.dispose();
+  }
+
+  // M2: Show "Saved" badge briefly after each successful write.
+  void _flashSaved() {
+    _savedTimer?.cancel();
+    setState(() => _showSaved = true);
+    _savedTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _showSaved = false);
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -95,6 +134,8 @@ class _JournalScreenState extends State<JournalScreen> {
     debouncer.call(() async {
       try {
         await _repository.saveRecord(record);
+        // M2: Confirm the write succeeded with a brief badge.
+        if (mounted) _flashSaved();
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -136,7 +177,11 @@ class _JournalScreenState extends State<JournalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      // M7: endTop keeps the search FAB out of the writing area at the bottom.
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniEndTop,
       floatingActionButton: FloatingActionButton.small(
         onPressed: () {
           Navigator.of(context).push(
@@ -148,76 +193,112 @@ class _JournalScreenState extends State<JournalScreen> {
         tooltip: 'Search',
         child: const Icon(Icons.search),
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final screenWidth = constraints.maxWidth;
-            final bool isDesktop = screenWidth > 900;
-            final bool isTablet = screenWidth >= 600 && screenWidth <= 900;
-            final double maxWidth =
-                isDesktop ? 700 : (isTablet ? 600 : double.infinity);
+      body: Stack(
+        children: [
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = constraints.maxWidth;
+                final bool isDesktop = screenWidth > 900;
+                final bool isTablet = screenWidth >= 600 && screenWidth <= 900;
+                final double maxWidth =
+                    isDesktop ? 700 : (isTablet ? 600 : double.infinity);
 
-            return Center(
-              child: Container(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: NotificationListener<NavigateDownNotification>(
-                  onNotification: (notification) {
-                    _navigateDown(notification.date);
-                    return true;
-                  },
-                  child: NotificationListener<NavigateUpNotification>(
-                    onNotification: (notification) {
-                      _navigateUp(notification.date);
-                      return true;
-                    },
-                    child: CustomScrollView(
-                      center: _todayKey,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      slivers: [
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final daysAgo = index + 1;
-                              final date =
-                                  DateService.getDateForOffset(-daysAgo);
-                              return DaySection(
-                                date: date,
-                                recordsFuture: _getRecordsForDate(date),
-                                getSectionKey: _getSectionKey,
-                                onSave: _handleSaveRecord,
-                                onDelete: _handleDeleteRecord,
-                              );
-                            },
-                          ),
+                return Center(
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: NotificationListener<NavigateDownNotification>(
+                      onNotification: (notification) {
+                        _navigateDown(notification.date);
+                        return true;
+                      },
+                      child: NotificationListener<NavigateUpNotification>(
+                        onNotification: (notification) {
+                          _navigateUp(notification.date);
+                          return true;
+                        },
+                        child: CustomScrollView(
+                          center: _todayKey,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          slivers: [
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final daysAgo = index + 1;
+                                  final date =
+                                      DateService.getDateForOffset(-daysAgo);
+                                  return DaySection(
+                                    date: date,
+                                    recordsFuture: _getRecordsForDate(date),
+                                    getSectionKey: _getSectionKey,
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
+                                  );
+                                },
+                              ),
+                            ),
+                            SliverToBoxAdapter(
+                              key: _todayKey,
+                              child: const SizedBox.shrink(),
+                            ),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final date =
+                                      DateService.getDateForOffset(index);
+                                  return DaySection(
+                                    date: date,
+                                    recordsFuture: _getRecordsForDate(date),
+                                    getSectionKey: _getSectionKey,
+                                    onSave: _handleSaveRecord,
+                                    onDelete: _handleDeleteRecord,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        SliverToBoxAdapter(
-                          key: _todayKey,
-                          child: const SizedBox.shrink(),
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final date =
-                                  DateService.getDateForOffset(index);
-                              return DaySection(
-                                date: date,
-                                recordsFuture: _getRecordsForDate(date),
-                                getSectionKey: _getSectionKey,
-                                onSave: _handleSaveRecord,
-                                onDelete: _handleDeleteRecord,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // M2: "Saved" badge — fades in after write succeeds, out after 1.5s.
+          // Positioned bottom-center to avoid clashing with the top-right FAB.
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedOpacity(
+                opacity: _showSaved ? 1.0 : 0.0,
+                // AnimatedOpacity cross-fades between opacity values; duration
+                // controls how long the fade takes.
+                // See: https://api.flutter.dev/flutter/widgets/AnimatedOpacity-class.html
+                duration: const Duration(milliseconds: 400),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Saved',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
