@@ -30,7 +30,26 @@ class DaySection extends StatelessWidget {
 
     return FutureBuilder<List<Record>>(
       future: recordsFuture,
+      // FutureBuilder snapshot.connectionState: waiting → done → (error).
+      // See: https://api.flutter.dev/flutter/widgets/FutureBuilder-class.html
       builder: (context, snapshot) {
+        // P2: Show a subtle inline spinner while the DB query runs.
+        // Without this, slower devices flash an empty section before records appear.
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: GridConstants.sectionTopPadding,
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+            ),
+          );
+        }
+
         final records = snapshot.data ?? [];
 
         return LayoutBuilder(
