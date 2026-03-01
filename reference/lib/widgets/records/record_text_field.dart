@@ -187,13 +187,20 @@ class RecordTextFieldState extends State<RecordTextField> {
         focusNode: _focusNode,
         // C2: readOnly allows text selection (copy) but prevents editing
         readOnly: widget.readOnly,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
           filled: false,
+          // M1: Hint surfaces the slash-command system to new users.
+          // Only shown on the placeholder (empty record), hidden in readOnly search results.
+          hintText: widget.readOnly ? null : 'Write, or type / for commands…',
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
+            height: GridConstants.textLineHeightMultiplier,
+          ),
         ),
         style: effectiveStyle,
         cursorColor: theme.colorScheme.primary,
