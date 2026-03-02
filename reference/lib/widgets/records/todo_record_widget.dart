@@ -47,11 +47,13 @@ class TodoRecordWidget extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          // M5: Removed SizedBox(20,20) constraint so Checkbox uses its built-in
-          // 48×48 padded tap target (MaterialTapTargetSize.padded set in theme).
-          child: Checkbox(
-            value: isChecked,
-            onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
+          child: SizedBox(
+            width: GridConstants.checkboxSize,
+            height: GridConstants.checkboxSize,
+            child: Checkbox(
+              value: isChecked,
+              onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
+            ),
           ),
         ),
         Expanded(

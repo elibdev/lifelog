@@ -194,9 +194,8 @@ class LifelogTheme {
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(_surface),
-        // M5: Use padded target (default) for 48×48 accessible tap area.
-        // The SizedBox(20,20) constraint in TodoRecordWidget has also been removed.
-        materialTapTargetSize: MaterialTapTargetSize.padded,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _inkBlack,
@@ -282,7 +281,8 @@ class LifelogTheme {
           return Colors.transparent;
         }),
         checkColor: WidgetStateProperty.all(_darkBackground),
-        materialTapTargetSize: MaterialTapTargetSize.padded,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _darkInk,
