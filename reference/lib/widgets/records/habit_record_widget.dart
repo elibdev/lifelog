@@ -76,37 +76,26 @@ class HabitRecordWidget extends StatelessWidget {
     final totalCompletions = record.habitCompletions.length;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
-          // ConstrainedBox ensures the icon column is at least as tall as one
-          // line of body text so the icon is vertically centred on single-line
-          // habits, while still pinning to the top on wrapping names.
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: GridConstants.checkboxSize * GridConstants.textLineHeightMultiplier,
-            ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              // M5: 44×44 minimum tap target (HIG / Material) around the 20px visual icon.
-              // GestureDetector fills the SizedBox, giving full 44×44 hit area.
-              child: SizedBox(
-                width: GridConstants.minTouchTarget,
-                height: GridConstants.minTouchTarget,
-                child: GestureDetector(
-                  onTap: readOnly ? null : _toggleCompletion,
-                  child: Center(
-                    child: Icon(
-                      completedForDate
-                          ? Icons.check_circle_rounded
-                          : Icons.circle_outlined,
-                      size: GridConstants.checkboxSize,
-                      color: completedForDate
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outline,
-                    ),
-                  ),
+          // M5: 44×44 minimum tap target (HIG / Material) around the 20px visual icon.
+          // GestureDetector fills the SizedBox, giving full 44×44 hit area.
+          child: SizedBox(
+            width: GridConstants.minTouchTarget,
+            height: GridConstants.minTouchTarget,
+            child: GestureDetector(
+              onTap: readOnly ? null : _toggleCompletion,
+              child: Center(
+                child: Icon(
+                  completedForDate
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  size: GridConstants.checkboxSize,
+                  color: completedForDate
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
                 ),
               ),
             ),
