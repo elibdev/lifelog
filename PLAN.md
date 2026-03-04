@@ -19,6 +19,7 @@ needing a special "note" field type.
 CREATE TABLE databases (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  config TEXT NOT NULL DEFAULT '{}', -- JSON: view prefs, icon, color, future settings
   order_position REAL NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -98,10 +99,40 @@ CREATE TABLE event_log (
 { "target_database_id": "uuid-of-target-db" }
 ```
 
+### Database `config` JSON Examples
+
+```json
+// View preferences — current view and any saved per-view settings
+{ "current_view": "card", "views": { "card": {}, "note": {} } }
+
+// Future: icon, color, description, default sort, filters, etc.
+{ "current_view": "card", "icon": "book", "color": "#4A90D9" }
+```
+
+### Extensibility / Backwards Compatibility
+
+Every extension point in the schema is additive — nothing requires ALTER TABLE:
+
+- **New field types**: Just a new `field_type` string value + Dart handling code.
+  Unknown types render as raw text (graceful degradation). `config` JSON holds
+  whatever the new type needs.
+- **New view types**: `databases.config` stores `current_view` and per-view settings.
+  Adding a "table" or "gallery" view later is just new UI code + a new key in config.
+- **Rich text later**: `content` column stays TEXT. Switch from plain strings to
+  a structured format (markdown, ProseMirror JSON, etc.) — old plain text is valid
+  input for any rich-text renderer.
+- **Multi-select**: New field type. Value stored as JSON array in `values_json`.
+- **Attachments/files**: New field type. File paths or references in `values_json`,
+  extra config in field `config`.
+- **Formulas/rollups**: New field types. Formula expression stored in `config`,
+  computed value optionally cached in `values_json`.
+- **Record metadata**: `values_json` can hold system-generated keys alongside
+  user-defined field values (prefix with `_` to namespace).
+
 ### Dart Models
 
 ```
-AppDatabase        – id, name, orderPosition, createdAt, updatedAt
+AppDatabase        – id, name, config (Map<String,dynamic>), orderPosition, createdAt, updatedAt
 Field              – id, databaseId, name, fieldType (enum), config, orderPosition, ...
 Record             – id, databaseId, content, values (Map<String,dynamic>), orderPosition, ...
 RecordLink         – sourceRecordId, targetRecordId, fieldId, createdAt
@@ -128,3 +159,178 @@ RecordLink         – sourceRecordId, targetRecordId, fieldId, createdAt
 This is a full schema reset (new tables), not an incremental migration from the
 journal schema. The `reference/` directory preserves the old code. New code starts
 fresh in `lib/`.
+
+---
+
+## UI Plan
+
+### Navigation Structure
+
+```
+┌─────────────────────────────────────────┐
+│  Sidebar / Drawer                       │
+│  ┌───────────────────────────────────┐  │
+│  │ 📋 Books                         │  │
+│  │ 📋 Projects                      │  │
+│  │ 📋 People                        │  │
+│  │ + New Database                    │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+```
+
+- Drawer/sidebar lists all databases
+- Tap a database → opens its view
+- "+ New Database" at the bottom
+
+### Database View Screen
+
+Top bar has the database name and a **view switcher** (dropdown or segmented
+control). MVP ships with two views: **Card** and **Note**.
+
+```
+┌─────────────────────────────────────────┐
+│  Books            [Card ▾]   [+ Field]  │
+│  [🔍 Search]                            │
+├─────────────────────────────────────────┤
+│                                         │
+│  (view content rendered here)           │
+│                                         │
+│                          [+ New Record] │
+└─────────────────────────────────────────┘
+```
+
+### Card View
+
+Each record is a card showing field values in a compact layout. The first text
+field (or the record title/content) is prominent. Other fields render as
+label: value pairs below.
+
+```
+┌─────────────────────────────────────────┐
+│  The Great Gatsby                       │
+│  Author: F. Scott Fitzgerald            │
+│  Status: Reading                        │
+│  Rating: ★★★★                          │
+└─────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  1984                                   │
+│  Author: George Orwell                  │
+│  Status: Finished                       │
+│  Rating: ★★★★★                         │
+└─────────────────────────────────────────┘
+```
+
+- Cards are vertically scrollable
+- Tap a card → opens **Record Detail** screen
+
+### Note View
+
+Each record renders as a note/document block. The `content` field is prominent
+(multi-line text area). Structured fields show as a compact header above the
+content.
+
+```
+┌─────────────────────────────────────────┐
+│  The Great Gatsby                       │
+│  Author: Fitzgerald · Status: Reading   │
+│  ─────────────────────────────────────  │
+│  Chapter 3 thoughts: The party scene    │
+│  reveals Gatsby's loneliness despite    │
+│  the crowd...                           │
+└─────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  1984                                   │
+│  Author: Orwell · Status: Finished      │
+│  ─────────────────────────────────────  │
+│  The ending is devastating. Winston's   │
+│  surrender feels inevitable in          │
+│  retrospect...                          │
+└─────────────────────────────────────────┘
+```
+
+- Note view emphasizes `content` — good for databases used primarily as notes
+- Fields collapsed into a single-line summary
+
+### Record Detail Screen
+
+Full editing view for a single record. Opened by tapping a card/note.
+
+```
+┌─────────────────────────────────────────┐
+│  ← Back                       [Delete]  │
+├─────────────────────────────────────────┤
+│  Title:   [The Great Gatsby          ]  │
+│  Author:  [F. Scott Fitzgerald       ]  │
+│  Status:  [Reading ▾                 ]  │
+│  Rating:  [4                         ]  │
+├─────────────────────────────────────────┤
+│  Notes                                  │
+│  ┌───────────────────────────────────┐  │
+│  │ Chapter 3 thoughts: The party    │  │
+│  │ scene reveals Gatsby's           │  │
+│  │ loneliness despite the crowd...  │  │
+│  │                                  │  │
+│  └───────────────────────────────────┘  │
+├─────────────────────────────────────────┤
+│  Linked Records                         │
+│  → F. Scott Fitzgerald (People)         │
+│  + Add Link                             │
+└─────────────────────────────────────────┘
+```
+
+- Each field renders with an appropriate input widget (text field, checkbox,
+  date picker, dropdown for select, etc.)
+- `content` shows as a multi-line text area labeled "Notes"
+- Linked records shown at the bottom with tap-to-navigate
+
+### Schema Editor
+
+Accessed via [+ Field] button or a "Manage Fields" option. Simple list of
+fields with type, name, and drag-to-reorder.
+
+```
+┌─────────────────────────────────────────┐
+│  Fields for "Books"          [+ Add]    │
+├─────────────────────────────────────────┤
+│  ≡  Title        text                   │
+│  ≡  Author       text                   │
+│  ≡  Status       select                 │
+│  ≡  Rating       number                 │
+│  ≡  Author Link  relation → People      │
+└─────────────────────────────────────────┘
+```
+
+- Tap a field → edit name, type, config (e.g. select options)
+- Drag handle (≡) for reordering
+- Delete with swipe or long-press
+
+### Widget Tree (Flutter)
+
+```
+MaterialApp
+ └─ Scaffold
+     ├─ Drawer → DatabaseListDrawer
+     │    ├─ DatabaseListTile (per database)
+     │    └─ CreateDatabaseTile
+     └─ Body → DatabaseViewScreen
+          ├─ AppBar (name, view switcher, + field)
+          ├─ SearchBar
+          └─ ViewSwitcher (switches between view widgets)
+               ├─ CardView → ListView of RecordCard
+               └─ NoteView → ListView of RecordNote
+
+RecordDetailScreen (pushed on nav stack)
+ ├─ FieldEditorList (one widget per field)
+ ├─ ContentEditor (plain text area)
+ └─ LinkedRecordsList
+
+SchemaEditorScreen (pushed on nav stack)
+ └─ ReorderableListView of FieldEditorTile
+```
+
+### Future Views (not in MVP, but schema supports them)
+
+- **Table view**: Spreadsheet-style grid, one row per record, columns = fields
+- **Gallery view**: Image-forward cards (when file/image field type is added)
+- **Calendar view**: Records plotted on calendar by their date field
+- **Kanban view**: Cards grouped into columns by a select field
