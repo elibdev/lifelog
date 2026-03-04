@@ -86,9 +86,9 @@ class LifelogTheme {
         height: 1.4,
         color: inkMedium,
       ),
-      // Body text — comfortable reading
+      // Body text — comfortable reading; P4: differentiated from bodyMedium.
       bodyLarge: TextStyle(
-        fontSize: 15,
+        fontSize: 17,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.0,
         height: 1.5,

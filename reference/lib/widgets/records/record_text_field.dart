@@ -44,6 +44,9 @@ class RecordTextField extends StatefulWidget {
 class RecordTextFieldState extends State<RecordTextField> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  // Tracks whether the user has typed anything; suppresses the undo SnackBar
+  // for auto-generated placeholders that were never touched.
+  bool _hasUserEdited = false;
 
   FocusNode get focusNode => _focusNode;
 
@@ -68,7 +71,26 @@ class RecordTextFieldState extends State<RecordTextField> {
     // C2: never auto-delete in read-only mode (search results)
     if (widget.readOnly) return;
     if (!_focusNode.hasFocus && _controller.text.trim().isEmpty) {
-      widget.onDelete(widget.record.id);
+      // Capture callbacks before onDelete removes this widget from the tree.
+      final record = widget.record;
+      final onSave = widget.onSave;
+      widget.onDelete(record.id);
+
+      // P5: Only offer undo if the user actually edited the field — suppresses
+      // the SnackBar for auto-generated placeholders that were never touched.
+      if (!_hasUserEdited) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: const Text('Empty record removed'),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Undo',
+            // onSave re-creates the record in JournalScreen's _recordsByDate
+            // and schedules a DB write via the normal debounced save path.
+            onPressed: () => onSave(record),
+          ),
+        ),
+      );
     }
   }
 
@@ -139,6 +161,7 @@ class RecordTextFieldState extends State<RecordTextField> {
   }
 
   void _handleTextChange() {
+    _hasUserEdited = true;
     final text = _controller.text;
 
     // C1: Slash command detection — only on non-empty lines starting with '/'
@@ -187,13 +210,20 @@ class RecordTextFieldState extends State<RecordTextField> {
         focusNode: _focusNode,
         // C2: readOnly allows text selection (copy) but prevents editing
         readOnly: widget.readOnly,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
           filled: false,
+          // M1: Hint surfaces the slash-command system to new users.
+          // Only shown on the placeholder (empty record), hidden in readOnly search results.
+          hintText: widget.readOnly ? null : 'Write, or type / for commands…',
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
+            height: GridConstants.textLineHeightMultiplier,
+          ),
         ),
         style: effectiveStyle,
         cursorColor: theme.colorScheme.primary,

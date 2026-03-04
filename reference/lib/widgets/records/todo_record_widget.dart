@@ -53,8 +53,6 @@ class TodoRecordWidget extends StatelessWidget {
             child: Checkbox(
               value: isChecked,
               onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
             ),
           ),
         ),
@@ -69,6 +67,11 @@ class TodoRecordWidget extends StatelessWidget {
             onFocusNodeDisposed: onFocusNodeDisposed,
             textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   decoration: isChecked ? TextDecoration.lineThrough : null,
+                  // P3: Mute checked text to colorScheme.outline so strikethrough
+                  // visually pops against the text rather than blending into it.
+                  color: isChecked
+                      ? Theme.of(context).colorScheme.outline
+                      : null,
                   height: GridConstants.textLineHeightMultiplier,
                 ),
             onToggleCheckbox: (value) => _handleCheckboxToggle(value),

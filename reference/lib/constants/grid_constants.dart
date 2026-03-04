@@ -32,6 +32,10 @@ class GridConstants {
   /// Gap between checkbox and text.
   static const double checkboxToTextGap = 10.0;
 
+  /// Minimum interactive touch target — HIG (44px) and Material (48px) both
+  /// recommend at least 44px; we use 44 to stay closer to visual proportions.
+  static const double minTouchTarget = 44.0;
+
   /// Responsive left padding: wider screens get more margin.
   static double calculateContentLeftPadding(double screenWidth) {
     if (screenWidth > 900) return 64.0;
