@@ -60,7 +60,12 @@ class AdaptiveRecordWidget extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: GridConstants.rowHeight),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              // CrossAxisAlignment.center: aligns the TypePickerButton's + icon
+              // with the vertical midpoint of the content. For single-line records
+              // the content is ~21px tall inside the 44px button box, centering
+              // both at y=22. For multi-line records the + floats to the midpoint
+              // of all lines — same behaviour as the todo checkbox.
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // C1: type-picker centralised here so individual widgets stay
                 // focused on their own indicator without TypePickerButton boilerplate.
