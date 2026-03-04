@@ -58,6 +58,11 @@ class BulletListRecordWidget extends StatelessWidget {
                 _bulletForLevel(indentLevel),
                 textAlign: TextAlign.center,
                 style: TextStyle(
+                  // Match RecordTextField's line-height so CrossAxisAlignment.start
+                  // keeps the bullet level with the first line of text.
+                  // Without this, the default height (1.0) places the bullet lower
+                  // than the text inside the 1.5× line-height TextField.
+                  height: GridConstants.textLineHeightMultiplier,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
