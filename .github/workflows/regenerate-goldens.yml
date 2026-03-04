@@ -1,7 +1,7 @@
 name: Regenerate Widget PNGs
 
-# Runs whenever widget source or golden test files change.
-# Regenerates the committed PNGs in reference/test/goldens/ and pushes them back.
+# Runs whenever widget source or golden test files change in either project.
+# Regenerates the committed PNGs and pushes them back.
 on:
   workflow_dispatch:
   push:
@@ -9,6 +9,10 @@ on:
       - 'reference/lib/widgets/**'
       - 'reference/test/screenshots/**'
       - 'reference/test/flutter_test_config.dart'
+      - 'app/lib/widgets/**'
+      - 'app/lib/screens/**'
+      - 'app/test/screenshots/**'
+      - 'app/test/flutter_test_config.dart'
 
 # Write permission is required to push the regenerated PNGs back to the branch.
 permissions:
@@ -30,21 +34,28 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Get dependencies
+      - name: Get dependencies (reference)
         run: flutter pub get
         working-directory: reference
 
-      # --update-goldens writes new PNGs to reference/test/goldens/ instead of
-      # failing on mismatches. Equivalent to `make goldens` locally.
-      - name: Regenerate golden PNGs
+      - name: Get dependencies (app)
+        run: flutter pub get
+        working-directory: app
+
+      # --update-goldens writes new PNGs instead of failing on mismatches.
+      - name: Regenerate golden PNGs (reference)
         run: flutter test --update-goldens test/screenshots/
         working-directory: reference
+
+      - name: Regenerate golden PNGs (app)
+        run: flutter test --update-goldens test/screenshots/
+        working-directory: app
 
       - name: Commit and push updated goldens
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add reference/test/goldens/
+          git add reference/test/goldens/ app/test/goldens/
           if git diff --staged --quiet; then
             echo "Goldens unchanged – nothing to commit."
           else
