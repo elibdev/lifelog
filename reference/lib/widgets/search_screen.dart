@@ -221,33 +221,50 @@ class _SearchScreenState extends State<SearchScreen> {
                                         final isToday =
                                             DateService.isToday(date);
 
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.fromLTRB(
-                                                      16, 16, 16, 4),
-                                              child: Text(
-                                                isToday
-                                                    ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
-                                                    : DateService.formatForDisplay(date).toUpperCase(),
-                                                style: theme
-                                                    .textTheme.titleMedium,
+                                        // M1: Wrap each date group in an InkWell so tapping any
+                                        // record in the group pops back to the journal at that date.
+                                        // Navigator.pop with a typed result — JournalScreen awaits it.
+                                        // See: https://api.flutter.dev/flutter/widgets/Navigator/pop.html
+                                        return InkWell(
+                                          onTap: () =>
+                                              Navigator.pop<String>(context, date),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Padding(
+                                                // P1: Responsive padding mirrors the search field
+                                                // so date headers align on tablet and desktop.
+                                                padding: EdgeInsets.fromLTRB(
+                                                  GridConstants.calculateContentLeftPadding(
+                                                    constraints.maxWidth.clamp(0, maxWidth),
+                                                  ),
+                                                  16,
+                                                  GridConstants.calculateContentRightPadding(
+                                                    constraints.maxWidth.clamp(0, maxWidth),
+                                                  ),
+                                                  4,
+                                                ),
+                                                child: Text(
+                                                  isToday
+                                                      ? 'TODAY · ${DateService.formatForDisplay(date).toUpperCase()}'
+                                                      : DateService.formatForDisplay(date).toUpperCase(),
+                                                  style: theme
+                                                      .textTheme.titleMedium,
+                                                ),
                                               ),
-                                            ),
-                                            ...records.map(
-                                              (record) => AdaptiveRecordWidget(
-                                                key: ValueKey(
-                                                    'search-${record.id}'),
-                                                record: record,
-                                                onSave: (_) {},
-                                                onDelete: (_) {},
-                                                readOnly: true,
+                                              ...records.map(
+                                                (record) => AdaptiveRecordWidget(
+                                                  key: ValueKey(
+                                                      'search-${record.id}'),
+                                                  record: record,
+                                                  onSave: (_) {},
+                                                  onDelete: (_) {},
+                                                  readOnly: true,
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         );
                                       },
                                     ),

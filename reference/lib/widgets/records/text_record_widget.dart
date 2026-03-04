@@ -96,53 +96,124 @@ class TypePickerButton extends StatelessWidget {
     };
   }
 
+  // M5: Identify conversions that silently lose user data so we can offer undo.
+  // - Habit → anything: loses completion history and streak.
+  // - Anything → Habit: clears content field (moves to habit.name metadata).
+  // - Checked todo → non-todo: loses the checked state.
+  bool _isLossyConversion(RecordType from, RecordType to) {
+    if (from == RecordType.habit) return true;
+    if (to == RecordType.habit) return true;
+    if (from == RecordType.todo && to != RecordType.todo && record.isChecked) {
+      return true;
+    }
+    return false;
+  }
+
+  String _typeName(RecordType type) => switch (type) {
+        RecordType.text => 'text',
+        RecordType.todo => 'todo',
+        RecordType.heading => 'heading',
+        RecordType.bulletList => 'bullet',
+        RecordType.habit => 'habit',
+      };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // M2: 44×44 touch target (was 30×28). The larger tap area extends into the
+    // content padding zone but only the icon is visible — same visual footprint.
+    // See: https://m3.material.io/foundations/interaction/states/overview
     return SizedBox(
-      width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-      height: GridConstants.rowHeight,
+      width: GridConstants.minTouchTarget,
+      height: GridConstants.minTouchTarget,
       child: Center(
         child: PopupMenuButton<RecordType>(
           tooltip: 'Change record type',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
+          // M2: Bump icon to 18px and use onSurfaceVariant (slightly more visible
+          // than outline) so the button is easier to discover.
           icon: Icon(
             Icons.add,
-            size: 14,
-            color: theme.colorScheme.outline,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          iconSize: 14,
+          iconSize: 18,
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            // P3: Fixed-width SizedBox for the glyph slot — prevents alignment
+            // from depending on font-specific Unicode character widths.
+            PopupMenuItem(
               value: RecordType.text,
-              child: Text('T   Text'),
+              child: _MenuRow(glyph: 'T', label: 'Text'),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: RecordType.todo,
-              child: Text('☐   Todo'),
+              child: _MenuRow(glyph: '☐', label: 'Todo'),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: RecordType.heading,
-              child: Text('H1  Heading'),
+              child: _MenuRow(glyph: 'H1', label: 'Heading'),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: RecordType.bulletList,
-              child: Text('•   Bullet'),
+              child: _MenuRow(glyph: '•', label: 'Bullet'),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: RecordType.habit,
-              child: Text('○   Habit'),
+              child: _MenuRow(glyph: '○', label: 'Habit'),
             ),
           ],
           onSelected: (type) {
             if (type == record.type) return;
-            onSave(_convertTo(type));
+
+            final original = record;
+            final converted = _convertTo(type);
+            onSave(converted);
             RefocusRecordNotification(recordId: record.id).dispatch(context);
+
+            // M5: Offer undo via SnackBar for conversions that lose data,
+            // matching the empty-record deletion undo pattern.
+            if (_isLossyConversion(original.type, type)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Converted to ${_typeName(type)} — some data may be lost',
+                  ),
+                  duration: const Duration(seconds: 5),
+                  action: SnackBarAction(
+                    label: 'Undo',
+                    onPressed: () => onSave(original),
+                  ),
+                ),
+              );
+            }
           },
         ),
       ),
+    );
+  }
+}
+
+// P3: Consistent menu-item layout using a Row with a fixed-width glyph container.
+// Avoids relying on Unicode character widths for column alignment.
+class _MenuRow extends StatelessWidget {
+  final String glyph;
+  final String label;
+
+  const _MenuRow({required this.glyph, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 24,
+          child: Text(glyph, textAlign: TextAlign.center),
+        ),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
     );
   }
 }

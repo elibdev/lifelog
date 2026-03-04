@@ -68,9 +68,9 @@ class AdaptiveRecordWidget extends StatelessWidget {
                 if (!readOnly)
                   TypePickerButton(record: record, onSave: onSave)
                 else
-                  const SizedBox(
-                    width: GridConstants.checkboxSize + GridConstants.checkboxToTextGap,
-                  ),
+                  // M2: Match the 44px width of TypePickerButton so record content
+                  // stays left-aligned whether the button is shown or hidden.
+                  const SizedBox(width: GridConstants.minTouchTarget),
                 // Exhaustive switch: compiler enforces all RecordType cases are handled
                 Expanded(
                   child: switch (record.type) {

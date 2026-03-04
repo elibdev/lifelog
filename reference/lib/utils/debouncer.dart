@@ -7,6 +7,8 @@ import 'dart:async';
 class Debouncer {
   final Duration delay;
   Timer? _timer;
+  // M7: Store the pending action so flush() can fire it immediately.
+  void Function()? _pendingAction;
 
   Debouncer({this.delay = const Duration(milliseconds: 500)});
 
@@ -14,10 +16,28 @@ class Debouncer {
   /// before the delay expires.
   void call(void Function() action) {
     _timer?.cancel();
-    _timer = Timer(delay, action);
+    _pendingAction = action;
+    _timer = Timer(delay, () {
+      action();
+      _pendingAction = null;
+    });
   }
 
   void cancel() => _timer?.cancel();
 
-  void dispose() => _timer?.cancel();
+  // M7: Flush immediately fires the pending action (if any) without waiting
+  // for the delay to expire. Called on app background/pause so in-flight
+  // keystrokes are written to the DB before the OS might kill the process.
+  void flush() {
+    if (_timer?.isActive == true) {
+      _timer!.cancel();
+      _pendingAction?.call();
+      _pendingAction = null;
+    }
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _pendingAction = null;
+  }
 }
