@@ -24,7 +24,9 @@ class LifelogTheme {
   static const Color _surface = Color(0xFFFFFFFF);
   static const Color _inkBlack = Color(0xFF1A1A1A);
   static const Color _inkMedium = Color(0xFF4A4A4A);
-  static const Color _inkLight = Color(0xFF8A8A8A);
+  // M3: #737373 achieves ~4.5:1 contrast on #FAF8F5 (WCAG AA for normal text).
+  // Previous #8A8A8A was only ~3.2:1, failing AA for 12px bodySmall text.
+  static const Color _inkLight = Color(0xFF737373);
   static const Color _inkHint = Color(0xFFB0B0B0);
   static const Color _rule = Color(0xFFE8E4DF);
 
@@ -37,7 +39,9 @@ class LifelogTheme {
   static const Color _darkSurface = Color(0xFF242424);
   static const Color _darkInk = Color(0xFFE8E4DF);
   static const Color _darkInkMedium = Color(0xFFB0ADA8);
-  static const Color _darkInkLight = Color(0xFF787572);
+  // M3: #9A9A9A achieves ~4.5:1 contrast on #1A1A1A (WCAG AA for normal text).
+  // Previous #787572 was only ~3.1:1, failing AA for 12px bodySmall text.
+  static const Color _darkInkLight = Color(0xFF9A9A9A);
   static const Color _darkInkHint = Color(0xFF585552);
   static const Color _darkRule = Color(0xFF333333);
 

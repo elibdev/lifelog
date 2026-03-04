@@ -88,11 +88,11 @@ class DaySection extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Minimum height ensures empty days feel like blank pages,
-                // not collapsed rows — same visual weight whether filled or not.
+                // P2: Reduced from spacing*4 (96px) to spacing*2 (48px) so
+                // empty future days don't create large blank gaps when scrolling.
                 ConstrainedBox(
                   constraints: const BoxConstraints(
-                    minHeight: GridConstants.spacing * 4,
+                    minHeight: GridConstants.spacing * 2,
                   ),
                   child: RecordSection(
                     key: getSectionKey(date),

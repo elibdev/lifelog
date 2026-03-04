@@ -25,6 +25,7 @@ class KeyboardService {
       record: record,
       recordIndex: recordIndex,
       context: context,
+      textController: textController,
     );
     if (navResult == KeyEventResult.handled) return navResult;
 
@@ -45,12 +46,16 @@ class KeyboardService {
     required Record record,
     required int recordIndex,
     required BuildContext context,
+    required TextEditingController textController,
   }) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      // Only hijack Arrow Down when the cursor is on the last line of the field.
+      // If there is a '\n' after the cursor, the default text movement handles it.
+      if (!_isCursorOnLastLine(textController)) return KeyEventResult.ignored;
       NavigateDownNotification(
         recordId: record.id,
         recordIndex: recordIndex,
@@ -58,6 +63,8 @@ class KeyboardService {
       ).dispatch(context);
       return KeyEventResult.handled;
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      // Only hijack Arrow Up when the cursor is on the first line of the field.
+      if (!_isCursorOnFirstLine(textController)) return KeyEventResult.ignored;
       NavigateUpNotification(
         recordId: record.id,
         recordIndex: recordIndex,
@@ -67,6 +74,22 @@ class KeyboardService {
     }
 
     return KeyEventResult.ignored;
+  }
+
+  // Returns true if the cursor (or selection start) sits on the first line,
+  // meaning there is no '\n' character before it in the text.
+  static bool _isCursorOnFirstLine(TextEditingController controller) {
+    final cursor = controller.selection.start;
+    if (cursor <= 0) return true;
+    return !controller.text.substring(0, cursor).contains('\n');
+  }
+
+  // Returns true if the cursor (or selection start) sits on the last line,
+  // meaning there is no '\n' character after it in the text.
+  static bool _isCursorOnLastLine(TextEditingController controller) {
+    final cursor = controller.selection.start;
+    if (cursor < 0 || cursor >= controller.text.length) return true;
+    return !controller.text.substring(cursor).contains('\n');
   }
 
   static KeyEventResult _handleActionKey({

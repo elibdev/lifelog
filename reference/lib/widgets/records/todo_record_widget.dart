@@ -45,14 +45,25 @@ class TodoRecordWidget extends StatelessWidget {
       // See: https://api.flutter.dev/flutter/widgets/Row-class.html
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // C3: Wrap the 20px visual checkbox in a 44×44 transparent tap area,
+        // matching the HabitRecordWidget pattern. The theme's shrinkWrap +
+        // compact settings control visual density, but the outer SizedBox
+        // gives the finger a full 44×44 hit target.
+        // See: https://m3.material.io/foundations/interaction/states/overview
         Padding(
           padding: const EdgeInsets.only(right: GridConstants.checkboxToTextGap),
           child: SizedBox(
-            width: GridConstants.checkboxSize,
-            height: GridConstants.checkboxSize,
-            child: Checkbox(
-              value: isChecked,
-              onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
+            width: GridConstants.minTouchTarget,
+            height: GridConstants.minTouchTarget,
+            child: Center(
+              child: SizedBox(
+                width: GridConstants.checkboxSize,
+                height: GridConstants.checkboxSize,
+                child: Checkbox(
+                  value: isChecked,
+                  onChanged: (isEmpty || readOnly) ? null : _handleCheckboxToggle,
+                ),
+              ),
             ),
           ),
         ),

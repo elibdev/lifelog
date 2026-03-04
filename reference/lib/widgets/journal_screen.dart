@@ -21,18 +21,32 @@ class JournalScreen extends StatefulWidget {
   State<JournalScreen> createState() => _JournalScreenState();
 }
 
-class _JournalScreenState extends State<JournalScreen> {
+// M7: WidgetsBindingObserver lets the State listen for app lifecycle changes
+// (foreground, background, paused) so we can flush pending debouncers before
+// the process might be killed. Mix it in alongside State<T>.
+// See: https://api.flutter.dev/flutter/widgets/WidgetsBindingObserver-class.html
+class _JournalScreenState extends State<JournalScreen>
+    with WidgetsBindingObserver {
   // widget.repository accesses the StatefulWidget's fields from its State.
   // Flutter keeps State alive across rebuilds; widget ref always points to current.
   // See: https://api.flutter.dev/flutter/widgets/State/widget.html
   RecordRepository get _repository => widget.repository;
 
   final Map<String, List<Record>> _recordsByDate = {};
+  // P6: Track insertion order for LRU eviction — LinkedHashMap iteration is
+  // insertion-ordered, so removing+reinserting moves an entry to the "newest" end.
+  final List<String> _cachedDateOrder = [];
+  static const int _maxCachedDates = 30;
+
   final Map<String, Debouncer> _debouncers = {};
 
   // One GlobalKey per date (simplified from date+type with old two-section pattern)
   final Map<String, GlobalKey<RecordSectionState>> _sectionKeys = {};
   final GlobalKey _todayKey = GlobalKey();
+
+  // M6: ScrollController lets us read offset to show/hide the "today" button.
+  late final ScrollController _scrollController;
+  bool _showTodayButton = false;
 
   // M2: Save feedback — true for 1.5s after each successful debounced write.
   bool _showSaved = false;
@@ -74,14 +88,87 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
+  // M6: Pre-load records for a date, then attempt to scroll to it via
+  // Scrollable.ensureVisible. Works for dates already rendered in the SliverList;
+  // for dates far off-screen, a SnackBar informs the user what to scroll to.
+  Future<void> _scrollToDate(String date) async {
+    await _getRecordsForDate(date);
+    if (!mounted) return;
+    setState(() {});
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _getSectionKey(date);
+      final sectionContext = key.currentContext;
+      if (sectionContext != null) {
+        // Scrollable.ensureVisible walks up the tree to find the nearest
+        // scrollable ancestor and animates until the widget is visible.
+        // See: https://api.flutter.dev/flutter/widgets/Scrollable/ensureVisible.html
+        Scrollable.ensureVisible(
+          sectionContext,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+          alignment: 0.1,
+        );
+      } else {
+        // Date is too far off-screen to render — inform the user.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Scroll to ${DateService.formatForDisplay(date)} to see your entry',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    // M7: Register this State as a lifecycle observer.
+    WidgetsBinding.instance.addObserver(this);
+    _scrollController = ScrollController()..addListener(_onScroll);
     _loadInitialData();
+  }
+
+  // M7: didChangeAppLifecycleState fires when the user backgrounds the app.
+  // Flush all pending debouncers so in-flight keystrokes are persisted before
+  // the OS might kill the process.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      for (final debouncer in _debouncers.values) {
+        debouncer.flush();
+      }
+    }
+  }
+
+  // M6: Show the "today" button whenever the scroll offset is non-zero
+  // (user has scrolled away from the today anchor in either direction).
+  void _onScroll() {
+    final away = _scrollController.offset.abs() > 200;
+    if (away != _showTodayButton) {
+      setState(() => _showTodayButton = away);
+    }
+  }
+
+  // M6: Jump back to the today anchor.
+  void _scrollToToday() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _savedTimer?.cancel();
     for (final debouncer in _debouncers.values) {
       debouncer.dispose();
@@ -106,10 +193,24 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Future<List<Record>> _getRecordsForDate(String date) async {
     if (_recordsByDate.containsKey(date)) {
+      // P6: Move this date to the end of the LRU order (most recently accessed).
+      _cachedDateOrder.remove(date);
+      _cachedDateOrder.add(date);
       return _recordsByDate[date]!;
     }
+
     final records = await _repository.getRecordsForDate(date);
     _recordsByDate[date] = records;
+    _cachedDateOrder.add(date);
+
+    // P6: Evict the oldest entry when the cache exceeds the limit.
+    if (_cachedDateOrder.length > _maxCachedDates) {
+      final oldest = _cachedDateOrder.removeAt(0);
+      _recordsByDate.remove(oldest);
+      // Discard the section key too — it will be recreated on next access.
+      _sectionKeys.remove(oldest);
+    }
+
     return records;
   }
 
@@ -179,16 +280,45 @@ class _JournalScreenState extends State<JournalScreen> {
     return Scaffold(
       // M7: endTop keeps the search FAB out of the writing area at the bottom.
       floatingActionButtonLocation: FloatingActionButtonLocation.miniEndTop,
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-            builder: (_) => SearchScreen(repository: _repository),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'search',
+            onPressed: () async {
+              // M1: await the pop result — SearchScreen returns the tapped date string.
+              // Typed push: Navigator.push<String> enforces the return type at compile time.
+              final date = await Navigator.of(context).push<String>(
+                MaterialPageRoute(
+                  builder: (_) => SearchScreen(repository: _repository),
+                ),
+              );
+              if (date != null && mounted) {
+                _scrollToDate(date);
+              }
+            },
+            tooltip: 'Search',
+            child: const Icon(Icons.search),
           ),
-          );
-        },
-        tooltip: 'Search',
-        child: const Icon(Icons.search),
+          // M6: Scroll-to-today button — only visible when user has scrolled away.
+          // AnimatedSize smoothly collapses/expands the button.
+          // See: https://api.flutter.dev/flutter/widgets/AnimatedSize-class.html
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _showTodayButton
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: FloatingActionButton.small(
+                      heroTag: 'today',
+                      onPressed: _scrollToToday,
+                      tooltip: 'Jump to today',
+                      child: const Icon(Icons.today),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -215,6 +345,7 @@ class _JournalScreenState extends State<JournalScreen> {
                           return true;
                         },
                         child: CustomScrollView(
+                          controller: _scrollController,
                           center: _todayKey,
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
@@ -282,6 +413,12 @@ class _JournalScreenState extends State<JournalScreen> {
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerHighest
                           .withValues(alpha: 0.9),
+                      // P5: 1px border makes the badge visible in dark mode where
+                      // surfaceContainerHighest blends into the dark background.
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                        width: 1,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
