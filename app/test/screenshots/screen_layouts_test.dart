@@ -291,10 +291,22 @@ void main() {
     });
   });
 
+  // RecordDetail golden tests mirror the actual RecordDetailScreen layout:
+  // fields in a constrained scrollable header, notes filling remaining space
+  // via Expanded + TextField(expands: true).
   group('RecordDetail layout', () {
-    testWidgets('with field values', (tester) async {
+    testWidgets('with field values and multiline notes', (tester) async {
       _setWindowSize(tester);
       final record = _records.first;
+      final multilineContent =
+          '${record.content}\n\n'
+          'Chapter 1 notes:\n'
+          '- Nick moves to West Egg\n'
+          '- Meets mysterious neighbor Gatsby\n'
+          '- Attends lavish party across the bay\n\n'
+          'Key themes: wealth, idealism, social class.\n'
+          'The green light symbolizes unattainable dreams.';
+
       await tester.pumpWidget(MaterialApp(
         theme: ThemeData(
           colorSchemeSeed: Colors.indigo,
@@ -311,54 +323,86 @@ void main() {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
+          // Mirrors the Column layout from RecordDetailScreen.
+          body: Column(
             children: [
-              // Text fields
-              TextField(
-                controller: TextEditingController(
-                    text: record.values['f-title'] as String?),
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
+              // Field editors in a constrained scrollable area.
+              Flexible(
+                flex: 0,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    shrinkWrap: true,
+                    children: [
+                      TextField(
+                        controller: TextEditingController(
+                            text: record.values['f-title'] as String?),
+                        decoration: const InputDecoration(
+                          labelText: 'Title',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: TextEditingController(
+                            text: record.values['f-author'] as String?),
+                        decoration: const InputDecoration(
+                          labelText: 'Author',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: TextEditingController(
+                            text: record.values['f-rating']?.toString()),
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Rating',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        title: const Text('Favorite'),
+                        value: record.values['f-favorite'] == true,
+                        onChanged: (_) {},
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: TextEditingController(
-                    text: record.values['f-author'] as String?),
-                decoration: const InputDecoration(
-                  labelText: 'Author',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: TextEditingController(
-                    text: record.values['f-rating']?.toString()),
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Rating',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                title: const Text('Favorite'),
-                value: record.values['f-favorite'] == true,
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 16),
-              Text('Notes',
-                  style: ThemeData(useMaterial3: true).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              TextField(
-                controller: TextEditingController(text: record.content),
-                maxLines: null,
-                minLines: 5,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Write notes here...',
+
+              const Divider(height: 1),
+
+              // Notes area fills remaining space.
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Notes',
+                          style: ThemeData(useMaterial3: true)
+                              .textTheme
+                              .titleSmall),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: TextField(
+                          controller:
+                              TextEditingController(text: multilineContent),
+                          expands: true,
+                          maxLines: null,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Write notes here...',
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

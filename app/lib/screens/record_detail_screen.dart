@@ -126,22 +126,68 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             ),
           ],
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
+        // Column layout: scrollable field editors on top, expandable notes
+        // area fills the remaining vertical space. This prevents the nested-
+        // scroll problem where a multiline TextField fights with a ListView.
+        body: Column(
           children: [
-            // Structured fields
-            for (final field in widget.fields) _buildFieldEditor(field),
+            // Structured fields in a scrollable region that shrinks to fit.
+            // Flexible with a constrained height keeps long field lists from
+            // pushing notes off-screen while still allowing scroll.
+            if (widget.fields.isNotEmpty)
+              Flexible(
+                flex: 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
+                  ),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    shrinkWrap: true,
+                    children: [
+                      for (final field in widget.fields)
+                        _buildFieldEditor(field),
+                    ],
+                  ),
+                ),
+              ),
 
-            const SizedBox(height: 16),
-            Text('Notes', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _contentController,
-              maxLines: null,
-              minLines: 5,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Write notes here...',
+            const Divider(height: 1),
+
+            // Notes section: Expanded fills all remaining space so the text
+            // editor grows with the screen. The TextField scrolls internally
+            // via `expands: true` — a TextField property that makes it fill
+            // its parent instead of growing line by line.
+            // See: https://api.flutter.dev/flutter/material/TextField/expands.html
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Notes',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _contentController,
+                        // `expands: true` + `maxLines: null` makes the
+                        // TextField fill its Expanded parent and scroll
+                        // internally — ideal for long-form note editing.
+                        expands: true,
+                        maxLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'Write notes here...',
+                          // alignLabelWithHint pushes the hint to the top-left
+                          // of the expanded field instead of centering it.
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -95,7 +95,11 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.',
+    content: 'A classic novel about the American dream.\n\n'
+        'Chapter 1 notes:\n'
+        '- Nick moves to West Egg\n'
+        '- Meets mysterious neighbor Gatsby\n'
+        '- Attends lavish party across the bay',
     values: const {
       'f-title': 'The Great Gatsby',
       'f-author': 'F. Scott Fitzgerald',
@@ -110,7 +114,8 @@ final _records = [
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.',
+    content: 'Interesting take on dystopian surveillance society.\n'
+        'The parallels to modern technology are striking.',
     values: const {
       'f-title': '1984',
       'f-author': 'George Orwell',
