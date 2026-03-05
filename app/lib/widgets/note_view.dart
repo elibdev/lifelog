@@ -5,19 +5,18 @@ import 'package:flutter/material.dart';
 import '../models/field.dart';
 import '../models/record.dart';
 
-/// Note-style view with inline editing. Tap a note to expand it into an
-/// editable state — content becomes a borderless text field and structured
-/// fields render as interactive chips. Changes auto-save via a debounce timer.
+/// Note-style view where every record is always an inline editor. Content is a
+/// borderless text field, structured fields render as interactive chips.
+/// Changes auto-save via a per-card debounce timer.
 ///
-/// This is a StatefulWidget because it manages local editing state:
-/// which note is expanded, TextEditingControllers for the active editor,
-/// and a debounce [Timer] for auto-save.
-/// See: https://api.flutter.dev/flutter/widgets/StatefulWidget-class.html
-class NoteView extends StatefulWidget {
+/// This is a StatelessWidget — each individual _NoteCard is a StatefulWidget
+/// that owns its own TextEditingController and save timer.
+/// See: https://api.flutter.dev/flutter/widgets/StatelessWidget-class.html
+class NoteView extends StatelessWidget {
   final List<Record> records;
   final List<Field> fields;
 
-  /// Called when the user long-presses a note (navigate to full detail screen).
+  /// Called when the user wants to open the full detail screen for a record.
   final ValueChanged<Record> onRecordTap;
 
   /// Called when inline edits should be persisted. The parent saves to DB.
@@ -32,122 +31,22 @@ class NoteView extends StatefulWidget {
   });
 
   @override
-  State<NoteView> createState() => _NoteViewState();
-}
-
-class _NoteViewState extends State<NoteView> {
-  String? _expandedRecordId;
-  Record? _editingRecord;
-
-  // Controller for the currently expanded note's content field.
-  // Created on expand, disposed on collapse. Only one note is editable at a
-  // time, so we only need one controller.
-  TextEditingController? _contentController;
-  Timer? _saveTimer;
-
-  @override
-  void dispose() {
-    _flushSave();
-    _cleanupControllers();
-    super.dispose();
-  }
-
-  void _expandRecord(Record record) {
-    if (_expandedRecordId == record.id) return;
-
-    // Save and clean up any currently expanded note.
-    _flushSave();
-    _cleanupControllers();
-
-    _contentController = TextEditingController(text: record.content);
-    _contentController!.addListener(_onEditChanged);
-
-    setState(() {
-      _expandedRecordId = record.id;
-      _editingRecord = record;
-    });
-  }
-
-  void _collapseRecord() {
-    _flushSave();
-    _cleanupControllers();
-    setState(() {
-      _expandedRecordId = null;
-      _editingRecord = null;
-    });
-  }
-
-  /// Called on every keystroke. Updates the in-memory record and schedules
-  /// a debounced save so we don't hit the DB on every character.
-  void _onEditChanged() {
-    if (_editingRecord == null) return;
-
-    _editingRecord = _editingRecord!.copyWith(
-      content: _contentController!.text,
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
-    );
-
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 800), _flushSave);
-  }
-
-  /// Immediately persist the current editing state via the parent callback.
-  void _flushSave() {
-    _saveTimer?.cancel();
-    if (_editingRecord != null) {
-      widget.onRecordUpdated?.call(_editingRecord!);
-    }
-  }
-
-  void _cleanupControllers() {
-    _contentController?.removeListener(_onEditChanged);
-    _contentController?.dispose();
-    _contentController = null;
-  }
-
-  /// Update a structured field value on the currently-expanded record.
-  /// Used by interactive field chips (checkbox toggle, date picker, etc.).
-  void _updateFieldValue(String fieldId, dynamic value) {
-    if (_editingRecord == null) return;
-    setState(() {
-      _editingRecord = _editingRecord!.copyWith(
-        values: {..._editingRecord!.values, fieldId: value},
-        updatedAt: DateTime.now().millisecondsSinceEpoch,
-      );
-    });
-    // Save immediately for non-text edits (toggles, pickers).
-    _flushSave();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(8),
-      itemCount: widget.records.length,
+      itemCount: records.length,
       itemBuilder: (context, index) {
-        final record = widget.records[index];
-        final isExpanded = record.id == _expandedRecordId;
-
-        if (isExpanded && _editingRecord != null) {
-          return _ExpandedNoteCard(
-            record: _editingRecord!,
-            fields: widget.fields,
-            contentController: _contentController!,
-            onCollapse: _collapseRecord,
-            onFieldValueChanged: _updateFieldValue,
-            onOpenDetail: () {
-              _collapseRecord();
-              widget.onRecordTap(record);
-            },
-          );
-        }
-
-        return _CollapsedNoteCard(
+        final record = records[index];
+        return _NoteCard(
+          // Key by record ID so Flutter reuses the right StatefulWidget when
+          // the list reorders. Without this, controllers could bind to the
+          // wrong record after a sort or insert.
+          // See: https://api.flutter.dev/flutter/foundation/Key-class.html
+          key: ValueKey(record.id),
           record: record,
-          fields: widget.fields,
-          onTap: () => _expandRecord(record),
-          // Long-press opens the full RecordDetailScreen.
-          onLongPress: () => widget.onRecordTap(record),
+          fields: fields,
+          onRecordUpdated: onRecordUpdated,
+          onOpenDetail: () => onRecordTap(record),
         );
       },
     );
@@ -155,155 +54,113 @@ class _NoteViewState extends State<NoteView> {
 }
 
 // ---------------------------------------------------------------------------
-// Collapsed note card — read-only preview, same visual as original NoteView
+// Individual note card — always editable, owns its own controller + timer
 // ---------------------------------------------------------------------------
 
-class _CollapsedNoteCard extends StatelessWidget {
+class _NoteCard extends StatefulWidget {
   final Record record;
   final List<Field> fields;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _CollapsedNoteCard({
-    required this.record,
-    required this.fields,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  String _getHeading() {
-    if (record.content.isNotEmpty) {
-      return record.content.split('\n').first;
-    }
-    return 'Untitled';
-  }
-
-  String _fieldSummary() {
-    final parts = <String>[];
-    for (final field in fields) {
-      if (field.fieldType == FieldType.relation) continue;
-      final value = record.getValue(field.id);
-      if (value == null || value.toString().isEmpty) continue;
-      final display = field.fieldType == FieldType.checkbox
-          ? (value == true ? '\u2713' : '\u2717')
-          : value.toString();
-      parts.add('${field.name}: $display');
-    }
-    return parts.join(' \u00b7 ');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final title = _getHeading();
-    final summary = _fieldSummary();
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (summary.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  summary,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (record.content.isNotEmpty) ...[
-                const Divider(height: 16),
-                Text(
-                  record.content,
-                  style: theme.textTheme.bodyMedium,
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Expanded note card — inline editor with borderless fields and field chips
-// ---------------------------------------------------------------------------
-
-class _ExpandedNoteCard extends StatelessWidget {
-  final Record record;
-  final List<Field> fields;
-  final TextEditingController contentController;
-  final VoidCallback onCollapse;
-  final void Function(String fieldId, dynamic value) onFieldValueChanged;
+  final ValueChanged<Record>? onRecordUpdated;
   final VoidCallback onOpenDetail;
 
-  const _ExpandedNoteCard({
+  const _NoteCard({
+    super.key,
     required this.record,
     required this.fields,
-    required this.contentController,
-    required this.onCollapse,
-    required this.onFieldValueChanged,
+    required this.onRecordUpdated,
     required this.onOpenDetail,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  State<_NoteCard> createState() => _NoteCardState();
+}
 
-    // Build interactive field chips for all non-relation fields.
+class _NoteCardState extends State<_NoteCard> {
+  late TextEditingController _contentController;
+  late Record _editingRecord;
+  Timer? _saveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _editingRecord = widget.record;
+    _contentController = TextEditingController(text: widget.record.content);
+    _contentController.addListener(_onEditChanged);
+  }
+
+  /// When the parent rebuilds with a new Record (e.g. after DB refresh),
+  /// update the controller only if the content actually changed externally.
+  /// `didUpdateWidget` fires whenever the parent rebuilds with new props —
+  /// it's Flutter's equivalent of React's componentDidUpdate / getDerivedState.
+  /// See: https://api.flutter.dev/flutter/widgets/State/didUpdateWidget.html
+  @override
+  void didUpdateWidget(covariant _NoteCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.record.id != oldWidget.record.id) {
+      // Different record entirely (list reorder without matching Key).
+      _contentController.text = widget.record.content;
+      _editingRecord = widget.record;
+    } else if (widget.record.content != _editingRecord.content &&
+        widget.record.content != _contentController.text) {
+      // External update (e.g. another screen edited this record).
+      _contentController.text = widget.record.content;
+      _editingRecord = widget.record;
+    }
+  }
+
+  @override
+  void dispose() {
+    _flushSave();
+    _contentController.removeListener(_onEditChanged);
+    _contentController.dispose();
+    _saveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onEditChanged() {
+    _editingRecord = _editingRecord.copyWith(
+      content: _contentController.text,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 800), _flushSave);
+  }
+
+  void _flushSave() {
+    _saveTimer?.cancel();
+    widget.onRecordUpdated?.call(_editingRecord);
+  }
+
+  void _updateFieldValue(String fieldId, dynamic value) {
+    setState(() {
+      _editingRecord = _editingRecord.copyWith(
+        values: {..._editingRecord.values, fieldId: value},
+        updatedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+    });
+    _flushSave();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final chipFields =
-        fields.where((f) => f.fieldType != FieldType.relation).toList();
+        widget.fields.where((f) => f.fieldType != FieldType.relation).toList();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      // Elevated + tinted border to show this card is active.
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-          width: 1.5,
-        ),
-      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: heading + action buttons
+            // Action buttons row
             Row(
               children: [
                 const Spacer(),
-                // Open full detail screen
                 IconButton(
                   icon: const Icon(Icons.open_in_full, size: 18),
                   tooltip: 'Open full editor',
-                  onPressed: onOpenDetail,
-                  visualDensity: VisualDensity.compact,
-                ),
-                // Collapse / done button
-                IconButton(
-                  icon: const Icon(Icons.check, size: 18),
-                  tooltip: 'Done',
-                  onPressed: onCollapse,
+                  onPressed: widget.onOpenDetail,
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -311,7 +168,6 @@ class _ExpandedNoteCard extends StatelessWidget {
 
             // Interactive field chips
             if (chipFields.isNotEmpty) ...[
-              const SizedBox(height: 4),
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -319,26 +175,23 @@ class _ExpandedNoteCard extends StatelessWidget {
                   for (final field in chipFields)
                     _FieldChip(
                       field: field,
-                      value: record.getValue(field.id),
+                      value: _editingRecord.getValue(field.id),
                       onChanged: (value) =>
-                          onFieldValueChanged(field.id, value),
+                          _updateFieldValue(field.id, value),
                     ),
                 ],
               ),
+              const Divider(height: 16),
             ],
 
-            const Divider(height: 16),
-
             // Content text field — grows with content, capped at a max height.
-            // `ConstrainedBox` + `IntrinsicHeight` lets the TextField grow with
-            // its content up to maxHeight, then scroll internally.
             ConstrainedBox(
               constraints: const BoxConstraints(
                 minHeight: 80,
                 maxHeight: 300,
               ),
               child: TextField(
-                controller: contentController,
+                controller: _contentController,
                 maxLines: null,
                 decoration: const InputDecoration.collapsed(
                   hintText: 'Write notes here...',
@@ -371,7 +224,6 @@ class _FieldChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (field.fieldType) {
       // Checkbox: FilterChip toggles on/off directly.
-      // FilterChip is Material's standard for toggleable chips.
       // See: https://api.flutter.dev/flutter/material/FilterChip-class.html
       FieldType.checkbox => FilterChip(
           label: Text(field.name),
@@ -399,8 +251,7 @@ class _FieldChip extends StatelessWidget {
           onPressed: () => _showDatePicker(context),
         ),
 
-      // Text / Number: read-only chip (editing via the title field or
-      // the full detail screen). Shows current value or field name.
+      // Text / Number: read-only chip showing current value or field name.
       _ => Chip(
           label: Text(value != null && value.toString().isNotEmpty
               ? '${field.name}: $value'
@@ -414,8 +265,6 @@ class _FieldChip extends StatelessWidget {
     final options = field.selectOptions;
     if (options.isEmpty) return;
 
-    // `showMenu` renders a Material popup menu at the tap position.
-    // `RelativeRect.fromLTRB` positions it near the chip.
     final renderBox = context.findRenderObject() as RenderBox;
     final offset = renderBox.localToGlobal(Offset.zero);
 
