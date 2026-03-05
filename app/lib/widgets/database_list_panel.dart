@@ -4,28 +4,30 @@ import 'package:uuid/uuid.dart';
 import '../models/app_database.dart';
 import '../database/database_repository.dart';
 
-/// Drawer that lists all user-created databases with a "New Database" action.
+/// Reusable panel that lists all databases with a "New Database" action.
 ///
-/// Uses a StatefulWidget because it owns the async load lifecycle and
-/// manages the database list state locally. The [onDatabaseSelected] callback
-/// lets the parent screen react to taps without coupling the drawer to
-/// navigation logic.
-/// See: https://api.flutter.dev/flutter/widgets/StatefulWidget-class.html
-class DatabaseListDrawer extends StatefulWidget {
+/// Unlike a Drawer, this widget has no overlay chrome — it's just the content.
+/// The parent decides how to display it: as a permanent side panel on wide
+/// screens, or as the body of a full-screen Scaffold on narrow screens.
+///
+/// This is a common Flutter pattern for adaptive layouts: extract the content
+/// into a plain widget, then wrap it differently depending on screen size.
+/// See: https://docs.flutter.dev/ui/adaptive-responsive
+class DatabaseListPanel extends StatefulWidget {
   final String? selectedDatabaseId;
   final ValueChanged<AppDatabase> onDatabaseSelected;
 
-  const DatabaseListDrawer({
+  const DatabaseListPanel({
     super.key,
     this.selectedDatabaseId,
     required this.onDatabaseSelected,
   });
 
   @override
-  State<DatabaseListDrawer> createState() => _DatabaseListDrawerState();
+  State<DatabaseListPanel> createState() => _DatabaseListPanelState();
 }
 
-class _DatabaseListDrawerState extends State<DatabaseListDrawer> {
+class _DatabaseListPanelState extends State<DatabaseListPanel> {
   final _repo = DatabaseRepository();
   List<AppDatabase> _databases = [];
 
@@ -37,9 +39,6 @@ class _DatabaseListDrawerState extends State<DatabaseListDrawer> {
 
   Future<void> _loadDatabases() async {
     final databases = await _repo.getAll();
-    // `mounted` check: the widget might have been disposed while the async
-    // call was in flight. Calling setState on a disposed widget throws.
-    // See: https://api.flutter.dev/flutter/widgets/State/mounted.html
     if (mounted) setState(() => _databases = databases);
   }
 
@@ -66,46 +65,41 @@ class _DatabaseListDrawerState extends State<DatabaseListDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Databases',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _databases.length,
-                itemBuilder: (context, index) {
-                  final db = _databases[index];
-                  final selected = db.id == widget.selectedDatabaseId;
-                  return ListTile(
-                    leading: const Icon(Icons.table_chart_outlined),
-                    title: Text(db.name),
-                    selected: selected,
-                    onTap: () {
-                      widget.onDatabaseSelected(db);
-                      Navigator.pop(context); // close drawer
-                    },
-                  );
-                },
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('New Database'),
-              onTap: _createDatabase,
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Databases',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
         ),
-      ),
+        const Divider(height: 1),
+        Expanded(
+          child: _databases.isEmpty
+              ? const Center(child: Text('No databases yet'))
+              : ListView.builder(
+                  itemCount: _databases.length,
+                  itemBuilder: (context, index) {
+                    final db = _databases[index];
+                    final selected = db.id == widget.selectedDatabaseId;
+                    return ListTile(
+                      leading: const Icon(Icons.table_chart_outlined),
+                      title: Text(db.name),
+                      selected: selected,
+                      onTap: () => widget.onDatabaseSelected(db),
+                    );
+                  },
+                ),
+        ),
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.add),
+          title: const Text('New Database'),
+          onTap: _createDatabase,
+        ),
+      ],
     );
   }
 }

@@ -73,3 +73,23 @@ Explain Flutter and Dart-specific concepts, patterns, and idioms at "teachable m
 Only ask when introducing major new concepts or user is struggling. Examples:
 - "Why StatefulWidget here instead of StatelessWidget?"
 - "How does this lifecycle differ from React/Vue?"
+
+---
+
+## Golden Screenshots
+
+The `app/test/goldens/` directory contains PNG screenshots of every screen across multiple device sizes (phone, tablet, desktop), themes (light/dark), and states (populated, empty). These serve as a **visual reference** for the full app UI — browse them to see what the app looks like without running it.
+
+**Maintaining goldens:** After any UI change, regenerate:
+```bash
+cd app && flutter test --update-goldens test/screenshots/
+```
+
+**When to add new goldens:** If you add a new screen, widget, or meaningful UI state, add a corresponding golden test in `test/screenshots/app_golden_matrix_test.dart` covering phone + tablet/desktop sizes, light + dark themes, and populated + empty states.
+
+**Test file index:**
+- `app_golden_matrix_test.dart` — Comprehensive matrix: all screens × device sizes × configurations
+- `view_widgets_test.dart` — Isolated CardView and NoteView widget goldens
+- `screen_layouts_test.dart` — Screen-level layout compositions
+
+**Naming convention:** `{layout}_{view}_{variant}_{device}.png` — e.g. `wide_card_dark_desktop.png`, `narrow_list_empty_phone.png`
