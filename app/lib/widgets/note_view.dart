@@ -6,9 +6,8 @@ import '../models/field.dart';
 import '../models/record.dart';
 
 /// Note-style view with inline editing. Tap a note to expand it into an
-/// editable state — title and content become borderless text fields,
-/// structured fields render as interactive chips. Changes auto-save via
-/// a debounce timer.
+/// editable state — content becomes a borderless text field and structured
+/// fields render as interactive chips. Changes auto-save via a debounce timer.
 ///
 /// This is a StatefulWidget because it manages local editing state:
 /// which note is expanded, TextEditingControllers for the active editor,
@@ -40,10 +39,9 @@ class _NoteViewState extends State<NoteView> {
   String? _expandedRecordId;
   Record? _editingRecord;
 
-  // Controllers for the currently expanded note's title and content fields.
+  // Controller for the currently expanded note's content field.
   // Created on expand, disposed on collapse. Only one note is editable at a
-  // time, so we only need one set of controllers.
-  TextEditingController? _titleController;
+  // time, so we only need one controller.
   TextEditingController? _contentController;
   Timer? _saveTimer;
 
@@ -54,10 +52,6 @@ class _NoteViewState extends State<NoteView> {
     super.dispose();
   }
 
-  /// Find the first text field in the schema — used as the "title" field.
-  Field? get _titleField =>
-      widget.fields.where((f) => f.fieldType == FieldType.text).firstOrNull;
-
   void _expandRecord(Record record) {
     if (_expandedRecordId == record.id) return;
 
@@ -65,14 +59,7 @@ class _NoteViewState extends State<NoteView> {
     _flushSave();
     _cleanupControllers();
 
-    final titleField = _titleField;
-    final titleValue = titleField != null
-        ? (record.getValue(titleField.id) ?? '').toString()
-        : '';
-
-    _titleController = TextEditingController(text: titleValue);
     _contentController = TextEditingController(text: record.content);
-    _titleController!.addListener(_onEditChanged);
     _contentController!.addListener(_onEditChanged);
 
     setState(() {
@@ -95,15 +82,8 @@ class _NoteViewState extends State<NoteView> {
   void _onEditChanged() {
     if (_editingRecord == null) return;
 
-    final titleField = _titleField;
-    final updatedValues = {..._editingRecord!.values};
-    if (titleField != null) {
-      updatedValues[titleField.id] = _titleController!.text;
-    }
-
     _editingRecord = _editingRecord!.copyWith(
       content: _contentController!.text,
-      values: updatedValues,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
 
@@ -120,11 +100,8 @@ class _NoteViewState extends State<NoteView> {
   }
 
   void _cleanupControllers() {
-    _titleController?.removeListener(_onEditChanged);
     _contentController?.removeListener(_onEditChanged);
-    _titleController?.dispose();
     _contentController?.dispose();
-    _titleController = null;
     _contentController = null;
   }
 
@@ -155,8 +132,6 @@ class _NoteViewState extends State<NoteView> {
           return _ExpandedNoteCard(
             record: _editingRecord!,
             fields: widget.fields,
-            titleField: _titleField,
-            titleController: _titleController!,
             contentController: _contentController!,
             onCollapse: _collapseRecord,
             onFieldValueChanged: _updateFieldValue,
@@ -196,13 +171,7 @@ class _CollapsedNoteCard extends StatelessWidget {
     required this.onLongPress,
   });
 
-  String _getTitle() {
-    for (final field in fields) {
-      if (field.fieldType == FieldType.text) {
-        final value = record.getValue(field.id);
-        if (value is String && value.isNotEmpty) return value;
-      }
-    }
+  String _getHeading() {
     if (record.content.isNotEmpty) {
       return record.content.split('\n').first;
     }
@@ -211,15 +180,10 @@ class _CollapsedNoteCard extends StatelessWidget {
 
   String _fieldSummary() {
     final parts = <String>[];
-    bool skippedFirstText = false;
     for (final field in fields) {
       if (field.fieldType == FieldType.relation) continue;
       final value = record.getValue(field.id);
       if (value == null || value.toString().isEmpty) continue;
-      if (field.fieldType == FieldType.text && !skippedFirstText) {
-        skippedFirstText = true;
-        continue;
-      }
       final display = field.fieldType == FieldType.checkbox
           ? (value == true ? '\u2713' : '\u2717')
           : value.toString();
@@ -230,7 +194,7 @@ class _CollapsedNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = _getTitle();
+    final title = _getHeading();
     final summary = _fieldSummary();
     final theme = Theme.of(context);
 
@@ -286,8 +250,6 @@ class _CollapsedNoteCard extends StatelessWidget {
 class _ExpandedNoteCard extends StatelessWidget {
   final Record record;
   final List<Field> fields;
-  final Field? titleField;
-  final TextEditingController titleController;
   final TextEditingController contentController;
   final VoidCallback onCollapse;
   final void Function(String fieldId, dynamic value) onFieldValueChanged;
@@ -296,8 +258,6 @@ class _ExpandedNoteCard extends StatelessWidget {
   const _ExpandedNoteCard({
     required this.record,
     required this.fields,
-    required this.titleField,
-    required this.titleController,
     required this.contentController,
     required this.onCollapse,
     required this.onFieldValueChanged,
@@ -308,12 +268,9 @@ class _ExpandedNoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Build interactive field chips for non-title, non-relation fields.
-    final chipFields = fields.where((f) {
-      if (f.fieldType == FieldType.relation) return false;
-      if (f.id == titleField?.id) return false;
-      return true;
-    }).toList();
+    // Build interactive field chips for all non-relation fields.
+    final chipFields =
+        fields.where((f) => f.fieldType != FieldType.relation).toList();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -331,31 +288,10 @@ class _ExpandedNoteCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: title + action buttons
+            // Top row: heading + action buttons
             Row(
               children: [
-                Expanded(
-                  child: titleField != null
-                      ? TextField(
-                          controller: titleController,
-                          style: theme.textTheme.titleMedium,
-                          // Borderless text field for a clean, note-like feel.
-                          // `InputDecoration.collapsed` strips all default
-                          // padding and borders from a TextField.
-                          // See: https://api.flutter.dev/flutter/material/InputDecoration/InputDecoration.collapsed.html
-                          decoration: InputDecoration.collapsed(
-                            hintText: titleField!.name,
-                          ),
-                        )
-                      : Text(
-                          record.content.isNotEmpty
-                              ? record.content.split('\n').first
-                              : 'Untitled',
-                          style: theme.textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                ),
+                const Spacer(),
                 // Open full detail screen
                 IconButton(
                   icon: const Icon(Icons.open_in_full, size: 18),

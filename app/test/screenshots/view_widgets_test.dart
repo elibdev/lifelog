@@ -237,8 +237,8 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      // Tap the first note to expand it
-      await tester.tap(find.text('The Great Gatsby').first);
+      // Tap the first note to expand it (heading is now first line of content)
+      await tester.tap(find.text('A classic novel about the American dream.').first);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(MaterialApp),

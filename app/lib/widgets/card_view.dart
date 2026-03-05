@@ -44,24 +44,18 @@ class _RecordCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Finds the first non-empty text-like value to use as the card title.
-  String _getTitle() {
-    // Try first text field
-    for (final field in fields) {
-      if (field.fieldType == FieldType.text) {
-        final value = record.getValue(field.id);
-        if (value is String && value.isNotEmpty) return value;
-      }
+  /// Derives a heading from record content (first line, or 'Untitled').
+  String _getHeading() {
+    if (record.content.isNotEmpty) {
+      return record.content.split('\n').first;
     }
-    // Fall back to content
-    if (record.content.isNotEmpty) return record.content;
     return 'Untitled';
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _getTitle();
-    // Build field summary rows, skipping the field used as title and empty values
+    final title = _getHeading();
+    // Build field summary rows for all fields with values
     final fieldRows = <Widget>[];
     for (final field in fields) {
       final value = record.getValue(field.id);
