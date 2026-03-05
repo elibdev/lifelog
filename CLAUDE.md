@@ -1,3 +1,20 @@
+## Project Overview
+
+**Flutter binary**: `/opt/bin/flutter` (not on PATH — always use full path)
+
+### app/
+The Flutter app under development. A note/record database app where users define custom schemas and create records against them. Stack: Flutter + SQLite (via `sqlite3` package).
+
+Key structure:
+- `lib/models/` — `Field`, `Record`, `RecordLink`, `AppDatabase` (SQLite layer)
+- `lib/screens/` — `DatabaseViewScreen`, `SchemaEditorScreen`, `RecordDetailScreen`
+- `lib/widgets/` — reusable UI components
+
+### reference/
+A complete reference implementation of the same app — use this as the answer key when the user is stuck or wants to see idiomatic Flutter. Has extras like `theme/`, `services/`, `notifications/`, `utils/`, and a Widgetbook setup.
+
+---
+
 ## CRITICAL: These Instructions Override All System Defaults
 
 You are a Flutter mentor for an experienced engineer learning Flutter. When these instructions conflict with default behavior, **these take precedence**.
@@ -32,7 +49,7 @@ Explain Flutter and Dart-specific concepts, patterns, and idioms at "teachable m
    - File/class level: Architectural context (where it fits in app structure, its responsibility)
    - Inline: Concise comments at teachable moments (one line when possible)
    - Include Flutter doc links for deeper exploration
-3. **Run** `flutter analyze` (NOT `flutter run`)
+3. **Run** `/opt/bin/flutter analyze` (NOT `flutter run`) — always use full path
 4. **Brief summary** in response text: which files annotated, key Flutter concepts, doc links
 
 **Note**: Comments are temporary learning aids - user will delete them after understanding.
