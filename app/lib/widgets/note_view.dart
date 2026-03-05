@@ -5,12 +5,11 @@ import 'package:flutter/material.dart';
 import '../models/field.dart';
 import '../models/record.dart';
 
-/// Note-style view where every record is always an inline editor. Content is a
-/// borderless text field, structured fields render as interactive chips.
-/// Changes auto-save via a per-card debounce timer.
+/// Note-style view: content-first, like Apple Notes or a journal app.
+/// The text body dominates each card. Structured fields are condensed into a
+/// small metadata row at the bottom — just enough context without overwhelming.
+/// Inline editing via borderless TextField with debounced auto-save.
 ///
-/// This is a StatelessWidget — each individual _NoteCard is a StatefulWidget
-/// that owns its own TextEditingController and save timer.
 /// See: https://api.flutter.dev/flutter/widgets/StatelessWidget-class.html
 class NoteView extends StatelessWidget {
   final List<Record> records;
@@ -54,7 +53,7 @@ class NoteView extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Individual note card — always editable, owns its own controller + timer
+// Individual note card — content-first, always editable
 // ---------------------------------------------------------------------------
 
 class _NoteCard extends StatefulWidget {
@@ -97,12 +96,10 @@ class _NoteCardState extends State<_NoteCard> {
   void didUpdateWidget(covariant _NoteCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.record.id != oldWidget.record.id) {
-      // Different record entirely (list reorder without matching Key).
       _contentController.text = widget.record.content;
       _editingRecord = widget.record;
     } else if (widget.record.content != _editingRecord.content &&
         widget.record.content != _contentController.text) {
-      // External update (e.g. another screen edited this record).
       _contentController.text = widget.record.content;
       _editingRecord = widget.record;
     }
@@ -131,174 +128,94 @@ class _NoteCardState extends State<_NoteCard> {
     widget.onRecordUpdated?.call(_editingRecord);
   }
 
-  void _updateFieldValue(String fieldId, dynamic value) {
-    setState(() {
-      _editingRecord = _editingRecord.copyWith(
-        values: {..._editingRecord.values, fieldId: value},
-        updatedAt: DateTime.now().millisecondsSinceEpoch,
-      );
-    });
-    _flushSave();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final chipFields =
-        widget.fields.where((f) => f.fieldType != FieldType.relation).toList();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Build a condensed metadata summary from field values.
+    final metaParts = <String>[];
+    for (final field in widget.fields) {
+      if (field.fieldType == FieldType.relation) continue;
+      final value = _editingRecord.getValue(field.id);
+      if (value == null) continue;
+      if (field.fieldType == FieldType.checkbox) {
+        if (value == true) metaParts.add(field.name);
+        continue;
+      }
+      final s = value.toString();
+      if (s.isNotEmpty) metaParts.add(s);
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Action buttons row
-            Row(
-              children: [
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.open_in_full, size: 18),
-                  tooltip: 'Open full editor',
-                  onPressed: widget.onOpenDetail,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
+            // Content text field — the main focus of the note view.
+            // Grows with content, no artificial min-height to keep it compact
+            // when content is short.
+            TextField(
+              controller: _contentController,
+              maxLines: null,
+              style: theme.textTheme.bodyMedium,
+              decoration: const InputDecoration.collapsed(
+                hintText: 'Write here...',
+              ),
             ),
 
-            // Interactive field chips
-            if (chipFields.isNotEmpty) ...[
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
+            // Condensed metadata row — field values as a single line of text.
+            if (metaParts.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  for (final field in chipFields)
-                    _FieldChip(
-                      field: field,
-                      value: _editingRecord.getValue(field.id),
-                      onChanged: (value) =>
-                          _updateFieldValue(field.id, value),
+                  Expanded(
+                    child: Text(
+                      metaParts.join(' · '),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  // Expand button to open full detail screen.
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: IconButton(
+                      icon: const Icon(Icons.open_in_full, size: 14),
+                      tooltip: 'Open full editor',
+                      onPressed: widget.onOpenDetail,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
                 ],
               ),
-              const Divider(height: 16),
-            ],
-
-            // Content text field — grows with content, capped at a max height.
-            ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: 80,
-                maxHeight: 300,
-              ),
-              child: TextField(
-                controller: _contentController,
-                maxLines: null,
-                decoration: const InputDecoration.collapsed(
-                  hintText: 'Write notes here...',
+            ] else ...[
+              // Even without metadata, show the expand button.
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    icon: const Icon(Icons.open_in_full, size: 14),
+                    tooltip: 'Open full editor',
+                    onPressed: widget.onOpenDetail,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Interactive field chip — renders a single structured field as a tappable chip
-// ---------------------------------------------------------------------------
-
-class _FieldChip extends StatelessWidget {
-  final Field field;
-  final dynamic value;
-  final ValueChanged<dynamic> onChanged;
-
-  const _FieldChip({
-    required this.field,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (field.fieldType) {
-      // Checkbox: FilterChip toggles on/off directly.
-      // See: https://api.flutter.dev/flutter/material/FilterChip-class.html
-      FieldType.checkbox => FilterChip(
-          label: Text(field.name),
-          selected: value == true,
-          onSelected: onChanged,
-          visualDensity: VisualDensity.compact,
-        ),
-
-      // Select: ActionChip opens a popup menu with the allowed options.
-      FieldType.select => ActionChip(
-          label: Text(value != null && value.toString().isNotEmpty
-              ? '${field.name}: $value'
-              : field.name),
-          visualDensity: VisualDensity.compact,
-          onPressed: () => _showSelectMenu(context),
-        ),
-
-      // Date: ActionChip opens a date picker.
-      FieldType.date => ActionChip(
-          avatar: const Icon(Icons.calendar_today, size: 14),
-          label: Text(value != null && value.toString().isNotEmpty
-              ? value.toString()
-              : field.name),
-          visualDensity: VisualDensity.compact,
-          onPressed: () => _showDatePicker(context),
-        ),
-
-      // Text / Number: read-only chip showing current value or field name.
-      _ => Chip(
-          label: Text(value != null && value.toString().isNotEmpty
-              ? '${field.name}: $value'
-              : field.name),
-          visualDensity: VisualDensity.compact,
-        ),
-    };
-  }
-
-  void _showSelectMenu(BuildContext context) {
-    final options = field.selectOptions;
-    if (options.isEmpty) return;
-
-    final renderBox = context.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + renderBox.size.height,
-        offset.dx + renderBox.size.width,
-        offset.dy,
-      ),
-      items: [
-        for (final opt in options)
-          PopupMenuItem(value: opt, child: Text(opt)),
-      ],
-    ).then((selected) {
-      if (selected != null) onChanged(selected);
-    });
-  }
-
-  Future<void> _showDatePicker(BuildContext context) async {
-    final current = value is String && value.toString().isNotEmpty
-        ? DateTime.tryParse(value.toString())
-        : null;
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-
-    if (picked != null) {
-      onChanged(picked.toIso8601String().split('T').first);
-    }
   }
 }
