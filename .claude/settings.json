@@ -1,4 +1,7 @@
 {
+  "env": {
+    "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/root/.local/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/node22/bin:/opt/maven/bin:/opt/gradle/bin:/opt/rbenv/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
   "hooks": {
     "SessionStart": [
       {
