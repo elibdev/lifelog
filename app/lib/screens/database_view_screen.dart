@@ -113,6 +113,20 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
     _loadData();
   }
 
+  /// Save inline edits from NoteView without a full data reload.
+  /// Updates the local list so the UI stays consistent.
+  Future<void> _saveRecordInline(Record updated) async {
+    await _recordRepo.save(updated);
+    if (mounted) {
+      setState(() {
+        final index = _records.indexWhere((r) => r.id == updated.id);
+        if (index != -1) {
+          _records[index] = updated;
+        }
+      });
+    }
+  }
+
   Future<void> _openSchemaEditor() async {
     await Navigator.push(
       context,
@@ -172,6 +186,7 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
                       records: _records,
                       fields: _fields,
                       onRecordTap: _openRecord,
+                      onRecordUpdated: _saveRecordInline,
                     )
                   : CardView(
                       records: _records,
