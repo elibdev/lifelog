@@ -14,6 +14,7 @@ import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
 import 'package:lifelog/widgets/card_view.dart';
 import 'package:lifelog/widgets/note_view.dart';
+import 'package:lifelog/widgets/table_view.dart';
 
 // ---------------------------------------------------------------------------
 // Device profiles
@@ -241,6 +242,7 @@ Widget _databaseViewShell({
           items: const [
             DropdownMenuItem(value: 'card', child: Text('Card')),
             DropdownMenuItem(value: 'note', child: Text('Note')),
+            DropdownMenuItem(value: 'table', child: Text('Table')),
           ],
           onChanged: (_) {},
         ),
@@ -550,6 +552,28 @@ void main() {
       );
     });
 
+    testWidgets('table view selected (desktop)', (tester) async {
+      _setDevice(tester, Device.desktop);
+      await tester.pumpWidget(_app(
+        _wideLayout(
+          databases: _databases,
+          selectedId: 'db-1',
+          detailBody: TableView(
+            records: _records,
+            fields: _fields,
+            onRecordTap: (_) {},
+          ),
+          detailTitle: 'Books',
+          currentView: 'table',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/wide_table_desktop.png'),
+      );
+    });
+
     testWidgets('card view dark (desktop)', (tester) async {
       _setDevice(tester, Device.desktop);
       await tester.pumpWidget(_app(
@@ -660,6 +684,25 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/narrow_note_phone.png'),
+      );
+    });
+
+    testWidgets('table view (phone)', (tester) async {
+      _setDevice(tester, Device.phone);
+      await tester.pumpWidget(_app(
+        _databaseViewShell(
+          body: TableView(
+            records: _records,
+            fields: _fields,
+            onRecordTap: (_) {},
+          ),
+          currentView: 'table',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/narrow_table_phone.png'),
       );
     });
 

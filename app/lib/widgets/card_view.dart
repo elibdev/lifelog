@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/field.dart';
 import '../models/record.dart';
 
-/// Card-based view: each record renders as a Material card with field values.
+/// Trello-style card view: compact cards focused on structured field values.
+/// Content text is shown only as a secondary preview — tapping opens an edit
+/// modal. Designed for project-management-style scanning of many records.
 class CardView extends StatelessWidget {
   final List<Record> records;
   final List<Field> fields;
@@ -44,61 +46,64 @@ class _RecordCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Finds the first non-empty text-like value to use as the card title.
-  String _getTitle() {
-    // Try first text field
-    for (final field in fields) {
-      if (field.fieldType == FieldType.text) {
-        final value = record.getValue(field.id);
-        if (value is String && value.isNotEmpty) return value;
-      }
-    }
-    // Fall back to content
-    if (record.content.isNotEmpty) return record.content;
-    return 'Untitled';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final title = _getTitle();
-    // Build field summary rows, skipping the field used as title and empty values
-    final fieldRows = <Widget>[];
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Collect fields that have values set on this record.
+    final populatedFields = <(Field, String)>[];
     for (final field in fields) {
       final value = record.getValue(field.id);
       if (value == null) continue;
       final display = _formatValue(field, value);
       if (display.isEmpty) continue;
-      fieldRows.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '${field.name}: $display',
-            style: Theme.of(context).textTheme.bodySmall,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      );
+      populatedFields.add((field, display));
     }
 
+    // Content preview: first non-empty line, only if content exists.
+    final contentPreview = record.content.trim().isNotEmpty
+        ? record.content.trim().split('\n').first
+        : null;
+
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       child: InkWell(
         onTap: onTap,
         // `borderRadius` on InkWell clips the ripple to match the Card shape.
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              ...fieldRows,
+              // Field values as compact chips — the primary content of a card.
+              if (populatedFields.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final (field, display) in populatedFields)
+                      _FieldBadge(
+                        field: field,
+                        display: display,
+                        colorScheme: colorScheme,
+                      ),
+                  ],
+                ),
+
+              // Content preview — secondary, only if there's text.
+              if (contentPreview != null) ...[
+                if (populatedFields.isNotEmpty) const SizedBox(height: 6),
+                Text(
+                  contentPreview,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         ),
@@ -109,14 +114,62 @@ class _RecordCard extends StatelessWidget {
   String _formatValue(Field field, dynamic value) {
     switch (field.fieldType) {
       case FieldType.checkbox:
-        return value == true ? '✓' : '✗';
+        return value == true ? '✓' : '';
       case FieldType.date:
       case FieldType.text:
       case FieldType.number:
       case FieldType.select:
-        return value.toString();
+        final s = value.toString();
+        return s;
       case FieldType.relation:
-        return ''; // Relations shown separately
+        return '';
     }
+  }
+}
+
+/// Compact badge showing a single field value. Checkbox fields with false
+/// values are filtered out upstream; here we just render what's given.
+class _FieldBadge extends StatelessWidget {
+  final Field field;
+  final String display;
+  final ColorScheme colorScheme;
+
+  const _FieldBadge({
+    required this.field,
+    required this.display,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Checkbox gets a small check icon instead of text.
+    if (field.fieldType == FieldType.checkbox) {
+      return Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary);
+    }
+
+    // Select fields get a tinted background to stand out.
+    if (field.fieldType == FieldType.select) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          display,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+              ),
+        ),
+      );
+    }
+
+    // Everything else: plain label text.
+    return Text(
+      '${field.name}: $display',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+    );
   }
 }

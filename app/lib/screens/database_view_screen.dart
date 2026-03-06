@@ -9,6 +9,7 @@ import '../database/field_repository.dart';
 import '../database/record_repository.dart';
 import '../widgets/card_view.dart';
 import '../widgets/note_view.dart';
+import '../widgets/table_view.dart';
 import 'record_detail_screen.dart';
 import 'schema_editor_screen.dart';
 
@@ -113,6 +114,20 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
     _loadData();
   }
 
+  /// Save inline edits from NoteView without a full data reload.
+  /// Updates the local list so the UI stays consistent.
+  Future<void> _saveRecordInline(Record updated) async {
+    await _recordRepo.save(updated);
+    if (mounted) {
+      setState(() {
+        final index = _records.indexWhere((r) => r.id == updated.id);
+        if (index != -1) {
+          _records[index] = updated;
+        }
+      });
+    }
+  }
+
   Future<void> _openSchemaEditor() async {
     await Navigator.push(
       context,
@@ -138,6 +153,7 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
             items: const [
               DropdownMenuItem(value: 'card', child: Text('Card')),
               DropdownMenuItem(value: 'note', child: Text('Note')),
+              DropdownMenuItem(value: 'table', child: Text('Table')),
             ],
             onChanged: (value) {
               if (value != null) _switchView(value);
@@ -172,12 +188,19 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
                       records: _records,
                       fields: _fields,
                       onRecordTap: _openRecord,
+                      onRecordUpdated: _saveRecordInline,
                     )
-                  : CardView(
-                      records: _records,
-                      fields: _fields,
-                      onRecordTap: _openRecord,
-                    ),
+                  : currentView == 'table'
+                      ? TableView(
+                          records: _records,
+                          fields: _fields,
+                          onRecordTap: _openRecord,
+                        )
+                      : CardView(
+                          records: _records,
+                          fields: _fields,
+                          onRecordTap: _openRecord,
+                        ),
       floatingActionButton: _records.isNotEmpty
           ? FloatingActionButton(
               onPressed: _createRecord,

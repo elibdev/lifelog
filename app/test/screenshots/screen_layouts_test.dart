@@ -4,6 +4,7 @@ import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
 import 'package:lifelog/widgets/card_view.dart';
 import 'package:lifelog/widgets/note_view.dart';
+import 'package:lifelog/widgets/table_view.dart';
 
 // These tests render screen-like compositions (AppBar + views) to capture
 // golden PNGs of the full UI layout. They bypass the database layer by
@@ -183,6 +184,23 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/database_screen_note.png'),
+      );
+    });
+
+    testWidgets('table view', (tester) async {
+      _setWindowSize(tester, width: 600, height: 400);
+      await tester.pumpWidget(_wrapScreen(
+        TableView(
+          records: _records,
+          fields: _fields,
+          onRecordTap: (_) {},
+        ),
+        title: 'Books',
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/database_screen_table.png'),
       );
     });
 

@@ -4,6 +4,7 @@ import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
 import 'package:lifelog/widgets/card_view.dart';
 import 'package:lifelog/widgets/note_view.dart';
+import 'package:lifelog/widgets/table_view.dart';
 
 // Wrap a widget in a Material 3 themed app matching the real app's look.
 Widget _wrap(Widget child) {
@@ -223,6 +224,56 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('../goldens/note_view_dark.png'),
+      );
+    });
+  });
+
+  group('TableView', () {
+    testWidgets('with records', (tester) async {
+      _setWindowSize(tester, width: 600, height: 400);
+      await tester.pumpWidget(_wrap(
+        TableView(
+          records: _records,
+          fields: _fields,
+          onRecordTap: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/table_view.png'),
+      );
+    });
+
+    testWidgets('dark theme', (tester) async {
+      _setWindowSize(tester, width: 600, height: 400);
+      await tester.pumpWidget(_wrapDark(
+        TableView(
+          records: _records,
+          fields: _fields,
+          onRecordTap: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/table_view_dark.png'),
+      );
+    });
+
+    testWidgets('empty state', (tester) async {
+      _setWindowSize(tester, width: 600, height: 200);
+      await tester.pumpWidget(_wrap(
+        TableView(
+          records: const [],
+          fields: _fields,
+          onRecordTap: (_) {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../goldens/table_view_empty.png'),
       );
     });
   });
