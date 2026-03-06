@@ -89,8 +89,7 @@ class _NoteCardState extends State<_NoteCard> {
 
   /// When the parent rebuilds with a new Record (e.g. after DB refresh),
   /// update the controller only if the content actually changed externally.
-  /// `didUpdateWidget` fires whenever the parent rebuilds with new props —
-  /// it's Flutter's equivalent of React's componentDidUpdate / getDerivedState.
+  /// `didUpdateWidget` fires whenever the parent rebuilds with new props.
   /// See: https://api.flutter.dev/flutter/widgets/State/didUpdateWidget.html
   @override
   void didUpdateWidget(covariant _NoteCard oldWidget) {
@@ -128,6 +127,12 @@ class _NoteCardState extends State<_NoteCard> {
     widget.onRecordUpdated?.call(_editingRecord);
   }
 
+  // P6: Flush pending save before navigating to detail screen.
+  void _openDetail() {
+    _flushSave();
+    widget.onOpenDetail();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -155,8 +160,6 @@ class _NoteCardState extends State<_NoteCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Content text field — the main focus of the note view.
-            // Grows with content, no artificial min-height to keep it compact
-            // when content is short.
             TextField(
               controller: _contentController,
               maxLines: null,
@@ -181,35 +184,26 @@ class _NoteCardState extends State<_NoteCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // Expand button to open full detail screen.
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: IconButton(
-                      icon: const Icon(Icons.open_in_full, size: 14),
-                      tooltip: 'Open full editor',
-                      onPressed: widget.onOpenDetail,
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                  // M7: Removed the 28x28 SizedBox constraint — let the
+                  // IconButton use its default 48x48 touch target.
+                  // See: https://m3.material.io/foundations/accessible-design/accessibility-basics
+                  IconButton(
+                    icon: const Icon(Icons.open_in_full, size: 16),
+                    tooltip: 'Open full editor',
+                    onPressed: _openDetail,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
             ] else ...[
-              // Even without metadata, show the expand button.
               const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerRight,
-                child: SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: IconButton(
-                    icon: const Icon(Icons.open_in_full, size: 14),
-                    tooltip: 'Open full editor',
-                    onPressed: widget.onOpenDetail,
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
+                child: IconButton(
+                  icon: const Icon(Icons.open_in_full, size: 16),
+                  tooltip: 'Open full editor',
+                  onPressed: _openDetail,
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
             ],

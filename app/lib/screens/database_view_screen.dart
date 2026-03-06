@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,12 +17,19 @@ import 'schema_editor_screen.dart';
 
 /// Main screen showing records for a single database.
 ///
-/// Supports switching between Card and Note views via a dropdown in the AppBar.
+/// Supports switching between Card, Note, and Table views via a SegmentedButton.
 /// The view preference is persisted in the database's [config] JSON.
 class DatabaseViewScreen extends StatefulWidget {
   final AppDatabase database;
 
-  const DatabaseViewScreen({super.key, required this.database});
+  /// Set to false in wide layouts to suppress the automatic back button.
+  final bool showBackButton;
+
+  const DatabaseViewScreen({
+    super.key,
+    required this.database,
+    this.showBackButton = true,
+  });
 
   @override
   State<DatabaseViewScreen> createState() => _DatabaseViewScreenState();
@@ -35,6 +44,13 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
   List<Field> _fields = [];
   List<Record> _records = [];
   bool _loading = true;
+  String? _error;
+
+  // M4: Search state
+  bool _searching = false;
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  List<Record>? _searchResults;
 
   @override
   void initState() {
@@ -43,28 +59,45 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
     _loadData();
   }
 
-  // didUpdateWidget fires when the parent rebuilds this widget with a new
-  // `database` value (e.g. user picks a different database from the drawer).
-  // See: https://api.flutter.dev/flutter/widgets/State/didUpdateWidget.html
   @override
   void didUpdateWidget(DatabaseViewScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.database.id != widget.database.id) {
       _database = widget.database;
+      _cancelSearch();
       _loadData();
     }
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final fields = await _fieldRepo.getFieldsForDatabase(_database.id);
-    final records = await _recordRepo.getRecordsForDatabase(_database.id);
-    if (mounted) {
-      setState(() {
-        _fields = fields;
-        _records = records;
-        _loading = false;
-      });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final fields = await _fieldRepo.getFieldsForDatabase(_database.id);
+      final records = await _recordRepo.getRecordsForDatabase(_database.id);
+      if (mounted) {
+        setState(() {
+          _fields = fields;
+          _records = records;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not load data. Tap to retry.';
+        });
+      }
     }
   }
 
@@ -73,7 +106,11 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
       config: {..._database.config, 'current_view': viewType},
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
-    await _dbRepo.save(updated);
+    try {
+      await _dbRepo.save(updated);
+    } catch (_) {
+      // Non-critical — view preference just won't persist
+    }
     if (mounted) setState(() => _database = updated);
   }
 
@@ -86,18 +123,26 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
       createdAt: now,
       updatedAt: now,
     );
-    await _recordRepo.save(record);
-    if (mounted) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RecordDetailScreen(
-            record: record,
-            fields: _fields,
+    try {
+      await _recordRepo.save(record);
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RecordDetailScreen(
+              record: record,
+              fields: _fields,
+            ),
           ),
-        ),
-      );
-      _loadData();
+        );
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not create record.')),
+        );
+      }
     }
   }
 
@@ -115,16 +160,23 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
   }
 
   /// Save inline edits from NoteView without a full data reload.
-  /// Updates the local list so the UI stays consistent.
   Future<void> _saveRecordInline(Record updated) async {
-    await _recordRepo.save(updated);
-    if (mounted) {
-      setState(() {
-        final index = _records.indexWhere((r) => r.id == updated.id);
-        if (index != -1) {
-          _records[index] = updated;
-        }
-      });
+    try {
+      await _recordRepo.save(updated);
+      if (mounted) {
+        setState(() {
+          final index = _records.indexWhere((r) => r.id == updated.id);
+          if (index != -1) {
+            _records[index] = updated;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save changes.')),
+        );
+      }
     }
   }
 
@@ -138,27 +190,90 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
     _loadData();
   }
 
+  // --- Search ---
+
+  void _toggleSearch() {
+    setState(() {
+      _searching = !_searching;
+      if (!_searching) _cancelSearch();
+    });
+  }
+
+  void _cancelSearch() {
+    _searchController.clear();
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchResults = null;
+      _searching = false;
+    });
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() => _searchResults = null);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final results = await _recordRepo.search(query);
+        final filtered =
+            results.where((r) => r.databaseId == _database.id).toList();
+        if (mounted) setState(() => _searchResults = filtered);
+      } catch (_) {
+        // Search failure is non-critical
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentView = _database.currentView;
+    final displayRecords = _searchResults ?? _records;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_database.name),
+        // P10: Suppress back button in wide layout where the list is
+        // already visible beside the detail view.
+        automaticallyImplyLeading: widget.showBackButton,
+        title: _searching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search records...',
+                  border: InputBorder.none,
+                ),
+                onChanged: _onSearchChanged,
+              )
+            : Text(_database.name),
         actions: [
-          // View switcher dropdown
-          DropdownButton<String>(
-            value: currentView,
-            underline: const SizedBox.shrink(),
-            items: const [
-              DropdownMenuItem(value: 'card', child: Text('Card')),
-              DropdownMenuItem(value: 'note', child: Text('Note')),
-              DropdownMenuItem(value: 'table', child: Text('Table')),
-            ],
-            onChanged: (value) {
-              if (value != null) _switchView(value);
-            },
+          IconButton(
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            tooltip: _searching ? 'Close search' : 'Search',
+            onPressed: _toggleSearch,
           ),
+          // P4: SegmentedButton for view switching — more discoverable than
+          // a plain dropdown. Each segment is visually distinct and tappable.
+          // See: https://api.flutter.dev/flutter/material/SegmentedButton-class.html
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                  value: 'card', icon: Icon(Icons.view_agenda, size: 18)),
+              ButtonSegment(
+                  value: 'note', icon: Icon(Icons.notes, size: 18)),
+              ButtonSegment(
+                  value: 'table', icon: Icon(Icons.table_chart, size: 18)),
+            ],
+            selected: {currentView},
+            onSelectionChanged: (selected) => _switchView(selected.first),
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Manage Fields',
@@ -168,39 +283,56 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _records.isEmpty
+          : _error != null
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('No records yet'),
+                      Text(_error!),
                       const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: _createRecord,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Record'),
+                      FilledButton(
+                        onPressed: _loadData,
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
                 )
-              : currentView == 'note'
-                  ? NoteView(
-                      records: _records,
-                      fields: _fields,
-                      onRecordTap: _openRecord,
-                      onRecordUpdated: _saveRecordInline,
+              : displayRecords.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_searchResults != null
+                              ? 'No matching records'
+                              : 'No records yet'),
+                          const SizedBox(height: 16),
+                          if (_searchResults == null)
+                            FilledButton.icon(
+                              onPressed: _createRecord,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Record'),
+                            ),
+                        ],
+                      ),
                     )
-                  : currentView == 'table'
-                      ? TableView(
-                          records: _records,
+                  : currentView == 'note'
+                      ? NoteView(
+                          records: displayRecords,
                           fields: _fields,
                           onRecordTap: _openRecord,
+                          onRecordUpdated: _saveRecordInline,
                         )
-                      : CardView(
-                          records: _records,
-                          fields: _fields,
-                          onRecordTap: _openRecord,
-                        ),
+                      : currentView == 'table'
+                          ? TableView(
+                              records: displayRecords,
+                              fields: _fields,
+                              onRecordTap: _openRecord,
+                            )
+                          : CardView(
+                              records: displayRecords,
+                              fields: _fields,
+                              onRecordTap: _openRecord,
+                            ),
       floatingActionButton: _records.isNotEmpty
           ? FloatingActionButton(
               onPressed: _createRecord,

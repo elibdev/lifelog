@@ -22,6 +22,10 @@ class _LifelogAppState extends State<LifelogApp> {
     setState(() => _selectedDatabase = database);
   }
 
+  void _onDatabaseDeleted() {
+    setState(() => _selectedDatabase = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -41,6 +45,7 @@ class _LifelogAppState extends State<LifelogApp> {
       home: _AdaptiveShell(
         selectedDatabase: _selectedDatabase,
         onDatabaseSelected: _onDatabaseSelected,
+        onDatabaseDeleted: _onDatabaseDeleted,
       ),
     );
   }
@@ -60,16 +65,14 @@ class _LifelogAppState extends State<LifelogApp> {
 class _AdaptiveShell extends StatelessWidget {
   final AppDatabase? selectedDatabase;
   final ValueChanged<AppDatabase> onDatabaseSelected;
+  final VoidCallback onDatabaseDeleted;
 
   const _AdaptiveShell({
     required this.selectedDatabase,
     required this.onDatabaseSelected,
+    required this.onDatabaseDeleted,
   });
 
-  /// Width breakpoint for switching between narrow (stacked) and wide
-  /// (side-by-side) layouts. 840px aligns with Material Design's medium
-  /// window size class.
-  /// See: https://m3.material.io/foundations/layout/applying-layout
   static const double _wideBreakpoint = 840;
 
   @override
@@ -80,11 +83,13 @@ class _AdaptiveShell extends StatelessWidget {
           return _WideLayout(
             selectedDatabase: selectedDatabase,
             onDatabaseSelected: onDatabaseSelected,
+            onDatabaseDeleted: onDatabaseDeleted,
           );
         }
         return _NarrowLayout(
           selectedDatabase: selectedDatabase,
           onDatabaseSelected: onDatabaseSelected,
+          onDatabaseDeleted: onDatabaseDeleted,
         );
       },
     );
@@ -92,40 +97,36 @@ class _AdaptiveShell extends StatelessWidget {
 }
 
 /// Wide layout: permanent side panel + detail area, no Navigator needed.
-///
-/// The `Row` splits the screen into a fixed-width list panel and a flexible
-/// detail area. A `VerticalDivider` provides a visual separator.
 class _WideLayout extends StatelessWidget {
   final AppDatabase? selectedDatabase;
   final ValueChanged<AppDatabase> onDatabaseSelected;
+  final VoidCallback onDatabaseDeleted;
 
   const _WideLayout({
     required this.selectedDatabase,
     required this.onDatabaseSelected,
+    required this.onDatabaseDeleted,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Fixed-width list panel on the left.
-        // `SizedBox` with a fixed width ensures the panel doesn't flex.
         SizedBox(
           width: 300,
           child: Scaffold(
+            // P5: Show app name in wide layout too.
+            appBar: AppBar(title: const Text('Lifelog')),
             body: SafeArea(
               child: DatabaseListPanel(
                 selectedDatabaseId: selectedDatabase?.id,
                 onDatabaseSelected: onDatabaseSelected,
+                onDatabaseDeleted: onDatabaseDeleted,
               ),
             ),
           ),
         ),
-        // VerticalDivider sits between the two panels. `width: 1` and
-        // `thickness: 1` make it a thin line; it takes its color from
-        // the theme's dividerColor.
         const VerticalDivider(width: 1, thickness: 1),
-        // `Expanded` fills all remaining horizontal space with the detail view.
         Expanded(
           child: selectedDatabase == null
               ? const Scaffold(
@@ -136,6 +137,8 @@ class _WideLayout extends StatelessWidget {
               : DatabaseViewScreen(
                   key: ValueKey(selectedDatabase!.id),
                   database: selectedDatabase!,
+                  // P10: Don't show back button in wide layout.
+                  showBackButton: false,
                 ),
         ),
       ],
@@ -146,17 +149,17 @@ class _WideLayout extends StatelessWidget {
 /// Narrow layout: database list is the home screen, database view is pushed.
 ///
 /// Uses a nested `Navigator` so that pushing DatabaseViewScreen doesn't
-/// replace the entire MaterialApp — the app shell stays in place and only
-/// this region navigates. The `GlobalKey<NavigatorState>` lets us push
-/// routes programmatically when the selected database changes.
+/// replace the entire MaterialApp.
 /// See: https://api.flutter.dev/flutter/widgets/Navigator-class.html
 class _NarrowLayout extends StatefulWidget {
   final AppDatabase? selectedDatabase;
   final ValueChanged<AppDatabase> onDatabaseSelected;
+  final VoidCallback onDatabaseDeleted;
 
   const _NarrowLayout({
     required this.selectedDatabase,
     required this.onDatabaseSelected,
+    required this.onDatabaseDeleted,
   });
 
   @override
@@ -169,11 +172,11 @@ class _NarrowLayoutState extends State<_NarrowLayout> {
   @override
   void didUpdateWidget(_NarrowLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // When a new database is selected, push the detail view.
-    // `didUpdateWidget` fires whenever the parent rebuilds this widget
-    // with new properties — here, when `selectedDatabase` changes.
+    // C4: When switching databases, pop to root first, then push the new one.
+    // This prevents stacking duplicate routes (List → DB_A → DB_B → ...).
     if (widget.selectedDatabase != null &&
         widget.selectedDatabase?.id != oldWidget.selectedDatabase?.id) {
+      _navigatorKey.currentState?.popUntil((route) => route.isFirst);
       _navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => DatabaseViewScreen(
@@ -187,10 +190,6 @@ class _NarrowLayoutState extends State<_NarrowLayout> {
 
   @override
   Widget build(BuildContext context) {
-    // A nested Navigator creates a separate navigation stack within this
-    // area of the widget tree. The home route is the database list; tapping
-    // a database pushes the detail view *inside* this navigator, which
-    // gives us a back button without leaving the MaterialApp.
     return Navigator(
       key: _navigatorKey,
       onGenerateRoute: (settings) {
@@ -201,6 +200,7 @@ class _NarrowLayoutState extends State<_NarrowLayout> {
               child: DatabaseListPanel(
                 selectedDatabaseId: widget.selectedDatabase?.id,
                 onDatabaseSelected: widget.onDatabaseSelected,
+                onDatabaseDeleted: widget.onDatabaseDeleted,
               ),
             ),
           ),
