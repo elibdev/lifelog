@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/app_database.dart';
 import '../models/field.dart';
+import '../database/database_repository.dart';
 import '../database/field_repository.dart';
 
 /// Screen for managing a database's schema (add, edit, reorder, delete fields).
@@ -21,6 +22,7 @@ class SchemaEditorScreen extends StatefulWidget {
 class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
   final _repo = FieldRepository();
   List<Field> _fields = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -29,14 +31,29 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
   }
 
   Future<void> _loadFields() async {
-    final fields = await _repo.getFieldsForDatabase(widget.database.id);
-    if (mounted) setState(() => _fields = fields);
+    setState(() => _loading = true);
+    try {
+      final fields = await _repo.getFieldsForDatabase(widget.database.id);
+      if (mounted) {
+        setState(() {
+          _fields = fields;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load fields.')),
+        );
+      }
+    }
   }
 
   Future<void> _addField() async {
     final result = await showDialog<_FieldDialogResult>(
       context: context,
-      builder: (context) => _FieldDialog(),
+      builder: (context) => const _FieldDialog(),
     );
     if (result == null) return;
 
@@ -51,8 +68,16 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
       createdAt: now,
       updatedAt: now,
     );
-    await _repo.save(field);
-    _loadFields();
+    try {
+      await _repo.save(field);
+      _loadFields();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not add field.')),
+        );
+      }
+    }
   }
 
   Future<void> _editField(Field field) async {
@@ -68,22 +93,33 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
       config: result.config,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
-    await _repo.save(updated);
-    _loadFields();
+    try {
+      await _repo.save(updated);
+      _loadFields();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save field.')),
+        );
+      }
+    }
   }
 
   Future<void> _deleteField(Field field) async {
+    final colorScheme = Theme.of(context).colorScheme;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Field'),
-        content: Text('Delete "${field.name}"? Data in this field will be lost.'),
+        content:
+            Text('Delete "${field.name}"? Data in this field will be lost.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
@@ -91,8 +127,16 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
       ),
     );
     if (confirm == true) {
-      await _repo.delete(field.id);
-      _loadFields();
+      try {
+        await _repo.delete(field.id);
+        _loadFields();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not delete field.')),
+          );
+        }
+      }
     }
   }
 
@@ -103,13 +147,20 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
       _fields.insert(newIndex, item);
     });
 
-    // Reassign order positions
     final updated = <Field>[];
     for (var i = 0; i < _fields.length; i++) {
       updated.add(_fields[i].copyWith(orderPosition: i.toDouble()));
     }
     _fields = updated;
-    await _repo.updateOrder(updated);
+    try {
+      await _repo.updateOrder(updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save field order.')),
+        );
+      }
+    }
   }
 
   @override
@@ -125,50 +176,50 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> {
           ),
         ],
       ),
-      body: _fields.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No fields defined yet'),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _addField,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Field'),
-                  ),
-                ],
-              ),
-            )
-          : ReorderableListView.builder(
-              itemCount: _fields.length,
-              onReorder: _onReorder,
-              itemBuilder: (context, index) {
-                final field = _fields[index];
-                return ListTile(
-                  // `key` is required for ReorderableListView to track items.
-                  // ValueKey uses the field's unique ID.
-                  // See: https://api.flutter.dev/flutter/foundation/Key-class.html
-                  key: ValueKey(field.id),
-                  leading: const Icon(Icons.drag_handle),
-                  title: Text(field.name),
-                  subtitle: Text(field.fieldType.name),
-                  trailing: Row(
+      // M9: Show loading spinner while fields load.
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _fields.isEmpty
+              ? Center(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _editField(field),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteField(field),
+                      const Text('No fields defined yet'),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _addField,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Field'),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                )
+              : ReorderableListView.builder(
+                  itemCount: _fields.length,
+                  onReorder: _onReorder,
+                  itemBuilder: (context, index) {
+                    final field = _fields[index];
+                    return ListTile(
+                      key: ValueKey(field.id),
+                      leading: const Icon(Icons.drag_handle),
+                      title: Text(field.name),
+                      subtitle: Text(field.fieldType.name),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () => _editField(field),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteField(field),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -193,6 +244,9 @@ class _FieldDialogState extends State<_FieldDialog> {
   late FieldType _selectedType;
   late final TextEditingController _optionsController;
 
+  // P7: Track whether we're editing to lock the type dropdown.
+  bool get _isEdit => widget.existing != null;
+
   @override
   void initState() {
     super.initState();
@@ -213,10 +267,8 @@ class _FieldDialogState extends State<_FieldDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.existing != null;
-
     return AlertDialog(
-      title: Text(isEdit ? 'Edit Field' : 'Add Field'),
+      title: Text(_isEdit ? 'Edit Field' : 'Add Field'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -226,15 +278,20 @@ class _FieldDialogState extends State<_FieldDialog> {
             decoration: const InputDecoration(labelText: 'Field name'),
           ),
           const SizedBox(height: 16),
+          // P7: Disable the type dropdown when editing — changing types
+          // would silently break existing record data.
           DropdownButtonFormField<FieldType>(
             initialValue: _selectedType,
             decoration: const InputDecoration(labelText: 'Type'),
             items: FieldType.values
-                .map((t) => DropdownMenuItem(value: t, child: Text(t.name)))
+                .map(
+                    (t) => DropdownMenuItem(value: t, child: Text(t.name)))
                 .toList(),
-            onChanged: (value) {
-              if (value != null) setState(() => _selectedType = value);
-            },
+            onChanged: _isEdit
+                ? null
+                : (value) {
+                    if (value != null) setState(() => _selectedType = value);
+                  },
           ),
           if (_selectedType == FieldType.select) ...[
             const SizedBox(height: 16),
@@ -244,6 +301,12 @@ class _FieldDialogState extends State<_FieldDialog> {
                 labelText: 'Options (comma separated)',
                 hintText: 'e.g. To Do, In Progress, Done',
               ),
+            ),
+          ],
+          if (_selectedType == FieldType.relation) ...[
+            const SizedBox(height: 16),
+            _RelationTargetPicker(
+              initialTargetId: widget.existing?.targetDatabaseId,
             ),
           ],
         ],
@@ -266,15 +329,66 @@ class _FieldDialogState extends State<_FieldDialog> {
                   .where((s) => s.isNotEmpty)
                   .toList();
             }
+            if (_selectedType == FieldType.relation) {
+              final picker = context
+                  .findAncestorStateOfType<_RelationTargetPickerState>();
+              if (picker != null && picker.selectedId != null) {
+                config['target_database_id'] = picker.selectedId;
+              }
+            }
 
             Navigator.pop(
               context,
               _FieldDialogResult(name, _selectedType, config),
             );
           },
-          child: Text(isEdit ? 'Save' : 'Add'),
+          child: Text(_isEdit ? 'Save' : 'Add'),
         ),
       ],
+    );
+  }
+}
+
+/// Picker widget for selecting the target database of a relation field.
+class _RelationTargetPicker extends StatefulWidget {
+  final String? initialTargetId;
+  const _RelationTargetPicker({this.initialTargetId});
+
+  @override
+  State<_RelationTargetPicker> createState() => _RelationTargetPickerState();
+}
+
+class _RelationTargetPickerState extends State<_RelationTargetPicker> {
+  final _dbRepo = DatabaseRepository();
+  List<AppDatabase> _databases = [];
+  String? selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedId = widget.initialTargetId;
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final dbs = await _dbRepo.getAll();
+      if (mounted) setState(() => _databases = dbs);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_databases.isEmpty) {
+      return const Text('Loading databases...');
+    }
+    return DropdownButtonFormField<String>(
+      initialValue: selectedId,
+      decoration: const InputDecoration(labelText: 'Target database'),
+      items: _databases
+          .map((db) => DropdownMenuItem(value: db.id, child: Text(db.name)))
+          .toList(),
+      onChanged: (value) => setState(() => selectedId = value),
     );
   }
 }

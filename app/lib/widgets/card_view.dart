@@ -113,8 +113,10 @@ class _RecordCard extends StatelessWidget {
 
   String _formatValue(Field field, dynamic value) {
     switch (field.fieldType) {
+      // P1: Show both checked and unchecked states so users can
+      // distinguish "unchecked" from "field not set".
       case FieldType.checkbox:
-        return value == true ? '✓' : '';
+        return value == true ? '✓' : '☐';
       case FieldType.date:
       case FieldType.text:
       case FieldType.number:
@@ -142,9 +144,11 @@ class _FieldBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Checkbox gets a small check icon instead of text.
+    // Checkbox gets a small icon — checked or unchecked.
     if (field.fieldType == FieldType.checkbox) {
-      return Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary);
+      return display == '✓'
+          ? Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary)
+          : Icon(Icons.circle_outlined, size: 16, color: colorScheme.outline);
     }
 
     // Select fields get a tinted background to stand out.
