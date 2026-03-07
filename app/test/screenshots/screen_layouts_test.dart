@@ -10,7 +10,7 @@ import 'package:lifelog/widgets/table_view.dart';
 // golden PNGs of the full UI layout. They bypass the database layer by
 // providing data directly to the pure view widgets.
 
-Widget _wrapScreen(Widget body, {String title = 'Books', bool dark = false}) {
+Widget _wrapScreen(Widget body, {String title = 'Daily Log', bool dark = false}) {
   return MaterialApp(
     theme: ThemeData(
       colorSchemeSeed: Colors.indigo,
@@ -56,50 +56,41 @@ void _setWindowSize(WidgetTester tester,
 
 final _fields = [
   Field(
-    id: 'f-title',
+    id: 'f-mood',
     databaseId: 'db-1',
-    name: 'Title',
-    fieldType: FieldType.text,
+    name: 'Mood',
+    fieldType: FieldType.select,
+    config: const {
+      'options': ['Great', 'Good', 'Okay', 'Low'],
+    },
     orderPosition: 0,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-author',
+    id: 'f-energy',
     databaseId: 'db-1',
-    name: 'Author',
-    fieldType: FieldType.text,
+    name: 'Energy',
+    fieldType: FieldType.number,
     orderPosition: 1,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-rating',
+    id: 'f-with',
     databaseId: 'db-1',
-    name: 'Rating',
-    fieldType: FieldType.number,
+    name: 'With',
+    fieldType: FieldType.text,
     orderPosition: 2,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-status',
+    id: 'f-highlight',
     databaseId: 'db-1',
-    name: 'Status',
-    fieldType: FieldType.select,
-    config: const {
-      'options': ['To Read', 'Reading', 'Finished'],
-    },
-    orderPosition: 3,
-    createdAt: 0,
-    updatedAt: 0,
-  ),
-  Field(
-    id: 'f-favorite',
-    databaseId: 'db-1',
-    name: 'Favorite',
+    name: 'Highlight',
     fieldType: FieldType.checkbox,
-    orderPosition: 4,
+    orderPosition: 3,
     createdAt: 0,
     updatedAt: 0,
   ),
@@ -109,13 +100,17 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.',
+    content: 'Had an amazing morning run along the river — 7K and felt '
+        'strong the whole way. Met Sarah for coffee at Bluestone Lane '
+        'and talked about her upcoming gallery show.\n\n'
+        'Afternoon: deep work session on the API redesign. Finally '
+        'cracked the caching problem I\'ve been stuck on all week. '
+        'That feeling when it clicks.',
     values: const {
-      'f-title': 'The Great Gatsby',
-      'f-author': 'F. Scott Fitzgerald',
-      'f-rating': '5',
-      'f-status': 'Finished',
-      'f-favorite': true,
+      'f-mood': 'Great',
+      'f-energy': '8',
+      'f-with': 'Sarah, Marcus',
+      'f-highlight': true,
     },
     orderPosition: 0,
     createdAt: 0,
@@ -124,13 +119,14 @@ final _records = [
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.',
+    content: 'Solid workday. Shipped the onboarding flow redesign.\n'
+        'Evening run — 5K in 24:30, getting faster.\n'
+        'Cooked mushroom risotto from the Ottolenghi book.',
     values: const {
-      'f-title': '1984',
-      'f-author': 'George Orwell',
-      'f-rating': '4',
-      'f-status': 'Finished',
-      'f-favorite': false,
+      'f-mood': 'Good',
+      'f-energy': '6',
+      'f-with': 'Team standup',
+      'f-highlight': false,
     },
     orderPosition: 1,
     createdAt: 0,
@@ -141,9 +137,8 @@ final _records = [
     databaseId: 'db-1',
     content: '',
     values: const {
-      'f-title': 'Dune',
-      'f-author': 'Frank Herbert',
-      'f-status': 'Reading',
+      'f-mood': 'Okay',
+      'f-energy': '4',
     },
     orderPosition: 2,
     createdAt: 0,
@@ -161,7 +156,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -178,7 +173,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -195,7 +190,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -212,7 +207,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
         dark: true,
       ));
       await tester.pumpAndSettle();
@@ -267,7 +262,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           appBar: AppBar(
-            title: const Text('Fields: Books'),
+            title: const Text('Fields: Daily Log'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add),
@@ -316,14 +311,6 @@ void main() {
     testWidgets('with field values and multiline notes', (tester) async {
       _setWindowSize(tester);
       final record = _records.first;
-      final multilineContent =
-          '${record.content}\n\n'
-          'Chapter 1 notes:\n'
-          '- Nick moves to West Egg\n'
-          '- Meets mysterious neighbor Gatsby\n'
-          '- Attends lavish party across the bay\n\n'
-          'Key themes: wealth, idealism, social class.\n'
-          'The green light symbolizes unattainable dreams.';
 
       await tester.pumpWidget(MaterialApp(
         theme: ThemeData(
@@ -355,35 +342,35 @@ void main() {
                     children: [
                       TextField(
                         controller: TextEditingController(
-                            text: record.values['f-title'] as String?),
+                            text: record.values['f-mood'] as String?),
                         decoration: const InputDecoration(
-                          labelText: 'Title',
+                          labelText: 'Mood',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: TextEditingController(
-                            text: record.values['f-author'] as String?),
-                        decoration: const InputDecoration(
-                          labelText: 'Author',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: TextEditingController(
-                            text: record.values['f-rating']?.toString()),
+                            text: record.values['f-energy']?.toString()),
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Rating',
+                          labelText: 'Energy',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: TextEditingController(
+                            text: record.values['f-with'] as String?),
+                        decoration: const InputDecoration(
+                          labelText: 'With',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
                       CheckboxListTile(
-                        title: const Text('Favorite'),
-                        value: record.values['f-favorite'] == true,
+                        title: const Text('Highlight'),
+                        value: record.values['f-highlight'] == true,
                         onChanged: (_) {},
                       ),
                     ],
@@ -408,7 +395,7 @@ void main() {
                       Expanded(
                         child: TextField(
                           controller:
-                              TextEditingController(text: multilineContent),
+                              TextEditingController(text: record.content),
                           expands: true,
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.top,
