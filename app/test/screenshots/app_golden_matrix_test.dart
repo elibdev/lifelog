@@ -63,23 +63,37 @@ Widget _app(Widget home, {bool dark = false}) => MaterialApp(
 final _databases = [
   AppDatabase(
     id: 'db-1',
-    name: 'Books',
+    name: 'Daily Log',
+    config: const {'current_view': 'note'},
     orderPosition: 0,
     createdAt: 0,
     updatedAt: 0,
   ),
   AppDatabase(
     id: 'db-2',
-    name: 'Projects',
-    config: const {'current_view': 'note'},
+    name: 'Habits',
     orderPosition: 1,
     createdAt: 0,
     updatedAt: 0,
   ),
   AppDatabase(
     id: 'db-3',
-    name: 'Recipes',
+    name: 'Reading List',
     orderPosition: 2,
+    createdAt: 0,
+    updatedAt: 0,
+  ),
+  AppDatabase(
+    id: 'db-4',
+    name: 'People',
+    orderPosition: 3,
+    createdAt: 0,
+    updatedAt: 0,
+  ),
+  AppDatabase(
+    id: 'db-5',
+    name: 'Projects',
+    orderPosition: 4,
     createdAt: 0,
     updatedAt: 0,
   ),
@@ -87,46 +101,38 @@ final _databases = [
 
 final _fields = [
   Field(
-      id: 'f-title',
+      id: 'f-mood',
       databaseId: 'db-1',
-      name: 'Title',
-      fieldType: FieldType.text,
+      name: 'Mood',
+      fieldType: FieldType.select,
+      config: const {
+        'options': ['Great', 'Good', 'Okay', 'Low']
+      },
       orderPosition: 0,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-author',
+      id: 'f-energy',
       databaseId: 'db-1',
-      name: 'Author',
-      fieldType: FieldType.text,
+      name: 'Energy',
+      fieldType: FieldType.number,
       orderPosition: 1,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-rating',
+      id: 'f-with',
       databaseId: 'db-1',
-      name: 'Rating',
-      fieldType: FieldType.number,
+      name: 'With',
+      fieldType: FieldType.text,
       orderPosition: 2,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-status',
+      id: 'f-highlight',
       databaseId: 'db-1',
-      name: 'Status',
-      fieldType: FieldType.select,
-      config: const {
-        'options': ['To Read', 'Reading', 'Finished']
-      },
-      orderPosition: 3,
-      createdAt: 0,
-      updatedAt: 0),
-  Field(
-      id: 'f-favorite',
-      databaseId: 'db-1',
-      name: 'Favorite',
+      name: 'Highlight',
       fieldType: FieldType.checkbox,
-      orderPosition: 4,
+      orderPosition: 3,
       createdAt: 0,
       updatedAt: 0),
 ];
@@ -135,16 +141,17 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.\n\n'
-        'Chapter 1 notes:\n'
-        '- Nick moves to West Egg\n'
-        '- Meets mysterious neighbor Gatsby',
+    content: 'Had an amazing morning run along the river — 7K and felt '
+        'strong the whole way. Met Sarah for coffee at Bluestone Lane '
+        'and talked about her upcoming gallery show.\n\n'
+        'Afternoon: deep work session on the API redesign. Finally '
+        'cracked the caching problem I\'ve been stuck on all week. '
+        'That feeling when it clicks.',
     values: const {
-      'f-title': 'The Great Gatsby',
-      'f-author': 'F. Scott Fitzgerald',
-      'f-rating': '5',
-      'f-status': 'Finished',
-      'f-favorite': true,
+      'f-mood': 'Great',
+      'f-energy': '8',
+      'f-with': 'Sarah, Marcus',
+      'f-highlight': true,
     },
     orderPosition: 0,
     createdAt: 0,
@@ -153,14 +160,14 @@ final _records = [
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.\n'
-        'The parallels to modern technology are striking.',
+    content: 'Solid workday. Shipped the onboarding flow redesign.\n'
+        'Evening run — 5K in 24:30, getting faster.\n'
+        'Cooked mushroom risotto from the Ottolenghi book.',
     values: const {
-      'f-title': '1984',
-      'f-author': 'George Orwell',
-      'f-rating': '4',
-      'f-status': 'Finished',
-      'f-favorite': false,
+      'f-mood': 'Good',
+      'f-energy': '6',
+      'f-with': 'Team standup',
+      'f-highlight': false,
     },
     orderPosition: 1,
     createdAt: 0,
@@ -171,9 +178,8 @@ final _records = [
     databaseId: 'db-1',
     content: '',
     values: const {
-      'f-title': 'Dune',
-      'f-author': 'Frank Herbert',
-      'f-status': 'Reading',
+      'f-mood': 'Okay',
+      'f-energy': '4',
     },
     orderPosition: 2,
     createdAt: 0,
@@ -229,7 +235,7 @@ Widget _databaseListPanel({
 /// Database view screen shell with AppBar, view switcher, and FAB.
 Widget _databaseViewShell({
   required Widget body,
-  String title = 'Books',
+  String title = 'Daily Log',
   String currentView = 'card',
 }) {
   return Scaffold(
@@ -265,7 +271,7 @@ Widget _wideLayout({
   List<AppDatabase> databases = const [],
   String? selectedId,
   Widget? detailBody,
-  String detailTitle = 'Books',
+  String detailTitle = 'Daily Log',
   String currentView = 'card',
 }) {
   return Row(
@@ -317,7 +323,7 @@ Widget _narrowListLayout({
 Widget _schemaEditorLayout({List<Field> fields = const []}) {
   return Scaffold(
     appBar: AppBar(
-      title: const Text('Fields: Books'),
+      title: const Text('Fields: Daily Log'),
       leading: const BackButton(),
       actions: [
         IconButton(icon: const Icon(Icons.add), onPressed: () {}),
@@ -519,7 +525,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));
@@ -541,7 +547,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'note',
         ),
       ));
@@ -563,7 +569,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'table',
         ),
       ));
@@ -585,7 +591,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
         dark: true,
@@ -608,7 +614,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));
@@ -634,7 +640,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));

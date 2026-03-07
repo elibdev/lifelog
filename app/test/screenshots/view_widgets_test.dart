@@ -40,53 +40,44 @@ void _setWindowSize(WidgetTester tester,
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-// Sample fields for a "Books" database.
+// Sample fields for a "Daily Log" database — the core life journaling schema.
 final _fields = [
   Field(
-    id: 'f-title',
+    id: 'f-mood',
     databaseId: 'db-1',
-    name: 'Title',
-    fieldType: FieldType.text,
+    name: 'Mood',
+    fieldType: FieldType.select,
+    config: const {
+      'options': ['Great', 'Good', 'Okay', 'Low'],
+    },
     orderPosition: 0,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-author',
+    id: 'f-energy',
     databaseId: 'db-1',
-    name: 'Author',
-    fieldType: FieldType.text,
+    name: 'Energy',
+    fieldType: FieldType.number,
     orderPosition: 1,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-rating',
+    id: 'f-with',
     databaseId: 'db-1',
-    name: 'Rating',
-    fieldType: FieldType.number,
+    name: 'With',
+    fieldType: FieldType.text,
     orderPosition: 2,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-status',
+    id: 'f-highlight',
     databaseId: 'db-1',
-    name: 'Status',
-    fieldType: FieldType.select,
-    config: const {
-      'options': ['To Read', 'Reading', 'Finished'],
-    },
-    orderPosition: 3,
-    createdAt: 0,
-    updatedAt: 0,
-  ),
-  Field(
-    id: 'f-favorite',
-    databaseId: 'db-1',
-    name: 'Favorite',
+    name: 'Highlight',
     fieldType: FieldType.checkbox,
-    orderPosition: 4,
+    orderPosition: 3,
     createdAt: 0,
     updatedAt: 0,
   ),
@@ -96,17 +87,17 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.\n\n'
-        'Chapter 1 notes:\n'
-        '- Nick moves to West Egg\n'
-        '- Meets mysterious neighbor Gatsby\n'
-        '- Attends lavish party across the bay',
+    content: 'Had an amazing morning run along the river — 7K and felt '
+        'strong the whole way. Met Sarah for coffee at Bluestone Lane '
+        'and talked about her upcoming gallery show.\n\n'
+        'Afternoon: deep work session on the API redesign. Finally '
+        'cracked the caching problem I\'ve been stuck on all week. '
+        'That feeling when it clicks.',
     values: const {
-      'f-title': 'The Great Gatsby',
-      'f-author': 'F. Scott Fitzgerald',
-      'f-rating': '5',
-      'f-status': 'Finished',
-      'f-favorite': true,
+      'f-mood': 'Great',
+      'f-energy': '8',
+      'f-with': 'Sarah, Marcus',
+      'f-highlight': true,
     },
     orderPosition: 0,
     createdAt: 0,
@@ -115,14 +106,14 @@ final _records = [
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.\n'
-        'The parallels to modern technology are striking.',
+    content: 'Solid workday. Shipped the onboarding flow redesign.\n'
+        'Evening run — 5K in 24:30, getting faster.\n'
+        'Cooked mushroom risotto from the Ottolenghi book.',
     values: const {
-      'f-title': '1984',
-      'f-author': 'George Orwell',
-      'f-rating': '4',
-      'f-status': 'Finished',
-      'f-favorite': false,
+      'f-mood': 'Good',
+      'f-energy': '6',
+      'f-with': 'Team standup',
+      'f-highlight': false,
     },
     orderPosition: 1,
     createdAt: 0,
@@ -133,9 +124,8 @@ final _records = [
     databaseId: 'db-1',
     content: '',
     values: const {
-      'f-title': 'Dune',
-      'f-author': 'Frank Herbert',
-      'f-status': 'Reading',
+      'f-mood': 'Okay',
+      'f-energy': '4',
     },
     orderPosition: 2,
     createdAt: 0,
