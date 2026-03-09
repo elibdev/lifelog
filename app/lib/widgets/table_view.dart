@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/field.dart';
 import '../models/record.dart';
+import 'display_helpers.dart';
 
 /// Spreadsheet-style table view: one row per record, one column per field.
 /// Content is shown as just another column. Compact, scannable, ideal for
@@ -128,16 +129,21 @@ class TableView extends StatelessWidget {
           color: value == true ? colorScheme.primary : colorScheme.outline,
         );
       case FieldType.select:
+        final colors = selectOptionColors(
+          value: value.toString(),
+          options: field.selectOptions,
+          colorScheme: colorScheme,
+        );
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer,
+            color: colors.bg,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             value.toString(),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSecondaryContainer,
+              color: colors.fg,
             ),
           ),
         );

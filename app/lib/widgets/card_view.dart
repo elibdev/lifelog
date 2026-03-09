@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/field.dart';
 import '../models/record.dart';
+import 'display_helpers.dart';
 
 /// Trello-style card view: compact cards focused on structured field values.
 /// Content text is shown only as a secondary preview — tapping opens an edit
@@ -51,50 +52,102 @@ class _RecordCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Collect fields that have values set on this record.
-    final populatedFields = <(Field, String)>[];
+    // Collect fields that have displayable values.
+    final badges = <Widget>[];
     for (final field in fields) {
       final value = record.getValue(field.id);
       if (value == null) continue;
-      final display = _formatValue(field, value);
+
+      // Checkbox: show star icon only when true, hide when false.
+      if (field.fieldType == FieldType.checkbox) {
+        if (value == true) {
+          badges.add(Icon(Icons.star_rounded, size: 16, color: colorScheme.primary));
+        }
+        continue;
+      }
+
+      final display = value.toString();
       if (display.isEmpty) continue;
-      populatedFields.add((field, display));
+
+      // Select fields: semantic color badges.
+      if (field.fieldType == FieldType.select) {
+        final colors = selectOptionColors(
+          value: display,
+          options: field.selectOptions,
+          colorScheme: colorScheme,
+        );
+        badges.add(Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: colors.bg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            display,
+            style: theme.textTheme.labelSmall?.copyWith(color: colors.fg),
+          ),
+        ));
+        continue;
+      }
+
+      // Relation fields: skip.
+      if (field.fieldType == FieldType.relation) continue;
+
+      // Text, number, date: plain label.
+      badges.add(Text(
+        '${field.name}: $display',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ));
     }
 
-    // Content preview: first non-empty line, only if content exists.
+    // Content preview: first non-empty line.
     final contentPreview = record.content.trim().isNotEmpty
         ? record.content.trim().split('\n').first
         : null;
+
+    // Date from createdAt timestamp.
+    final dateStr = formatRecordDate(record.createdAt);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3),
       child: InkWell(
         onTap: onTap,
-        // `borderRadius` on InkWell clips the ripple to match the Card shape.
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Field values as compact chips — the primary content of a card.
-              if (populatedFields.isNotEmpty)
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+              // Top row: field badges + date aligned right.
+              if (badges.isNotEmpty || dateStr.isNotEmpty)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final (field, display) in populatedFields)
-                      _FieldBadge(
-                        field: field,
-                        display: display,
-                        colorScheme: colorScheme,
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: badges,
                       ),
+                    ),
+                    if (dateStr.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        dateStr,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
 
-              // Content preview — secondary, only if there's text.
+              // Content preview.
               if (contentPreview != null) ...[
-                if (populatedFields.isNotEmpty) const SizedBox(height: 6),
+                if (badges.isNotEmpty) const SizedBox(height: 6),
                 Text(
                   contentPreview,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -108,72 +161,6 @@ class _RecordCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  String _formatValue(Field field, dynamic value) {
-    switch (field.fieldType) {
-      // P1: Show both checked and unchecked states so users can
-      // distinguish "unchecked" from "field not set".
-      case FieldType.checkbox:
-        return value == true ? '✓' : '☐';
-      case FieldType.date:
-      case FieldType.text:
-      case FieldType.number:
-      case FieldType.select:
-        final s = value.toString();
-        return s;
-      case FieldType.relation:
-        return '';
-    }
-  }
-}
-
-/// Compact badge showing a single field value. Checkbox fields with false
-/// values are filtered out upstream; here we just render what's given.
-class _FieldBadge extends StatelessWidget {
-  final Field field;
-  final String display;
-  final ColorScheme colorScheme;
-
-  const _FieldBadge({
-    required this.field,
-    required this.display,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Checkbox gets a small icon — checked or unchecked.
-    if (field.fieldType == FieldType.checkbox) {
-      return display == '✓'
-          ? Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary)
-          : Icon(Icons.circle_outlined, size: 16, color: colorScheme.outline);
-    }
-
-    // Select fields get a tinted background to stand out.
-    if (field.fieldType == FieldType.select) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          display,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-              ),
-        ),
-      );
-    }
-
-    // Everything else: plain label text.
-    return Text(
-      '${field.name}: $display',
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
     );
   }
 }

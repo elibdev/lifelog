@@ -40,6 +40,11 @@ void _setWindowSize(WidgetTester tester,
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+// Fixed timestamps for golden-stable date display.
+final _march5 = DateTime(2026, 3, 5).millisecondsSinceEpoch;
+final _march4 = DateTime(2026, 3, 4).millisecondsSinceEpoch;
+final _march3 = DateTime(2026, 3, 3).millisecondsSinceEpoch;
+
 // Sample fields for a "Daily Log" database — the core life journaling schema.
 final _fields = [
   Field(
@@ -100,8 +105,8 @@ final _records = [
       'f-highlight': true,
     },
     orderPosition: 0,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march5,
+    updatedAt: _march5,
   ),
   Record(
     id: 'r-2',
@@ -116,8 +121,8 @@ final _records = [
       'f-highlight': false,
     },
     orderPosition: 1,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march4,
+    updatedAt: _march4,
   ),
   Record(
     id: 'r-3',
@@ -128,8 +133,8 @@ final _records = [
       'f-energy': '4',
     },
     orderPosition: 2,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march3,
+    updatedAt: _march3,
   ),
 ];
 
