@@ -11,7 +11,7 @@ import 'package:lifelog/widgets/table_view.dart';
 // golden PNGs of the full UI layout. They bypass the database layer by
 // providing data directly to the pure view widgets.
 
-Widget _wrapScreen(Widget body, {String title = 'Daily Log', bool dark = false}) {
+Widget _wrapScreen(Widget body, {String title = 'Daily Log', String currentView = 'card', bool dark = false}) {
   return MaterialApp(
     theme: ThemeData(
       colorSchemeSeed: Colors.indigo,
@@ -24,11 +24,12 @@ Widget _wrapScreen(Widget body, {String title = 'Daily Log', bool dark = false})
         title: Text(title),
         actions: [
           DropdownButton<String>(
-            value: 'card',
+            value: currentView,
             underline: const SizedBox.shrink(),
             items: const [
               DropdownMenuItem(value: 'card', child: Text('Card')),
               DropdownMenuItem(value: 'note', child: Text('Note')),
+              DropdownMenuItem(value: 'table', child: Text('Table')),
             ],
             onChanged: (_) {},
           ),
@@ -243,6 +244,7 @@ void main() {
           onRecordTap: (_) {},
         ),
         title: 'Daily Log',
+        currentView: 'note',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -260,6 +262,7 @@ void main() {
           onRecordTap: (_) {},
         ),
         title: 'Daily Log',
+        currentView: 'table',
       ));
       await tester.pumpAndSettle();
       await expectLater(
