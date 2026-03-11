@@ -13,6 +13,7 @@ import 'package:lifelog/models/app_database.dart';
 import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
 import 'package:lifelog/widgets/card_view.dart';
+import 'package:lifelog/widgets/display_helpers.dart';
 import 'package:lifelog/widgets/note_view.dart';
 import 'package:lifelog/widgets/table_view.dart';
 
@@ -63,70 +64,81 @@ Widget _app(Widget home, {bool dark = false}) => MaterialApp(
 final _databases = [
   AppDatabase(
     id: 'db-1',
-    name: 'Books',
+    name: 'Daily Log',
+    config: const {'current_view': 'note'},
     orderPosition: 0,
     createdAt: 0,
     updatedAt: 0,
   ),
   AppDatabase(
     id: 'db-2',
-    name: 'Projects',
-    config: const {'current_view': 'note'},
+    name: 'Habits',
     orderPosition: 1,
     createdAt: 0,
     updatedAt: 0,
   ),
   AppDatabase(
     id: 'db-3',
-    name: 'Recipes',
+    name: 'Reading List',
     orderPosition: 2,
+    createdAt: 0,
+    updatedAt: 0,
+  ),
+  AppDatabase(
+    id: 'db-4',
+    name: 'People',
+    orderPosition: 3,
+    createdAt: 0,
+    updatedAt: 0,
+  ),
+  AppDatabase(
+    id: 'db-5',
+    name: 'Projects',
+    orderPosition: 4,
     createdAt: 0,
     updatedAt: 0,
   ),
 ];
 
+// Fixed timestamps for golden-stable date display.
+final _march5 = DateTime(2026, 3, 5).millisecondsSinceEpoch;
+final _march4 = DateTime(2026, 3, 4).millisecondsSinceEpoch;
+final _march3 = DateTime(2026, 3, 3).millisecondsSinceEpoch;
+
 final _fields = [
   Field(
-      id: 'f-title',
+      id: 'f-mood',
       databaseId: 'db-1',
-      name: 'Title',
-      fieldType: FieldType.text,
+      name: 'Mood',
+      fieldType: FieldType.select,
+      config: const {
+        'options': ['Great', 'Good', 'Okay', 'Low']
+      },
       orderPosition: 0,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-author',
+      id: 'f-energy',
       databaseId: 'db-1',
-      name: 'Author',
-      fieldType: FieldType.text,
+      name: 'Energy',
+      fieldType: FieldType.number,
       orderPosition: 1,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-rating',
+      id: 'f-with',
       databaseId: 'db-1',
-      name: 'Rating',
-      fieldType: FieldType.number,
+      name: 'With',
+      fieldType: FieldType.text,
       orderPosition: 2,
       createdAt: 0,
       updatedAt: 0),
   Field(
-      id: 'f-status',
+      id: 'f-highlight',
       databaseId: 'db-1',
-      name: 'Status',
-      fieldType: FieldType.select,
-      config: const {
-        'options': ['To Read', 'Reading', 'Finished']
-      },
-      orderPosition: 3,
-      createdAt: 0,
-      updatedAt: 0),
-  Field(
-      id: 'f-favorite',
-      databaseId: 'db-1',
-      name: 'Favorite',
+      name: 'Highlight',
       fieldType: FieldType.checkbox,
-      orderPosition: 4,
+      orderPosition: 3,
       createdAt: 0,
       updatedAt: 0),
 ];
@@ -135,49 +147,49 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.\n\n'
-        'Chapter 1 notes:\n'
-        '- Nick moves to West Egg\n'
-        '- Meets mysterious neighbor Gatsby',
+    content: 'Had an amazing morning run along the river — 7K and felt '
+        'strong the whole way. Met Sarah for coffee at Bluestone Lane '
+        'and talked about her upcoming gallery show.\n\n'
+        'Afternoon: deep work session on the API redesign. Finally '
+        'cracked the caching problem I\'ve been stuck on all week. '
+        'That feeling when it clicks.',
     values: const {
-      'f-title': 'The Great Gatsby',
-      'f-author': 'F. Scott Fitzgerald',
-      'f-rating': '5',
-      'f-status': 'Finished',
-      'f-favorite': true,
+      'f-mood': 'Great',
+      'f-energy': '8',
+      'f-with': 'Sarah, Marcus',
+      'f-highlight': true,
     },
     orderPosition: 0,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march5,
+    updatedAt: _march5,
   ),
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.\n'
-        'The parallels to modern technology are striking.',
+    content: 'Solid workday. Shipped the onboarding flow redesign.\n'
+        'Evening run — 5K in 24:30, getting faster.\n'
+        'Cooked mushroom risotto from the Ottolenghi book.',
     values: const {
-      'f-title': '1984',
-      'f-author': 'George Orwell',
-      'f-rating': '4',
-      'f-status': 'Finished',
-      'f-favorite': false,
+      'f-mood': 'Good',
+      'f-energy': '6',
+      'f-with': 'Team standup',
+      'f-highlight': false,
     },
     orderPosition: 1,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march4,
+    updatedAt: _march4,
   ),
   Record(
     id: 'r-3',
     databaseId: 'db-1',
     content: '',
     values: const {
-      'f-title': 'Dune',
-      'f-author': 'Frank Herbert',
-      'f-status': 'Reading',
+      'f-mood': 'Okay',
+      'f-energy': '4',
     },
     orderPosition: 2,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march3,
+    updatedAt: _march3,
   ),
 ];
 
@@ -229,7 +241,7 @@ Widget _databaseListPanel({
 /// Database view screen shell with AppBar, view switcher, and FAB.
 Widget _databaseViewShell({
   required Widget body,
-  String title = 'Books',
+  String title = 'Daily Log',
   String currentView = 'card',
 }) {
   return Scaffold(
@@ -265,7 +277,7 @@ Widget _wideLayout({
   List<AppDatabase> databases = const [],
   String? selectedId,
   Widget? detailBody,
-  String detailTitle = 'Books',
+  String detailTitle = 'Daily Log',
   String currentView = 'card',
 }) {
   return Row(
@@ -317,7 +329,7 @@ Widget _narrowListLayout({
 Widget _schemaEditorLayout({List<Field> fields = const []}) {
   return Scaffold(
     appBar: AppBar(
-      title: const Text('Fields: Books'),
+      title: const Text('Fields: Daily Log'),
       leading: const BackButton(),
       actions: [
         IconButton(icon: const Icon(Icons.add), onPressed: () {}),
@@ -352,7 +364,70 @@ Widget _schemaEditorLayout({List<Field> fields = const []}) {
   );
 }
 
-/// Record detail layout.
+/// Build a field chip matching the RecordDetailScreen's inline chip layout.
+Widget _buildFieldChip(Field field, Record record, ColorScheme colorScheme) {
+  final value = record.getValue(field.id);
+  switch (field.fieldType) {
+    case FieldType.checkbox:
+      final checked = value == true;
+      return ActionChip(
+        avatar: Icon(
+          checked ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: 18,
+          color: checked ? colorScheme.primary : null,
+        ),
+        label: Text(field.name),
+        onPressed: () {},
+      );
+    case FieldType.select:
+      final strValue = value as String?;
+      final hasValue = strValue != null && strValue.isNotEmpty;
+      final colors = hasValue
+          ? selectOptionColors(
+              value: strValue,
+              options: field.selectOptions,
+              colorScheme: colorScheme,
+            )
+          : null;
+      return Chip(
+        label: Text(
+          hasValue ? strValue : field.name,
+          style: colors != null ? TextStyle(color: colors.fg) : null,
+        ),
+        backgroundColor: colors?.bg,
+        side: colors != null ? BorderSide.none : null,
+      );
+    case FieldType.text:
+      final strValue = (value as String?) ?? '';
+      return ActionChip(
+        label:
+            Text(strValue.isEmpty ? field.name : '${field.name}: $strValue'),
+        onPressed: () {},
+      );
+    case FieldType.number:
+      final strValue = (value ?? '').toString();
+      return ActionChip(
+        label:
+            Text(strValue.isEmpty ? field.name : '${field.name}: $strValue'),
+        onPressed: () {},
+      );
+    case FieldType.date:
+      final strValue = (value as String?) ?? '';
+      return ActionChip(
+        avatar: const Icon(Icons.calendar_today, size: 16),
+        label: Text(strValue.isEmpty ? field.name : strValue),
+        onPressed: () {},
+      );
+    case FieldType.relation:
+      return ActionChip(
+        avatar: const Icon(Icons.link, size: 16),
+        label: Text(field.name),
+        onPressed: () {},
+      );
+  }
+}
+
+/// Record detail layout — inline chips at top, borderless notes below.
 Widget _recordDetailLayout(Record record, List<Field> fields) {
   return Scaffold(
     appBar: AppBar(
@@ -362,75 +437,42 @@ Widget _recordDetailLayout(Record record, List<Field> fields) {
         IconButton(icon: const Icon(Icons.delete_outline), onPressed: () {}),
       ],
     ),
-    body: Column(
-      children: [
-        Flexible(
-          flex: 0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              shrinkWrap: true,
-              children: [
-                for (final field in fields.where(
-                    (f) => f.fieldType != FieldType.checkbox)) ...[
-                  TextField(
-                    controller: TextEditingController(
-                      text: record.values[field.id]?.toString() ?? '',
-                    ),
-                    keyboardType: field.fieldType == FieldType.number
-                        ? TextInputType.number
-                        : TextInputType.text,
-                    decoration: InputDecoration(
-                      labelText: field.name,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                for (final field
-                    in fields.where((f) => f.fieldType == FieldType.checkbox))
-                  CheckboxListTile(
-                    title: Text(field.name),
-                    value: record.values[field.id] == true,
-                    onChanged: (_) {},
-                  ),
-              ],
+    body: Builder(
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final field in fields)
+                      _buildFieldChip(field, record, colorScheme),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Builder(
-                  builder: (context) => Text(
-                    'Notes',
-                    style: Theme.of(context).textTheme.titleSmall,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: TextField(
+                  controller: TextEditingController(text: record.content),
+                  expands: true,
+                  maxLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: const InputDecoration.collapsed(
+                    hintText: 'Write here...',
                   ),
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: TextField(
-                    controller: TextEditingController(text: record.content),
-                    expands: true,
-                    maxLines: null,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Write notes here...',
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     ),
   );
 }
@@ -519,7 +561,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));
@@ -541,7 +583,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'note',
         ),
       ));
@@ -563,7 +605,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'table',
         ),
       ));
@@ -585,7 +627,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
         dark: true,
@@ -608,7 +650,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));
@@ -634,7 +676,7 @@ void main() {
             fields: _fields,
             onRecordTap: (_) {},
           ),
-          detailTitle: 'Books',
+          detailTitle: 'Daily Log',
           currentView: 'card',
         ),
       ));

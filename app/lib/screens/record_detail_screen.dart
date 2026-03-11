@@ -6,14 +6,15 @@ import '../models/record.dart';
 import '../models/record_link.dart';
 import '../database/database_repository.dart';
 import '../database/record_repository.dart';
+import '../widgets/display_helpers.dart';
 
 /// Possible states for the auto-save indicator.
 enum _SaveState { idle, saving, saved, error }
 
 /// Full editing screen for a single record.
 ///
-/// Renders each field with an appropriate input widget and shows the
-/// content/notes area below. Auto-saves on pop via `PopScope`.
+/// Inline chips at top for structured fields, borderless notes area below.
+/// Auto-saves on pop via `PopScope`.
 /// See: https://api.flutter.dev/flutter/widgets/PopScope-class.html
 class RecordDetailScreen extends StatefulWidget {
   final Record record;
@@ -35,9 +36,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   late Record _record;
   late TextEditingController _contentController;
 
-  // One TextEditingController per text/number field, keyed by field ID.
-  final Map<String, TextEditingController> _fieldControllers = {};
-
   bool _dirty = false;
   _SaveState _saveState = _SaveState.idle;
 
@@ -50,27 +48,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     _record = widget.record;
     _contentController = TextEditingController(text: _record.content);
     _contentController.addListener(_onContentChanged);
-
-    for (final field in widget.fields) {
-      if (field.fieldType == FieldType.text ||
-          field.fieldType == FieldType.number) {
-        final value = _record.getValue(field.id, '') ?? '';
-        final controller = TextEditingController(text: value.toString());
-        controller
-            .addListener(() => _onFieldChanged(field.id, controller.text));
-        _fieldControllers[field.id] = controller;
-      }
-    }
-
     _loadLinkedRecords();
   }
 
   @override
   void dispose() {
     _contentController.dispose();
-    for (final c in _fieldControllers.values) {
-      c.dispose();
-    }
     super.dispose();
   }
 
@@ -186,8 +169,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   /// Build the save state indicator widget for the AppBar.
-  /// AnimatedSwitcher provides a smooth fade transition between states.
-  /// See: https://api.flutter.dev/flutter/widgets/AnimatedSwitcher-class.html
   Widget _buildSaveIndicator() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -241,47 +222,36 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         ),
         body: Column(
           children: [
+            // Field chips — compact, tappable inline editors.
             if (widget.fields.isNotEmpty)
-              Flexible(
-                flex: 0,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.45,
-                  ),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    shrinkWrap: true,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       for (final field in widget.fields)
-                        _buildFieldEditor(field),
+                        _buildFieldChip(field),
                     ],
                   ),
                 ),
               ),
-            const Divider(height: 1),
+
+            // Borderless notes area fills remaining space.
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Notes',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _contentController,
-                        expands: true,
-                        maxLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Write notes here...',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: TextField(
+                  controller: _contentController,
+                  expands: true,
+                  maxLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  decoration: const InputDecoration.collapsed(
+                    hintText: 'Write here...',
+                  ),
                 ),
               ),
             ),
@@ -291,138 +261,187 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
   }
 
-  Widget _buildFieldEditor(Field field) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: switch (field.fieldType) {
-        FieldType.text => TextField(
-            controller: _fieldControllers[field.id],
-            decoration: InputDecoration(
-              labelText: field.name,
-              border: const OutlineInputBorder(),
-            ),
+  // ---------------------------------------------------------------------------
+  // Field chips — each field type gets a compact, tappable chip.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildFieldChip(Field field) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    switch (field.fieldType) {
+      case FieldType.checkbox:
+        final checked = _record.getValue(field.id, false) == true;
+        // ActionChip: tapping toggles the boolean. Star icon matches the
+        // card view's "show star when true" pattern.
+        return ActionChip(
+          avatar: Icon(
+            checked ? Icons.star_rounded : Icons.star_outline_rounded,
+            size: 18,
+            color: checked ? colorScheme.primary : null,
           ),
-        // C3: FilteringTextInputFormatter restricts keyboard input to valid
-        // numeric characters. keyboardType alone only affects soft keyboards.
-        // See: https://api.flutter.dev/flutter/services/FilteringTextInputFormatter-class.html
-        FieldType.number => TextField(
-            controller: _fieldControllers[field.id],
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
-            ],
-            decoration: InputDecoration(
-              labelText: field.name,
-              border: const OutlineInputBorder(),
+          label: Text(field.name),
+          onPressed: () {
+            setState(() => _onFieldChanged(field.id, !checked));
+          },
+        );
+
+      case FieldType.select:
+        final value = _record.getValue(field.id) as String?;
+        final hasValue = value != null && value.isNotEmpty;
+        // Semantic colors for select badges — same palette as card/table views.
+        final colors = hasValue
+            ? selectOptionColors(
+                value: value,
+                options: field.selectOptions,
+                colorScheme: colorScheme,
+              )
+            : null;
+        // PopupMenuButton wrapping a Chip — tap shows options inline.
+        return PopupMenuButton<String?>(
+          onSelected: (v) => setState(() => _onFieldChanged(field.id, v)),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: null,
+              child:
+                  Text('None', style: TextStyle(fontStyle: FontStyle.italic)),
             ),
-          ),
-        FieldType.checkbox => CheckboxListTile(
-            title: Text(field.name),
-            value: _record.getValue(field.id, false) == true,
-            onChanged: (value) {
-              setState(() => _onFieldChanged(field.id, value));
-            },
-          ),
-        // M5: Parse existing date to use as initialDate.
-        FieldType.date => ListTile(
-            title: Text(field.name),
-            subtitle: Text(
-              (_record.getValue(field.id, '') as String? ?? '').isEmpty
-                  ? 'No date set'
-                  : _record.getValue(field.id, '') as String,
+            ...field.selectOptions.map(
+              (opt) => PopupMenuItem(value: opt, child: Text(opt)),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if ((_record.getValue(field.id, '') as String? ?? '')
-                    .isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      setState(() => _onFieldChanged(field.id, ''));
-                    },
-                  ),
-                const Icon(Icons.calendar_today),
-              ],
+          ],
+          child: Chip(
+            label: Text(
+              hasValue ? value : field.name,
+              style: colors != null
+                  ? TextStyle(color: colors.fg)
+                  : null,
             ),
-            onTap: () async {
-              final existing = _record.getValue(field.id, '') as String?;
-              final initialDate = (existing != null && existing.isNotEmpty)
-                  ? DateTime.tryParse(existing) ?? DateTime.now()
-                  : DateTime.now();
-              final date = await showDatePicker(
-                context: context,
-                initialDate: initialDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
-              );
-              if (date != null) {
-                final iso = date.toIso8601String().split('T').first;
-                setState(() => _onFieldChanged(field.id, iso));
-              }
-            },
+            backgroundColor: colors?.bg,
+            side: colors != null ? BorderSide.none : null,
           ),
-        // M6: Prepend null/"None" option so users can clear a selection.
-        FieldType.select => DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: field.name,
-              border: const OutlineInputBorder(),
-            ),
-            initialValue: _record.getValue(field.id) as String?,
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('None',
-                    style: TextStyle(fontStyle: FontStyle.italic)),
-              ),
-              ...field.selectOptions.map(
-                (opt) => DropdownMenuItem(value: opt, child: Text(opt)),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() => _onFieldChanged(field.id, value));
-            },
-          ),
-        // M8: Relation field with link picker.
-        FieldType.relation => _buildRelationField(field),
-      },
-    );
+        );
+
+      case FieldType.text:
+        final value = (_record.getValue(field.id, '') as String?) ?? '';
+        return ActionChip(
+          label: Text(value.isEmpty ? field.name : '${field.name}: $value'),
+          onPressed: () => _showTextEditor(field),
+        );
+
+      case FieldType.number:
+        final value = (_record.getValue(field.id, '') ?? '').toString();
+        return ActionChip(
+          label: Text(
+              value.isEmpty ? field.name : '${field.name}: $value'),
+          onPressed: () => _showNumberEditor(field),
+        );
+
+      case FieldType.date:
+        final value = (_record.getValue(field.id, '') as String?) ?? '';
+        return ActionChip(
+          avatar: const Icon(Icons.calendar_today, size: 16),
+          label: Text(value.isEmpty ? field.name : value),
+          onPressed: () => _showDateEditor(field),
+        );
+
+      case FieldType.relation:
+        final linked = _linkedRecords[field.id] ?? [];
+        return ActionChip(
+          avatar: const Icon(Icons.link, size: 16),
+          label: Text(linked.isEmpty
+              ? field.name
+              : '${field.name} (${linked.length})'),
+          onPressed: () => _showLinkPicker(field),
+        );
+    }
   }
 
-  Widget _buildRelationField(Field field) {
-    final linked = _linkedRecords[field.id] ?? [];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          title: Text(field.name),
-          subtitle: linked.isEmpty ? const Text('No linked records') : null,
-          trailing: IconButton(
-            icon: const Icon(Icons.add_link),
-            tooltip: 'Link record',
-            onPressed: () => _showLinkPicker(field),
-          ),
+  // ---------------------------------------------------------------------------
+  // Field editor dialogs — lightweight pickers launched from chip taps.
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showTextEditor(Field field) async {
+    final current = (_record.getValue(field.id, '') as String?) ?? '';
+    final controller = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(field.name),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: field.name),
         ),
-        if (linked.isNotEmpty)
-          ...linked.map((r) => Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.link, size: 18),
-                  title: Text(
-                    _recordDisplayName(r),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, size: 18),
-                    onPressed: () => _removeLink(field, r),
-                  ),
-                ),
-              )),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
+    if (result != null) {
+      setState(() => _onFieldChanged(field.id, result));
+    }
   }
+
+  Future<void> _showNumberEditor(Field field) async {
+    final current = (_record.getValue(field.id, '') ?? '').toString();
+    final controller = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(field.name),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
+          ],
+          decoration: InputDecoration(hintText: field.name),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      setState(() => _onFieldChanged(field.id, result));
+    }
+  }
+
+  Future<void> _showDateEditor(Field field) async {
+    final existing = _record.getValue(field.id, '') as String?;
+    final initialDate = (existing != null && existing.isNotEmpty)
+        ? DateTime.tryParse(existing) ?? DateTime.now()
+        : DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      final iso = date.toIso8601String().split('T').first;
+      setState(() => _onFieldChanged(field.id, iso));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Relation link management
+  // ---------------------------------------------------------------------------
 
   String _recordDisplayName(Record record) {
     if (record.content.trim().isNotEmpty) {
@@ -494,17 +513,4 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
-  Future<void> _removeLink(Field field, Record target) async {
-    try {
-      await _repo.deleteLink(_record.id, target.id, field.id);
-      await _repo.deleteLink(target.id, _record.id, field.id);
-      await _loadLinkedRecords();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not remove link.')),
-        );
-      }
-    }
-  }
 }

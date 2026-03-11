@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
 import 'package:lifelog/widgets/card_view.dart';
+import 'package:lifelog/widgets/display_helpers.dart';
 import 'package:lifelog/widgets/note_view.dart';
 import 'package:lifelog/widgets/table_view.dart';
 
@@ -10,7 +11,7 @@ import 'package:lifelog/widgets/table_view.dart';
 // golden PNGs of the full UI layout. They bypass the database layer by
 // providing data directly to the pure view widgets.
 
-Widget _wrapScreen(Widget body, {String title = 'Books', bool dark = false}) {
+Widget _wrapScreen(Widget body, {String title = 'Daily Log', bool dark = false}) {
   return MaterialApp(
     theme: ThemeData(
       colorSchemeSeed: Colors.indigo,
@@ -54,52 +55,48 @@ void _setWindowSize(WidgetTester tester,
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+// Fixed timestamps for golden-stable date display.
+final _march5 = DateTime(2026, 3, 5).millisecondsSinceEpoch;
+final _march4 = DateTime(2026, 3, 4).millisecondsSinceEpoch;
+final _march3 = DateTime(2026, 3, 3).millisecondsSinceEpoch;
+
 final _fields = [
   Field(
-    id: 'f-title',
+    id: 'f-mood',
     databaseId: 'db-1',
-    name: 'Title',
-    fieldType: FieldType.text,
+    name: 'Mood',
+    fieldType: FieldType.select,
+    config: const {
+      'options': ['Great', 'Good', 'Okay', 'Low'],
+    },
     orderPosition: 0,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-author',
+    id: 'f-energy',
     databaseId: 'db-1',
-    name: 'Author',
-    fieldType: FieldType.text,
+    name: 'Energy',
+    fieldType: FieldType.number,
     orderPosition: 1,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-rating',
+    id: 'f-with',
     databaseId: 'db-1',
-    name: 'Rating',
-    fieldType: FieldType.number,
+    name: 'With',
+    fieldType: FieldType.text,
     orderPosition: 2,
     createdAt: 0,
     updatedAt: 0,
   ),
   Field(
-    id: 'f-status',
+    id: 'f-highlight',
     databaseId: 'db-1',
-    name: 'Status',
-    fieldType: FieldType.select,
-    config: const {
-      'options': ['To Read', 'Reading', 'Finished'],
-    },
-    orderPosition: 3,
-    createdAt: 0,
-    updatedAt: 0,
-  ),
-  Field(
-    id: 'f-favorite',
-    databaseId: 'db-1',
-    name: 'Favorite',
+    name: 'Highlight',
     fieldType: FieldType.checkbox,
-    orderPosition: 4,
+    orderPosition: 3,
     createdAt: 0,
     updatedAt: 0,
   ),
@@ -109,47 +106,114 @@ final _records = [
   Record(
     id: 'r-1',
     databaseId: 'db-1',
-    content: 'A classic novel about the American dream.',
+    content: 'Had an amazing morning run along the river — 7K and felt '
+        'strong the whole way. Met Sarah for coffee at Bluestone Lane '
+        'and talked about her upcoming gallery show.\n\n'
+        'Afternoon: deep work session on the API redesign. Finally '
+        'cracked the caching problem I\'ve been stuck on all week. '
+        'That feeling when it clicks.',
     values: const {
-      'f-title': 'The Great Gatsby',
-      'f-author': 'F. Scott Fitzgerald',
-      'f-rating': '5',
-      'f-status': 'Finished',
-      'f-favorite': true,
+      'f-mood': 'Great',
+      'f-energy': '8',
+      'f-with': 'Sarah, Marcus',
+      'f-highlight': true,
     },
     orderPosition: 0,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march5,
+    updatedAt: _march5,
   ),
   Record(
     id: 'r-2',
     databaseId: 'db-1',
-    content: 'Interesting take on dystopian surveillance society.',
+    content: 'Solid workday. Shipped the onboarding flow redesign.\n'
+        'Evening run — 5K in 24:30, getting faster.\n'
+        'Cooked mushroom risotto from the Ottolenghi book.',
     values: const {
-      'f-title': '1984',
-      'f-author': 'George Orwell',
-      'f-rating': '4',
-      'f-status': 'Finished',
-      'f-favorite': false,
+      'f-mood': 'Good',
+      'f-energy': '6',
+      'f-with': 'Team standup',
+      'f-highlight': false,
     },
     orderPosition: 1,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march4,
+    updatedAt: _march4,
   ),
   Record(
     id: 'r-3',
     databaseId: 'db-1',
     content: '',
     values: const {
-      'f-title': 'Dune',
-      'f-author': 'Frank Herbert',
-      'f-status': 'Reading',
+      'f-mood': 'Okay',
+      'f-energy': '4',
     },
     orderPosition: 2,
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: _march3,
+    updatedAt: _march3,
   ),
 ];
+
+/// Build a field chip matching the RecordDetailScreen's inline chip layout.
+Widget _buildFieldChip(Field field, Record record, ColorScheme colorScheme) {
+  final value = record.getValue(field.id);
+  switch (field.fieldType) {
+    case FieldType.checkbox:
+      final checked = value == true;
+      return ActionChip(
+        avatar: Icon(
+          checked ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: 18,
+          color: checked ? colorScheme.primary : null,
+        ),
+        label: Text(field.name),
+        onPressed: () {},
+      );
+    case FieldType.select:
+      final strValue = value as String?;
+      final hasValue = strValue != null && strValue.isNotEmpty;
+      final colors = hasValue
+          ? selectOptionColors(
+              value: strValue,
+              options: field.selectOptions,
+              colorScheme: colorScheme,
+            )
+          : null;
+      return Chip(
+        label: Text(
+          hasValue ? strValue : field.name,
+          style: colors != null ? TextStyle(color: colors.fg) : null,
+        ),
+        backgroundColor: colors?.bg,
+        side: colors != null ? BorderSide.none : null,
+      );
+    case FieldType.text:
+      final strValue = (value as String?) ?? '';
+      return ActionChip(
+        label:
+            Text(strValue.isEmpty ? field.name : '${field.name}: $strValue'),
+        onPressed: () {},
+      );
+    case FieldType.number:
+      final strValue = (value ?? '').toString();
+      return ActionChip(
+        label:
+            Text(strValue.isEmpty ? field.name : '${field.name}: $strValue'),
+        onPressed: () {},
+      );
+    case FieldType.date:
+      final strValue = (value as String?) ?? '';
+      return ActionChip(
+        avatar: const Icon(Icons.calendar_today, size: 16),
+        label: Text(strValue.isEmpty ? field.name : strValue),
+        onPressed: () {},
+      );
+    case FieldType.relation:
+      return ActionChip(
+        avatar: const Icon(Icons.link, size: 16),
+        label: Text(field.name),
+        onPressed: () {},
+      );
+  }
+}
 
 void main() {
   group('DatabaseViewScreen layout', () {
@@ -161,7 +225,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -178,7 +242,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -195,7 +259,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
       ));
       await tester.pumpAndSettle();
       await expectLater(
@@ -212,7 +276,7 @@ void main() {
           fields: _fields,
           onRecordTap: (_) {},
         ),
-        title: 'Books',
+        title: 'Daily Log',
         dark: true,
       ));
       await tester.pumpAndSettle();
@@ -267,7 +331,7 @@ void main() {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           appBar: AppBar(
-            title: const Text('Fields: Books'),
+            title: const Text('Fields: Daily Log'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add),
@@ -310,20 +374,11 @@ void main() {
   });
 
   // RecordDetail golden tests mirror the actual RecordDetailScreen layout:
-  // fields in a constrained scrollable header, notes filling remaining space
-  // via Expanded + TextField(expands: true).
+  // inline chips at top, borderless notes filling remaining space.
   group('RecordDetail layout', () {
     testWidgets('with field values and multiline notes', (tester) async {
       _setWindowSize(tester);
       final record = _records.first;
-      final multilineContent =
-          '${record.content}\n\n'
-          'Chapter 1 notes:\n'
-          '- Nick moves to West Egg\n'
-          '- Meets mysterious neighbor Gatsby\n'
-          '- Attends lavish party across the bay\n\n'
-          'Key themes: wealth, idealism, social class.\n'
-          'The green light symbolizes unattainable dreams.';
 
       await tester.pumpWidget(MaterialApp(
         theme: ThemeData(
@@ -341,89 +396,43 @@ void main() {
               ),
             ],
           ),
-          // Mirrors the Column layout from RecordDetailScreen.
-          body: Column(
-            children: [
-              // Field editors in a constrained scrollable area.
-              Flexible(
-                flex: 0,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 360),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    shrinkWrap: true,
-                    children: [
-                      TextField(
-                        controller: TextEditingController(
-                            text: record.values['f-title'] as String?),
-                        decoration: const InputDecoration(
-                          labelText: 'Title',
-                          border: OutlineInputBorder(),
-                        ),
+          body: Builder(
+            builder: (context) {
+              final colorScheme = Theme.of(context).colorScheme;
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final field in _fields)
+                            _buildFieldChip(field, record, colorScheme),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: TextEditingController(
-                            text: record.values['f-author'] as String?),
-                        decoration: const InputDecoration(
-                          labelText: 'Author',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: TextEditingController(
-                            text: record.values['f-rating']?.toString()),
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Rating',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      CheckboxListTile(
-                        title: const Text('Favorite'),
-                        value: record.values['f-favorite'] == true,
-                        onChanged: (_) {},
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-
-              const Divider(height: 1),
-
-              // Notes area fills remaining space.
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Notes',
-                          style: ThemeData(useMaterial3: true)
-                              .textTheme
-                              .titleSmall),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: TextField(
-                          controller:
-                              TextEditingController(text: multilineContent),
-                          expands: true,
-                          maxLines: null,
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Write notes here...',
-                            alignLabelWithHint: true,
-                          ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: TextField(
+                        controller:
+                            TextEditingController(text: record.content),
+                        expands: true,
+                        maxLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: const InputDecoration.collapsed(
+                          hintText: 'Write here...',
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ));

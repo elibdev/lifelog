@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/field.dart';
 import '../models/record.dart';
+import 'display_helpers.dart';
 
 /// Note-style view: content-first, like Apple Notes or a journal app.
 /// The text body dominates each card. Structured fields are condensed into a
@@ -151,6 +152,10 @@ class _NoteCardState extends State<_NoteCard> {
       final s = value.toString();
       if (s.isNotEmpty) metaParts.add(s);
     }
+
+    // Append date from createdAt timestamp.
+    final dateStr = formatRecordDate(_editingRecord.createdAt);
+    if (dateStr.isNotEmpty) metaParts.add(dateStr);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
