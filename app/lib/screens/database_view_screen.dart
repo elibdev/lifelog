@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,6 +7,7 @@ import '../models/record.dart';
 import '../database/database_repository.dart';
 import '../database/field_repository.dart';
 import '../database/record_repository.dart';
+import '../utils/debouncer.dart';
 import '../widgets/card_view.dart';
 import '../widgets/note_view.dart';
 import '../widgets/table_view.dart';
@@ -46,10 +45,10 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
   bool _loading = true;
   String? _error;
 
-  // M4: Search state
+  // Search state
   bool _searching = false;
   final _searchController = TextEditingController();
-  Timer? _searchDebounce;
+  final _searchDebouncer = Debouncer(delay: const Duration(milliseconds: 400));
   List<Record>? _searchResults;
 
   @override
@@ -72,7 +71,7 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    _searchDebounce?.cancel();
+    _searchDebouncer.dispose();
     super.dispose();
   }
 
@@ -201,7 +200,7 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
 
   void _cancelSearch() {
     _searchController.clear();
-    _searchDebounce?.cancel();
+    _searchDebouncer.cancel();
     setState(() {
       _searchResults = null;
       _searching = false;
@@ -209,12 +208,12 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
   }
 
   void _onSearchChanged(String query) {
-    _searchDebounce?.cancel();
     if (query.trim().isEmpty) {
+      _searchDebouncer.cancel();
       setState(() => _searchResults = null);
       return;
     }
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
+    _searchDebouncer(() async {
       try {
         final results = await _recordRepo.search(query);
         final filtered =
@@ -224,6 +223,28 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
         // Search failure is non-critical
       }
     });
+  }
+
+  Future<void> _reorderRecord(int oldIndex, int newIndex) async {
+    // ReorderableListView passes newIndex as if old item is already removed —
+    // adjust before mutating the list.
+    if (newIndex > oldIndex) newIndex--;
+    final updated = [..._records];
+    final moved = updated.removeAt(oldIndex);
+    updated.insert(newIndex, moved);
+    // Reassign order positions as sequential integers.
+    final reordered = updated
+        .asMap()
+        .entries
+        .map((e) => e.value.copyWith(orderPosition: e.key.toDouble()))
+        .toList();
+    setState(() => _records = reordered);
+    try {
+      await _recordRepo.updateOrder(reordered);
+    } catch (_) {
+      // Non-critical — revert to original order on failure
+      setState(() => _records = updated);
+    }
   }
 
   @override
@@ -321,6 +342,10 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
                           fields: _fields,
                           onRecordTap: _openRecord,
                           onRecordUpdated: _saveRecordInline,
+                          // Disable reorder during search — results are filtered,
+                          // not the full ordered list.
+                          onRecordReordered:
+                              _searchResults == null ? _reorderRecord : null,
                         )
                       : currentView == 'table'
                           ? TableView(
@@ -332,6 +357,8 @@ class _DatabaseViewScreenState extends State<DatabaseViewScreen> {
                               records: displayRecords,
                               fields: _fields,
                               onRecordTap: _openRecord,
+                              onRecordReordered:
+                                  _searchResults == null ? _reorderRecord : null,
                             ),
       floatingActionButton: _records.isNotEmpty
           ? FloatingActionButton(

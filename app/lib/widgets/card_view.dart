@@ -12,21 +12,45 @@ class CardView extends StatelessWidget {
   final List<Field> fields;
   final ValueChanged<Record> onRecordTap;
 
+  /// When non-null, the list becomes reorderable with drag handles.
+  final void Function(int oldIndex, int newIndex)? onRecordReordered;
+
   const CardView({
     super.key,
     required this.records,
     required this.fields,
     required this.onRecordTap,
+    this.onRecordReordered,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (onRecordReordered != null) {
+      return ReorderableListView.builder(
+        padding: const EdgeInsets.all(8),
+        buildDefaultDragHandles: false,
+        itemCount: records.length,
+        itemBuilder: (context, index) {
+          final record = records[index];
+          return _RecordCard(
+            key: ValueKey(record.id),
+            record: record,
+            fields: fields,
+            onTap: () => onRecordTap(record),
+            dragIndex: index,
+          );
+        },
+        onReorder: onRecordReordered!,
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: records.length,
       itemBuilder: (context, index) {
         final record = records[index];
         return _RecordCard(
+          key: ValueKey(record.id),
           record: record,
           fields: fields,
           onTap: () => onRecordTap(record),
@@ -40,11 +64,14 @@ class _RecordCard extends StatelessWidget {
   final Record record;
   final List<Field> fields;
   final VoidCallback onTap;
+  final int? dragIndex;
 
   const _RecordCard({
+    super.key,
     required this.record,
     required this.fields,
     required this.onTap,
+    this.dragIndex,
   });
 
   @override
@@ -117,46 +144,66 @@ class _RecordCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: field badges + date aligned right.
-              if (badges.isNotEmpty || dateStr.isNotEmpty)
-                Row(
+              // Drag handle on the leading edge when reordering is enabled.
+              if (dragIndex != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 2),
+                  child: ReorderableDragStartListener(
+                    index: dragIndex!,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: 16,
+                      color: colorScheme.outline,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: badges,
+                    // Top row: field badges + date aligned right.
+                    if (badges.isNotEmpty || dateStr.isNotEmpty)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: badges,
+                            ),
+                          ),
+                          if (dateStr.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              dateStr,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    if (dateStr.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+
+                    // Content preview.
+                    if (contentPreview != null) ...[
+                      if (badges.isNotEmpty) const SizedBox(height: 6),
                       Text(
-                        dateStr,
-                        style: theme.textTheme.labelSmall?.copyWith(
+                        contentPreview,
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
                 ),
-
-              // Content preview.
-              if (contentPreview != null) ...[
-                if (badges.isNotEmpty) const SizedBox(height: 6),
-                Text(
-                  contentPreview,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+              ),
             ],
           ),
         ),

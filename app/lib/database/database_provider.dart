@@ -25,6 +25,9 @@ class DatabaseProvider {
     return _dbPath!;
   }
 
+  // Bump this when adding a new migration in _migrateDb().
+  static const int _targetVersion = 1;
+
   Future<Database> _getDatabase() async {
     if (_database != null) return _database!;
 
@@ -37,9 +40,31 @@ class DatabaseProvider {
 
     if (currentVersion == 0) {
       _createDb(_database!);
+    } else if (currentVersion < _targetVersion) {
+      _migrateDb(_database!, from: currentVersion);
     }
 
     return _database!;
+  }
+
+  /// Applies sequential migrations from [from] up to [_targetVersion].
+  ///
+  /// Each migration block is guarded by `if (from < N)` so migrations
+  /// compose correctly regardless of how many versions are skipped.
+  /// Always update PRAGMA user_version at the end.
+  void _migrateDb(Database db, {required int from}) {
+    db.execute('BEGIN TRANSACTION');
+    try {
+      // Example pattern for future migrations:
+      // if (from < 2) { db.execute('ALTER TABLE ...'); }
+      // if (from < 3) { db.execute('CREATE TABLE ...'); }
+
+      db.execute('PRAGMA user_version = $_targetVersion');
+      db.execute('COMMIT');
+    } catch (e) {
+      db.execute('ROLLBACK');
+      rethrow;
+    }
   }
 
   void _createDb(Database db) {
@@ -122,6 +147,31 @@ class DatabaseProvider {
   void _addFtsIndex(Database db) {
     db.execute(
         'CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(content)');
+  }
+
+  /// Insert an event log entry within an already-open transaction.
+  ///
+  /// Called from repository transaction callbacks so the event is atomic
+  /// with the main write — either both succeed or both roll back.
+  static void logEvent(
+    Database db, {
+    required String eventType,
+    required String entityType,
+    required String entityId,
+    required String payload,
+  }) {
+    final stmt = db.prepare('''
+      INSERT INTO event_log (event_type, entity_type, entity_id, payload, timestamp)
+      VALUES (:event_type, :entity_type, :entity_id, :payload, :timestamp)
+    ''');
+    stmt.executeWith(StatementParameters.named({
+      ':event_type': eventType,
+      ':entity_type': entityType,
+      ':entity_id': entityId,
+      ':payload': payload,
+      ':timestamp': DateTime.now().millisecondsSinceEpoch,
+    }));
+    stmt.dispose();
   }
 
   /// Run a read query off the main isolate.

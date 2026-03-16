@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/app_database.dart';
 import '../database/database_repository.dart';
+import '../screens/event_log_screen.dart';
 
 /// Reusable panel that lists all databases with a "New Database" action.
 ///
@@ -222,6 +223,15 @@ class _DatabaseListPanelState extends State<DatabaseListPanel> {
           leading: const Icon(Icons.add),
           title: const Text('New Database'),
           onTap: _createDatabase,
+        ),
+        ListTile(
+          leading: const Icon(Icons.history),
+          title: const Text('Event Log'),
+          // rootNavigator: true so it covers the whole screen in both
+          // narrow (nested Navigator) and wide (no Navigator) layouts.
+          onTap: () => Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(builder: (_) => const EventLogScreen()),
+          ),
         ),
       ],
     );

@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../models/field.dart';
 import '../models/record.dart';
+import '../utils/debouncer.dart';
 import 'display_helpers.dart';
 
 /// Note-style view: content-first, like Apple Notes or a journal app.
@@ -22,16 +21,43 @@ class NoteView extends StatelessWidget {
   /// Called when inline edits should be persisted. The parent saves to DB.
   final ValueChanged<Record>? onRecordUpdated;
 
+  /// Called when the user drags a record to a new position. When non-null,
+  /// the list switches to ReorderableListView with visible drag handles.
+  final void Function(int oldIndex, int newIndex)? onRecordReordered;
+
   const NoteView({
     super.key,
     required this.records,
     required this.fields,
     required this.onRecordTap,
     this.onRecordUpdated,
+    this.onRecordReordered,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (onRecordReordered != null) {
+      // ReorderableListView requires keys on all children.
+      // See: https://api.flutter.dev/flutter/material/ReorderableListView-class.html
+      return ReorderableListView.builder(
+        padding: const EdgeInsets.all(8),
+        buildDefaultDragHandles: false,
+        itemCount: records.length,
+        itemBuilder: (context, index) {
+          final record = records[index];
+          return _NoteCard(
+            key: ValueKey(record.id),
+            record: record,
+            fields: fields,
+            onRecordUpdated: onRecordUpdated,
+            onOpenDetail: () => onRecordTap(record),
+            dragIndex: index,
+          );
+        },
+        onReorder: onRecordReordered!,
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: records.length,
@@ -62,6 +88,9 @@ class _NoteCard extends StatefulWidget {
   final List<Field> fields;
   final ValueChanged<Record>? onRecordUpdated;
   final VoidCallback onOpenDetail;
+  // Non-null when this card is inside a ReorderableListView. The index
+  // is required by ReorderableDragStartListener.
+  final int? dragIndex;
 
   const _NoteCard({
     super.key,
@@ -69,6 +98,7 @@ class _NoteCard extends StatefulWidget {
     required this.fields,
     required this.onRecordUpdated,
     required this.onOpenDetail,
+    this.dragIndex,
   });
 
   @override
@@ -78,7 +108,9 @@ class _NoteCard extends StatefulWidget {
 class _NoteCardState extends State<_NoteCard> {
   late TextEditingController _contentController;
   late Record _editingRecord;
-  Timer? _saveTimer;
+  // Debouncer replaces the raw Timer — same semantics but reusable and
+  // flushable on app lifecycle events (e.g. background/pause).
+  final _saveDebouncer = Debouncer(delay: const Duration(milliseconds: 800));
 
   @override
   void initState() {
@@ -107,10 +139,10 @@ class _NoteCardState extends State<_NoteCard> {
 
   @override
   void dispose() {
-    _flushSave();
+    _saveDebouncer.flush();
+    _saveDebouncer.dispose();
     _contentController.removeListener(_onEditChanged);
     _contentController.dispose();
-    _saveTimer?.cancel();
     super.dispose();
   }
 
@@ -119,16 +151,14 @@ class _NoteCardState extends State<_NoteCard> {
       content: _contentController.text,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 800), _flushSave);
+    _saveDebouncer(() => widget.onRecordUpdated?.call(_editingRecord));
   }
 
   void _flushSave() {
-    _saveTimer?.cancel();
-    widget.onRecordUpdated?.call(_editingRecord);
+    _saveDebouncer.flush();
   }
 
-  // P6: Flush pending save before navigating to detail screen.
+  // Flush pending save before navigating to detail screen.
   void _openDetail() {
     _flushSave();
     widget.onOpenDetail();
@@ -175,10 +205,23 @@ class _NoteCardState extends State<_NoteCard> {
             ),
 
             // Condensed metadata row — field values as a single line of text.
-            if (metaParts.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                // Drag handle — ReorderableDragStartListener activates drag
+                // on press (vs long-press with the default buildDefaultDragHandles).
+                // See: https://api.flutter.dev/flutter/material/ReorderableDragStartListener-class.html
+                if (widget.dragIndex != null)
+                  ReorderableDragStartListener(
+                    index: widget.dragIndex!,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: 16,
+                      color: colorScheme.outline,
+                    ),
+                  ),
+                if (widget.dragIndex != null) const SizedBox(width: 4),
+                if (metaParts.isNotEmpty)
                   Expanded(
                     child: Text(
                       metaParts.join(' · '),
@@ -188,30 +231,17 @@ class _NoteCardState extends State<_NoteCard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  // M7: Removed the 28x28 SizedBox constraint — let the
-                  // IconButton use its default 48x48 touch target.
-                  // See: https://m3.material.io/foundations/accessible-design/accessibility-basics
-                  IconButton(
-                    icon: const Icon(Icons.open_in_full, size: 16),
-                    tooltip: 'Open full editor',
-                    onPressed: _openDetail,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ] else ...[
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
+                  )
+                else
+                  const Spacer(),
+                IconButton(
                   icon: const Icon(Icons.open_in_full, size: 16),
                   tooltip: 'Open full editor',
                   onPressed: _openDetail,
                   visualDensity: VisualDensity.compact,
                 ),
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),

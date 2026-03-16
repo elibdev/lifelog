@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'models/app_database.dart';
 import 'screens/database_view_screen.dart';
+import 'theme/lifelog_theme.dart';
 import 'widgets/database_list_panel.dart';
 
 void main() {
@@ -28,24 +29,18 @@ class _LifelogAppState extends State<LifelogApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Lifelog',
-      theme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        useMaterial3: true,
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        useMaterial3: true,
-        brightness: Brightness.dark,
-      ),
-      themeMode: ThemeMode.system,
-      home: _AdaptiveShell(
-        selectedDatabase: _selectedDatabase,
-        onDatabaseSelected: _onDatabaseSelected,
-        onDatabaseDeleted: _onDatabaseDeleted,
+    return LifelogTokens(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Lifelog',
+        theme: LifelogTheme.light(),
+        darkTheme: LifelogTheme.dark(),
+        themeMode: ThemeMode.system,
+        home: _AdaptiveShell(
+          selectedDatabase: _selectedDatabase,
+          onDatabaseSelected: _onDatabaseSelected,
+          onDatabaseDeleted: _onDatabaseDeleted,
+        ),
       ),
     );
   }
