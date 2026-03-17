@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog/models/app_database.dart';
 import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
+import 'package:lifelog/theme/lifelog_theme.dart';
 import 'package:lifelog/widgets/card_view.dart';
 import 'package:lifelog/widgets/display_helpers.dart';
 import 'package:lifelog/widgets/note_view.dart';
@@ -45,14 +46,9 @@ void _setDevice(WidgetTester tester, Device device) {
 // Theme helpers
 // ---------------------------------------------------------------------------
 
-ThemeData _theme({bool dark = false}) => ThemeData(
-      colorSchemeSeed: Colors.indigo,
-      useMaterial3: true,
-      brightness: dark ? Brightness.dark : Brightness.light,
-    );
-
+// Use the real LifelogTheme so goldens reflect the actual app appearance.
 Widget _app(Widget home, {bool dark = false}) => MaterialApp(
-      theme: _theme(dark: dark),
+      theme: dark ? LifelogTheme.dark() : LifelogTheme.light(),
       debugShowCheckedModeBanner: false,
       home: home,
     );
@@ -100,10 +96,11 @@ final _databases = [
   ),
 ];
 
-// Fixed timestamps for golden-stable date display.
-final _march5 = DateTime(2026, 3, 5).millisecondsSinceEpoch;
-final _march4 = DateTime(2026, 3, 4).millisecondsSinceEpoch;
-final _march3 = DateTime(2026, 3, 3).millisecondsSinceEpoch;
+// Fixed UTC timestamps — stable across all timezones in CI and local dev.
+// formatRecordDate interprets these as UTC, so "Mar 5" is always "Mar 5".
+final _march5 = DateTime.utc(2026, 3, 5).millisecondsSinceEpoch;
+final _march4 = DateTime.utc(2026, 3, 4).millisecondsSinceEpoch;
+final _march3 = DateTime.utc(2026, 3, 3).millisecondsSinceEpoch;
 
 final _fields = [
   Field(

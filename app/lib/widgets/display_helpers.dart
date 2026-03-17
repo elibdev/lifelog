@@ -37,9 +37,13 @@ const _darkSelectColors = [
 
 /// Format a record's timestamp as a short date string: "Mar 5".
 /// Returns empty string for epoch 0 (unset timestamps).
+/// Uses UTC to match the UTC-based timestamps stored in the DB — avoids
+/// timezone drift between where records are created and displayed.
 String formatRecordDate(int timestampMs) {
   if (timestampMs == 0) return '';
-  final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+  // isUtc: true — timestamps are UTC epoch millis; interpret as UTC date
+  // so "Mar 5" is stable regardless of device/CI timezone.
+  final date = DateTime.fromMillisecondsSinceEpoch(timestampMs, isUtc: true);
   const months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',

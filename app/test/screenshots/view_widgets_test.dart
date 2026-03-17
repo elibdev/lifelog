@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifelog/models/field.dart';
 import 'package:lifelog/models/record.dart';
+import 'package:lifelog/theme/lifelog_theme.dart';
 import 'package:lifelog/widgets/card_view.dart';
 import 'package:lifelog/widgets/note_view.dart';
 import 'package:lifelog/widgets/table_view.dart';
 
-// Wrap a widget in a Material 3 themed app matching the real app's look.
+// Wrap a widget using the real LifelogTheme so goldens reflect the actual app.
 Widget _wrap(Widget child) {
   return MaterialApp(
-    theme: ThemeData(
-      colorSchemeSeed: Colors.indigo,
-      useMaterial3: true,
-      brightness: Brightness.light,
-    ),
+    theme: LifelogTheme.light(),
     debugShowCheckedModeBanner: false,
     home: Scaffold(body: child),
   );
@@ -21,11 +18,7 @@ Widget _wrap(Widget child) {
 
 Widget _wrapDark(Widget child) {
   return MaterialApp(
-    theme: ThemeData(
-      colorSchemeSeed: Colors.indigo,
-      useMaterial3: true,
-      brightness: Brightness.dark,
-    ),
+    theme: LifelogTheme.dark(),
     debugShowCheckedModeBanner: false,
     home: Scaffold(body: child),
   );
@@ -40,10 +33,11 @@ void _setWindowSize(WidgetTester tester,
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-// Fixed timestamps for golden-stable date display.
-final _march5 = DateTime(2026, 3, 5).millisecondsSinceEpoch;
-final _march4 = DateTime(2026, 3, 4).millisecondsSinceEpoch;
-final _march3 = DateTime(2026, 3, 3).millisecondsSinceEpoch;
+// Fixed UTC timestamps — stable across all timezones in CI and local dev.
+// formatRecordDate interprets these as UTC, so "Mar 5" is always "Mar 5".
+final _march5 = DateTime.utc(2026, 3, 5).millisecondsSinceEpoch;
+final _march4 = DateTime.utc(2026, 3, 4).millisecondsSinceEpoch;
+final _march3 = DateTime.utc(2026, 3, 3).millisecondsSinceEpoch;
 
 // Sample fields for a "Daily Log" database — the core life journaling schema.
 final _fields = [
