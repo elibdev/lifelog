@@ -39,8 +39,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   bool _dirty = false;
   _SaveState _saveState = _SaveState.idle;
 
-  // For relation fields: cached linked records keyed by field ID.
+  // Outbound links: records this record links TO, keyed by field ID.
   final Map<String, List<Record>> _linkedRecords = {};
+  // Backlinks: records that link TO this record, keyed by source record ID.
+  final Map<String, Record> _backlinkedRecords = {};
 
   @override
   void initState() {
@@ -60,19 +62,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Future<void> _loadLinkedRecords() async {
     try {
       final links = await _repo.getLinksForRecord(_record.id);
+
+      // Outbound links (this record is the source).
       for (final field in widget.fields) {
         if (field.fieldType != FieldType.relation) continue;
-        final fieldLinks = links.where((l) => l.fieldId == field.id).toList();
+        final fieldLinks =
+            links.where((l) => l.fieldId == field.id && l.sourceRecordId == _record.id).toList();
         final records = <Record>[];
         for (final link in fieldLinks) {
-          final targetId = link.sourceRecordId == _record.id
-              ? link.targetRecordId
-              : link.sourceRecordId;
-          final record = await _repo.getById(targetId);
+          final record = await _repo.getById(link.targetRecordId);
           if (record != null) records.add(record);
         }
-        if (mounted) {
-          setState(() => _linkedRecords[field.id] = records);
+        if (mounted) setState(() => _linkedRecords[field.id] = records);
+      }
+
+      // Backlinks: other records linking TO this record.
+      final inbound = links.where((l) => l.targetRecordId == _record.id).toList();
+      for (final link in inbound) {
+        final source = await _repo.getById(link.sourceRecordId);
+        if (source != null && mounted) {
+          setState(() => _backlinkedRecords[link.sourceRecordId] = source);
         }
       }
     } catch (_) {
@@ -202,6 +211,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasBacklinks = _backlinkedRecords.isNotEmpty;
+
     return PopScope(
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) await _save();
@@ -236,6 +247,40 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                         _buildFieldChip(field),
                     ],
                   ),
+                ),
+              ),
+
+            // Backlinks section — records from other databases that link here.
+            if (hasBacklinks)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(),
+                    Text(
+                      'Referenced by',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final source in _backlinkedRecords.values)
+                          Chip(
+                            avatar: const Icon(Icons.link, size: 14),
+                            label: Text(
+                              _recordDisplayName(source),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
@@ -351,7 +396,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           label: Text(linked.isEmpty
               ? field.name
               : '${field.name} (${linked.length})'),
-          onPressed: () => _showLinkPicker(field),
+          onPressed: () => _showLinkManager(field),
         );
     }
   }
@@ -447,70 +492,161 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     if (record.content.trim().isNotEmpty) {
       return record.content.trim().split('\n').first;
     }
-    return 'Record';
+    return 'Record ${record.id.substring(0, 6)}';
   }
 
-  Future<void> _showLinkPicker(Field field) async {
+  /// Shows a dialog to manage links for a relation field.
+  /// Existing links can be removed; available records can be added.
+  Future<void> _showLinkManager(Field field) async {
     final targetDbId = field.targetDatabaseId;
     if (targetDbId == null) return;
 
     try {
       final targetRecords = await _repo.getRecordsForDatabase(targetDbId);
-      final alreadyLinked =
-          (_linkedRecords[field.id] ?? []).map((r) => r.id).toSet();
-      final available = targetRecords
-          .where((r) => !alreadyLinked.contains(r.id) && r.id != _record.id)
-          .toList();
-
-      if (!mounted) return;
-
       final targetDb = await _dbRepo.getById(targetDbId);
-      final dbName = targetDb?.name ?? 'Records';
-
       if (!mounted) return;
 
-      final selected = await showDialog<Record>(
+      final dbName = targetDb?.name ?? 'Records';
+      final currentLinked = List<Record>.from(_linkedRecords[field.id] ?? []);
+
+      // _LinkManagerDialog returns a record to add, or null to just remove.
+      // We pass current links so the dialog can toggle them.
+      final changes = await showDialog<_LinkChanges>(
         context: context,
-        builder: (context) => SimpleDialog(
-          title: Text('Link to $dbName'),
-          children: available.isEmpty
-              ? [
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No available records to link.'),
-                  ),
-                ]
-              : available.map((r) {
-                  return SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, r),
-                    child: Text(
-                      _recordDisplayName(r),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
+        builder: (context) => _LinkManagerDialog(
+          fieldName: field.name,
+          dbName: dbName,
+          allRecords: targetRecords
+              .where((r) => r.id != _record.id)
+              .toList(),
+          linkedRecordIds: currentLinked.map((r) => r.id).toSet(),
         ),
       );
 
-      if (selected != null) {
+      if (changes == null || !mounted) return;
+
+      // Apply additions.
+      for (final id in changes.toAdd) {
         final link = RecordLink(
           sourceRecordId: _record.id,
-          targetRecordId: selected.id,
+          targetRecordId: id,
           fieldId: field.id,
           createdAt: DateTime.now().millisecondsSinceEpoch,
         );
         await _repo.saveLink(link);
-        await _loadLinkedRecords();
       }
+      // Apply removals.
+      for (final id in changes.toRemove) {
+        await _repo.deleteLink(_record.id, id, field.id);
+      }
+
+      await _loadLinkedRecords();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Could not load records for linking.')),
+          const SnackBar(content: Text('Could not update links.')),
         );
       }
     }
   }
+}
 
+// ---------------------------------------------------------------------------
+// Link manager dialog — checkbox list for adding/removing relation links.
+// ---------------------------------------------------------------------------
+
+/// Changes returned by the link manager dialog.
+class _LinkChanges {
+  final Set<String> toAdd;
+  final Set<String> toRemove;
+  const _LinkChanges({required this.toAdd, required this.toRemove});
+}
+
+class _LinkManagerDialog extends StatefulWidget {
+  final String fieldName;
+  final String dbName;
+  final List<Record> allRecords;
+  final Set<String> linkedRecordIds;
+
+  const _LinkManagerDialog({
+    required this.fieldName,
+    required this.dbName,
+    required this.allRecords,
+    required this.linkedRecordIds,
+  });
+
+  @override
+  State<_LinkManagerDialog> createState() => _LinkManagerDialogState();
+}
+
+class _LinkManagerDialogState extends State<_LinkManagerDialog> {
+  late Set<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set.from(widget.linkedRecordIds);
+  }
+
+  String _displayName(Record record) {
+    if (record.content.trim().isNotEmpty) {
+      return record.content.trim().split('\n').first;
+    }
+    return 'Record ${record.id.substring(0, 6)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${widget.fieldName} → ${widget.dbName}'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: widget.allRecords.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('No records available.'),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: widget.allRecords.length,
+                itemBuilder: (context, index) {
+                  final record = widget.allRecords[index];
+                  final isLinked = _selected.contains(record.id);
+                  return CheckboxListTile(
+                    value: isLinked,
+                    title: Text(
+                      _displayName(record),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    dense: true,
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _selected.add(record.id);
+                        } else {
+                          _selected.remove(record.id);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final toAdd = _selected.difference(widget.linkedRecordIds);
+            final toRemove = widget.linkedRecordIds.difference(_selected);
+            Navigator.pop(context, _LinkChanges(toAdd: toAdd, toRemove: toRemove));
+          },
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
 }

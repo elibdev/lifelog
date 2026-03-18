@@ -6,6 +6,11 @@ import '../models/record.dart';
 import '../models/record_link.dart';
 import 'database_provider.dart';
 
+String _previewContent(String content) {
+  final first = content.trim().split('\n').first;
+  return first.length > 80 ? '${first.substring(0, 80)}…' : first;
+}
+
 /// CRUD operations for records and record links.
 class RecordRepository {
   Future<List<Record>> getRecordsForDatabase(String databaseId) async {
@@ -69,6 +74,18 @@ class RecordRepository {
       insFts.executeWith(StatementParameters.named(
           {':rowid': newRowid, ':content': record.content}));
       insFts.dispose();
+
+      // Log event in same transaction — atomic with the write.
+      DatabaseProvider.logEvent(
+        db,
+        eventType: oldRowid == null ? 'created' : 'updated',
+        entityType: 'record',
+        entityId: record.id,
+        payload: jsonEncode({
+          'database_id': record.databaseId,
+          'preview': _previewContent(record.content),
+        }),
+      );
     });
   }
 
@@ -99,6 +116,14 @@ class RecordRepository {
       final stmt = db.prepare('DELETE FROM records WHERE id = :id');
       stmt.executeWith(StatementParameters.named({':id': recordId}));
       stmt.dispose();
+
+      DatabaseProvider.logEvent(
+        db,
+        eventType: 'deleted',
+        entityType: 'record',
+        entityId: recordId,
+        payload: jsonEncode({}),
+      );
     });
   }
 
@@ -153,6 +178,21 @@ class RecordRepository {
         ':field_id': link.fieldId,
         ':created_at': link.createdAt,
       }));
+      stmt.dispose();
+    });
+  }
+
+  /// Batch-save record order positions (e.g. after drag-to-reorder).
+  Future<void> updateOrder(List<Record> records) async {
+    await DatabaseProvider.instance.transactionAsync((db) {
+      final stmt = db.prepare(
+          'UPDATE records SET order_position = :pos WHERE id = :id');
+      for (final record in records) {
+        stmt.executeWith(StatementParameters.named({
+          ':pos': record.orderPosition,
+          ':id': record.id,
+        }));
+      }
       stmt.dispose();
     });
   }
